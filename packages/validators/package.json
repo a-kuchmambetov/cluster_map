@@ -1,0 +1,26 @@
+{
+    "name": "@repo/validators",
+    "version": "0.0.0",
+    "private": true,
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "default": "./dist/index.js"
+        }
+    },
+    "scripts": {
+        "build": "tsc",
+        "typecheck": "tsc --noEmit"
+    },
+    "dependencies": {
+        "zod": "^3.23.8"
+    },
+    "devDependencies": {
+        "@typescript/native-preview": "beta",
+        "@types/node": "25.5.0",
+        "typescript": "7.0.1-rc"
+    }
+}

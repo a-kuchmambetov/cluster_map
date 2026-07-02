@@ -1,0 +1,29 @@
+{
+    "name": "@repo/db",
+    "version": "0.0.0",
+    "private": true,
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "default": "./dist/index.js"
+        }
+    },
+    "scripts": {
+        "build": "tsc",
+        "db:generate": "drizzle-kit generate",
+        "db:migrate": "drizzle-kit migrate",
+        "db:studio": "drizzle-kit studio",
+        "typecheck": "tsc --noEmit"
+    },
+    "dependencies": {
+        "drizzle-orm": "^0.36.0",
+        "drizzle-kit": "^0.28.0"
+    },
+    "devDependencies": {
+        "@typescript/native-preview": "beta",
+        "@types/node": "25.5.0",
+        "typescript": "7.0.1-rc"
+    }
+}
