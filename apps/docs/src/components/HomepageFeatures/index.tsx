@@ -27,7 +27,12 @@ const FeatureList: FeatureItem[] = [
     {
         title: "Contant Us",
         Svg: require("@site/static/img/undraw_docusaurus_tree.svg").default,
-        description: <>If you still missing something, just contact us via linked in and we will be happy to help!</>,
+        description: (
+            <>
+                If you still missing something, just contact us via <a href="mailto:cluster-map@artemk.work">cluster-map@artemk.work</a> and we will be happy to
+                help!
+            </>
+        ),
     },
 ];
 
