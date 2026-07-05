@@ -12,12 +12,12 @@ type FeatureItem = {
 const FeatureList: FeatureItem[] = [
     {
         title: "Fast and easy to start",
-        Svg: require("@site/static/img/undraw_docusaurus_mountain.svg").default,
+        Svg: require("@site/static/img/undraw_docusaurus_react.svg").default,
         description: <>Read our Tutorial with comprehensive instructions for a quick and easy project use.</>,
     },
     {
         title: "Focus on What you need",
-        Svg: require("@site/static/img/undraw_docusaurus_tree.svg").default,
+        Svg: require("@site/static/img/undraw_docusaurus_mountain.svg").default,
         description: (
             <>
                 If you need to find answear on your question just go to the <code>docs</code> and look for the related topic.
