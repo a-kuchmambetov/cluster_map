@@ -61,7 +61,7 @@ const config: Config = {
             respectPrefersColorScheme: true,
         },
         navbar: {
-            title: "Cluster Map Docs",
+            title: "Cluster Map",
             logo: {
                 alt: "Cluster Map Logo",
                 src: "img/logo.svg",

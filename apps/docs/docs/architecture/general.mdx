@@ -17,8 +17,8 @@ For domain **map-hive.pp.ua** we are using Cloudflare with proxy enabled. It giv
 In the heart of application is Nginx which serving content and routing requests. For routing using next url paths:
 
 - **/** - static Frontend generated from **React / Vite**
-- **/docs** - documentation for developers based on **Docusaurus**
-- **/api** - **Express** api server which comunicates with database via **Drizzle**
+- **docs/** - documentation for developers based on **Docusaurus**
+- **api/** - **Express** api server which comunicates with database via **Drizzle**
 
 ## Project folder structure
 
@@ -62,8 +62,43 @@ Packages are modules which can/will be used for multiple applications.
 
 Currently there are:
 
-- **db** Contains drizzle [configuration](https://orm.drizzle.team/docs/drizzle-config-file) and database [schemas](https://orm.drizzle.team/docs/sql-schema-declaration)
-- **validators** TS validation [schemas](https://zod.dev/basics) based on Zod
-- **errors** AppError class for errors managment
-- **types** Shared TS types
+- **db/** Contains drizzle [configuration](https://orm.drizzle.team/docs/drizzle-config-file) and database [schemas](https://orm.drizzle.team/docs/sql-schema-declaration)
+- **validators/** TS validation [schemas](https://zod.dev/basics) based on Zod
+- **errors/** AppError class for errors managment
+- **types/** Shared TS types
 
+### Applications
+
+For **docs** most important folder is **docs/docs**, it contains .mdx files with content for documentation. **src/** contains custom Docusaurus pages, components and styles. **static/** contains images and other public files. See [docusaurus CLI command](https://docusaurus.io/docs/installation#scaffold-project-website).
+
+Api has next structure:
+
+- **index.ts** Node.js Express server start only
+- **app.ts** Express setup of cors and router linking
+- **config/** Contains config related files like env variables
+- **routes/** Contains api routes
+- **middleware/** Contains Express middleware like error handler and request validation
+- **features/** Contains feature related code
+  - ***.routes.ts** Defines endpoints and attaches middlewares
+  - ***.routes.test.ts**
+  - ***.controller.ts** Functions that is used in routers, call services
+  - ***.controller.test.ts**
+  - ***.service.ts** Main business logic
+  - ***.service.test.ts**
+  - ***.repository.ts** All db related queries
+  - ***.repository.test.ts** Only when using: filters, joins, pagination, sorting, transactions, duplicate checks, custom SQL, authorization-related query, constraints
+  - ***.model.ts** Definitions for database structure (tables, relations, etc), in our case in **@repo/db drizzle schema**
+  - ***.schema.ts** Schemas for data validation (a.k zod), in our case in **@repo/validators zod schemas**
+  - ***.types.ts** TypeScript types that used in files above. Use **@repo/types** if shared between multiple apps
+- **lib/** Contains shared api helper code
+
+Web has next structure:
+
+- **main.tsx** React application entry point
+- **components/** Contains reusable UI components
+- **pages/** Contains page components
+- **providers/** Contains React providers like router and theme
+- **hooks/** Contains reusable React hooks
+- **styles/** Contains global styles, theme and typography
+- **utils/** Contains helper functions and static data
+- **types/** Contains frontend TS types
