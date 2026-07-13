@@ -6,7 +6,7 @@ import ThemeImage from "@site/src/components/ThemeImage";
 
 # General
 
-In this section you can see general information about **Cluster Map architecture** like application diagram and folder structure.
+In this chapter you can see general information about **Cluster Map architecture** like application diagram and folder structure.
 
 ## Architecture
 
@@ -69,7 +69,7 @@ Currently there are:
 
 ### Applications
 
-For **docs** most important folder is **docs/docs**, it contains .mdx files with content for documentation. **src/** contains custom Docusaurus pages, components and styles. **static/** contains images and other public files. See [docusaurus CLI command](https://docusaurus.io/docs/installation#scaffold-project-website).
+For **docs** most important folder is **docs/docs**, it contains .mdx files with content for documentation. **src/** contains custom Docusaurus pages, components and styles. **static/** contains images and other public files. See [docusaurus CLI command](https://docusaurus.io/docs/installation#scaffold-project-website)
 
 Api has next structure:
 
@@ -85,7 +85,7 @@ Api has next structure:
   - ***.controller.test.ts**
   - ***.service.ts** Main business logic
   - ***.service.test.ts**
-  - ***.repository.ts** All db related queries
+  - ***.repository.ts** All db related queries.
   - ***.repository.test.ts** Only when using: filters, joins, pagination, sorting, transactions, duplicate checks, custom SQL, authorization-related query, constraints
   - ***.model.ts** Definitions for database structure (tables, relations, etc), in our case in **@repo/db drizzle schema**
   - ***.schema.ts** Schemas for data validation (a.k zod), in our case in **@repo/validators zod schemas**

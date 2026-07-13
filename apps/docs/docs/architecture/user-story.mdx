@@ -1,0 +1,260 @@
+---
+sidebar_position: 2
+---
+
+# User Story
+
+This chapter describes how people interact with **Cluster Map** and how those interactions influence data flow, privacy, performance, reliability, and accessibility.
+
+## Purpose and Scope
+
+**Cluster Map** helps users quickly find available places within a cluster and see which places are currently occupied and by whom.
+
+The MVP allows users to:
+
+- Select a cluster.
+- View its rows and numbered places.
+- See free and occupied places.
+- See the total number of free places.
+- Inspect limited information about the peer using an occupied place.
+- See when occupancy information was last updated.
+- Continue viewing the previous map if a refresh fails.
+
+:::warning[Attention]
+
+Login and authentication is **still under the question**. Possibly need to use Hive auth api.
+
+:::
+
+The following capabilities are out of scope:
+
+- Roles and permissions.
+- User management.
+- Admin interface.
+- Booking or reserving places.
+- Changing occupancy information through the application.
+
+## Actors
+
+### Map Viewer
+
+A map viewer is a peer who wants to find an available place.
+
+- **Access:** Anonymous and read-only.
+- **Primary goal:** Find a free place quickly.
+- **Secondary goal:** Identify who is using an occupied place.
+- **Environment:** Desktop or mobile web browser.
+- **Key needs:** Accurate information, fast loading, clear place states, and accessible interaction.
+
+### Displayed Peer
+
+A displayed peer is a person associated with an occupied place.
+
+They may not be actively using Cluster Map, but their information is visible to map viewers. Therefore, they are must be taken into account.
+
+Only the minimum information required for identification should be shown, like: name/login, photo.
+
+## User-Facing Concepts
+
+| Concept          | Meaning                                                                                                         |
+| ---------------- | --------------------------------------------------------------------------------------------------------------- |
+| **Cluster**      | A numbered physical area containing rows and places.                                                            |
+| **Row**          | A numbered group of places within a cluster.                                                                    |
+| **Place**        | A numbered position that can be free or in use.                                                                 |
+| **Free**         | The place is available for a user to take.                                                                      |
+| **In use**       | The place is currently associated with a peer.                                                                  |
+| **Layout gap**   | An empty map position used to reproduce the physical layout. It is not an actual place and has no place number. |
+| **Last updated** | The time when occupancy data was most recently retrieved successfully.                                          |
+
+A layout gap should be treated separately from place occupancy. A real place has either a **free** or **in-use** status.
+
+## Core User Journeys
+
+### Find a Free Place
+
+**Goal:** Find an available place in a selected cluster.
+
+**Preconditions:**
+
+- The application is available.
+- The cluster configuration can be loaded.
+- Current occupancy data can be retrieved.
+
+**Typical flow:**
+
+1. The user opens Cluster Map.
+2. The application loads the available clusters.
+3. The user selects a cluster, if none selected first cluster selected as default.
+4. The application displays its rows and numbered places.
+5. The application shows the number of free places.
+6. The user identifies a free place using its status indicator and label.
+7. The user physically takes the selected place.
+
+**Successful result:** The user can identify the cluster, row, and number of an available place.
+
+**Alternative flows:**
+
+- The selected cluster does not exist.
+- The cluster has no free places.
+- Map configuration is missing or invalid.
+- Occupancy information cannot be loaded.
+- Previously loaded information is stale.
+
+### Inspect an Occupied Place
+
+**Goal:** Identify the peer currently using a place.
+
+**Typical flow:**
+
+1. The user finds an occupied place on the map.
+2. The user hovers over, focuses, clicks, or taps the place.
+3. The application displays the allowed peer information.
+4. The user closes the details or moves to another place.
+
+**Information that may be displayed:**
+
+- Intra name.
+- Real or display name.
+- Cluster number.
+- Row number.
+- Place number.
+- Photo, if approved.
+
+**TODO:** Decide whether identification should use the Intra name, real name, photo, or a combination.
+
+Hover must not be the only way to access details. Click, and touch interactions should provide the same information.
+
+### Receive Occupancy Updates
+
+**Goal:** See recent occupancy information without manually reloading the page.
+
+**Typical flow:**
+
+1. The application loads the map.
+2. The application records the successful update time.
+3. The application requests updated data at a configured interval.
+4. The existing map remains visible while the request is running.
+5. The map and last-updated time change after a successful refresh.
+
+The initial proposal uses a **30-second polling interval**.
+
+**TODO:** Validate the polling interval against database load and the required information freshness.
+
+### Continue During a Refresh Failure
+
+**Goal:** Continue using the last available information when current data cannot be retrieved.
+
+**Expected behavior:**
+
+- Keep the last successfully loaded map visible.
+- Do not replace existing data with an empty screen.
+- Show a non-blocking refresh error.
+- Clearly indicate that the information may be stale.
+- Retry during the next refresh interval.
+
+If no map has ever loaded successfully, show a full error state with a retry action.
+
+### Encounter a Configuration Problem
+
+**Goal:** Understand when the displayed map may not match production occupancy data.
+
+If production data references a place missing from the map configuration:
+
+- Keep the valid parts of the map visible when possible.
+- Display a persistent configuration warning.
+- Do not silently discard the mismatch.
+- Remove the warning only after the configuration is corrected.
+
+**TODO:** Decide whether configuration details should be visible to every user or only exposed through operational logs and monitoring.
+
+## User-Visible States
+
+| State                     | Expected Presentation                                                          |
+| ------------------------- | ------------------------------------------------------------------------------ |
+| **Loading**               | A loading indicator while preserving the page structure.                       |
+| **Free**                  | An available place with a label and accessible status.                         |
+| **In use**                | An occupied place with optional peer details.                                  |
+| **Layout gap**            | Blank visual space without a place number or interaction.                      |
+| **No free places**        | The cluster map remains visible with a clear availability message.             |
+| **Refreshing**            | The existing map remains usable while new data loads.                          |
+| **Stale**                 | Previous information remains visible with its last-updated time and a warning. |
+| **Configuration warning** | A persistent warning indicating that the map configuration needs attention.    |
+| **Initial load failure**  | An error message and retry action.                                             |
+| **Cluster not found**     | A clear message and a way to select another cluster.                           |
+
+Color must not be the only status indicator. Labels, icons, patterns, or accessible text should also communicate whether a place is free or occupied.
+
+## Privacy and Security
+
+Cluster Map does not require authentication for the MVP. This means all displayed information must be considered publicly accessible within the application's deployment context.
+
+Privacy requirements:
+
+- Read only the minimum required fields from the production database.
+- Show only approved identification and place-related information.
+- Do not expose email addresses.
+- Do not include complete production records or unnecessary personal data in logs.
+- Do not expose database or configuration details through user-facing errors.
+
+Security requirements:
+
+- Use a read-only production database account.
+- Never execute write operations or schema migrations against the production database.
+- Store database credentials in environment variables.
+- Restrict production CORS to the deployed frontend.
+- Expose only the API endpoints required by the frontend.
+
+## Quality Expectations
+
+### Freshness
+
+- Fetch map information when the page loads.
+- Poll for updates at a configurable interval.
+- Show the last successful update time.
+- Define when information should be considered stale.
+
+**TODO:** Define the maximum acceptable data age.
+
+### Performance
+
+- Cluster selection should feel immediate.
+- Refreshing should not block interaction with the existing map.
+- Peer details should appear without another network request when included in the map response.
+
+**TODO:** Define measurable page-load and API-response targets.
+
+### Accessibility
+
+- Support mouse, and touch interaction.
+- Do not depend exclusively on hover.
+- Do not communicate occupancy using color alone.
+- Provide sufficient contrast for every status.
+- Give interactive places accessible names containing their number and status.
+- Ensure peer details can be dismissed using the keyboard and/or mouse.
+
+### Reliability
+
+- Preserve the last successful map when refresh requests fail.
+- Distinguish stale data from current data.
+- Provide understandable messages without exposing internal errors.
+- Recover automatically after temporary API or database failures.
+
+## Architecture Implications
+
+The user journeys create the following architectural requirements:
+
+- **Frontend:** Render configurable clusters, rows, places, layout gaps, status indicators, peer details, warnings, and last-updated information.
+- **API:** Provide cluster lists, merged map data, and configuration validation results.
+- **Map configuration:** Define physical layout independently of occupancy data and support easy reconfiguration.
+- **Production database:** Remain the read-only source of current occupancy information.
+- **Refresh strategy:** Use polling initially while keeping the design open to a future SSE or WebSocket implementation.
+- **Error handling:** Preserve successful data and distinguish refresh, configuration, and availability failures.
+- **Observability:** Detect production database failures, invalid configurations, API errors, and slow responses.
+
+## Open Questions
+
+- Should the application show the Intra name, real name, photo, or a combination?
+- Is a 30-second refresh interval appropriate?
+- When should previously loaded information be marked as stale?
+- Should configuration warnings be shown to normal users?
+- Which visual indicators should represent free and occupied places?
