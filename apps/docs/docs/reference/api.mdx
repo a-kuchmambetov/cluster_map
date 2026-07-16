@@ -1,0 +1,89 @@
+---
+sidebar_position: 1
+---
+
+# API Reference
+
+## Current status
+
+The current Express application exposes one endpoint: `GET /api/health`. Cluster lists, map data, occupancy data, authentication, and configuration-validation endpoints are not implemented.
+
+The API mounts its router at `/api`. It enables JSON request parsing and credentialed CORS; allowed origins are described in [Configuration](../getting-started/configuration#cors-and-environment-mode).
+
+## `GET /api/health`
+
+Returns a process-level health response. It does not currently check PostgreSQL or another dependency.
+
+### Request
+
+The endpoint has no parameters, request body, or authentication requirement.
+
+```bash
+curl http://localhost:5000/api/health
+```
+
+### Success response
+
+Status: `200 OK`
+
+```json
+{
+    "status": "ok"
+}
+```
+
+## Error responses
+
+Registered handlers that pass an error to the API error middleware use this JSON shape:
+
+```ts
+type ApiErrorResponse = {
+    ok: false;
+    status: "fail" | "error";
+    code: "BAD_REQUEST" | "UNAUTHORIZED" | "FORBIDDEN" | "NOT_FOUND" | "CONFLICT" | "VALIDATION_ERROR" | "INTERNAL_SERVER_ERROR";
+    error: string;
+    details?: unknown;
+};
+```
+
+Example validation response shape:
+
+```json
+{
+    "ok": false,
+    "status": "fail",
+    "code": "VALIDATION_ERROR",
+    "error": "Validation error",
+    "details": [
+        {
+            "path": "fieldName",
+            "message": "Validation message",
+            "code": "zod_issue_code"
+        }
+    ]
+}
+```
+
+Current normalization rules are:
+
+| Condition                      | HTTP status | Code                    |
+| ------------------------------ | ----------: | ----------------------- |
+| Invalid JSON request body      |         400 | `BAD_REQUEST`           |
+| Zod request-validation failure |         422 | `VALIDATION_ERROR`      |
+| Unhandled error                |         500 | `INTERNAL_SERVER_ERROR` |
+
+Individual handlers can also create the other error codes through the shared `AppError` class.
+
+When `NODE_ENV=production`, messages for 5xx responses are replaced with `Internal server error`, and their details are omitted. In other modes, error details remain visible and the server logs diagnostic information.
+
+Unknown routes are an exception to this contract today: there is no JSON not-found middleware, so an unregistered path falls through to Express's default 404 response.
+
+## Request validation
+
+The repository includes reusable Zod middleware for validating `body`, `query`, and `params`. A successful parse replaces the corresponding Express request value with the parsed value. No current route uses this middleware yet.
+
+## Proposed map API
+
+The user story calls for cluster lists, merged map data, and configuration-validation results. No routes or wire formats for those capabilities have been accepted or implemented. Do not build clients against guessed endpoint paths.
+
+The [map-configuration contract starter](./map-configuration) lists the physical-layout concepts that a future API will need to represent while keeping them separate from live occupancy data.

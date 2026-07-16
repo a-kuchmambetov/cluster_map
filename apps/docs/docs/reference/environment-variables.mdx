@@ -1,0 +1,52 @@
+---
+sidebar_position: 2
+---
+
+# Environment Variables
+
+This reference describes variables read by the current API and database code. The API loads the root `.env` file when it is started through its workspace script. The database package itself reads `process.env` and does not explicitly load a dotenv file.
+
+| Variable           | Required                                           | Default                 | Current consumer and behavior                                                                                                                             |
+| ------------------ | -------------------------------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NODE_ENV`         | No                                                 | Unset                   | API CORS and error middleware. Exactly `development` enables an additional development origin. Exactly `production` masks 5xx error messages and details. |
+| `API_PORT`         | No                                                 | `5000`                  | API listener port; coerced to a number.                                                                                                                   |
+| `WEB_ORIGIN`       | No                                                 | `http://localhost:3000` | Allowed browser origin for credentialed CORS. Use a complete origin such as `http://localhost:5173`.                                                      |
+| `PG_USER`          | Yes for DB package startup                         | None                    | Required by DB package validation and used to construct the database URL.                                                                                 |
+| `PG_DB`            | Yes for DB package startup                         | None                    | Required by DB package validation and used as the database name in the constructed URL.                                                                   |
+| `PG_PASSWORD`      | Yes for DB package startup unless supplied by file | None                    | Database password. Takes precedence over `PG_PASSWORD_FILE`.                                                                                              |
+| `PG_PASSWORD_FILE` | No                                                 | None                    | Path to a file whose trimmed contents become the password when `PG_PASSWORD` is absent. Read by database configuration. Used only for docker compose.     |
+| `PG_HOST`          | No                                                 | `localhost`             | PostgreSQL host.                                                                                                                                          |
+| `PG_PORT`          | No                                                 | `5432`                  | PostgreSQL port used by the database package. It is not part of the API's Zod schema but remains available through `process.env`.                         |
+
+## Local example
+
+```dotenv
+NODE_ENV=development
+API_PORT=5000
+WEB_ORIGIN=http://localhost:5173
+
+PG_USER=app
+PG_DB=app
+PG_PASSWORD=app
+PG_HOST=localhost
+PG_PORT=5432
+```
+
+## Secret-file example
+
+```dotenv
+PG_USER=app
+PG_DB=app
+PG_HOST=database
+PG_PASSWORD_FILE=/run/secrets/postgres_password
+```
+
+The password file is read synchronously during configuration initialization. A missing or unreadable file and missing PG_PASSWORD causes compose startup to fail.
+
+## Checked-in example coverage
+
+The current root `.env.example` contains `API_PORT`, `WEB_ORIGIN`, `PG_USER`, `PG_DB`, `PG_PASSWORD`, and `PG_HOST`. The code also recognizes `NODE_ENV`, `PG_PORT`, `PG_PASSWORD_FILE`; those variables are documented here even though they are absent from the checked-in template.
+
+For setup instructions and the current port alignment, see [Local development](../getting-started/local-development) and [Configuration](../getting-started/configuration).
+
+There is no current environment variable for a map-layout configuration file, polling interval, stale-data threshold, or frontend API base URL.

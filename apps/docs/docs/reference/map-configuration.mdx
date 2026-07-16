@@ -1,0 +1,110 @@
+---
+sidebar_position: 3
+---
+
+# Map Configuration
+
+## Current status
+
+Map configuration is not implemented. The repository has no map-config file, TypeScript type, Zod schema, loader, validator, or API endpoint, and the Drizzle schema is currently empty.
+
+The [product requirements](../product/requirements-and-user-journeys) propose that physical layout be configured independently from occupancy data. This page is a contract starter for that future work, not a description of executable behavior.
+
+## Requirements Already Defined
+
+The proposed layout needs to represent:
+
+- A collection of clusters.
+- Ordered rows within each cluster.
+- Numbered places within each row.
+- Layout gaps that reproduce physical spacing but are not real places.
+- Stable references that occupancy data can use to identify a configured place.
+
+Occupancy status, peer information, and last-updated timestamps belong to the live-data side of the system and should not be stored in the physical layout configuration.
+
+## Proposed contract starter
+
+The following JSON is non-normative. It gives the project a concrete shape to review before implementing a schema.
+
+```json
+{
+    "clusters": [
+        {
+            "id": "c1",
+            "label": "Cluster 1",
+            "rows": [
+                {
+                    "id": "c1r1",
+                    "label": "Row 1",
+                    "cells": [
+                        {
+                            "kind": "place",
+                            "id": "c1r1p1",
+                            "number": 1
+                        },
+                        {
+                            "kind": "gap"
+                        },
+                        {
+                            "kind": "place",
+                            "id": "c1r1p2",
+                            "number": 2
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
+```
+
+Proposed field meanings:
+
+| Field               | Purpose                                                         |
+| ------------------- | --------------------------------------------------------------- |
+| `clusters[].id`     | Stable machine identifier for a cluster.                        |
+| `clusters[].label`  | User-facing cluster label.                                      |
+| `rows[].id`         | Stable machine identifier for a row within its cluster.         |
+| `rows[].label`      | User-facing row label.                                          |
+| `cells`             | Ordered physical positions in a row.                            |
+| `kind: "place"`     | A real place that can be joined with occupancy data.            |
+| Place cell `id`     | Proposed stable join key for occupancy records.                 |
+| Place cell `number` | User-facing place number.                                       |
+| `kind: "gap"`       | A visual spacer with no place number or occupancy state.        |
+
+None of these field names is consumed by current code.
+
+## Proposed validation rules
+
+Before implementation, the team should accept or revise these starter rules:
+
+1. `version` must be a supported positive integer.
+2. Cluster identifiers must be unique.
+3. Row identifiers must be unique within a cluster.
+4. Place identifiers must be unique across the configuration so they can act as join keys.
+5. A place cell must have an identifier and number.
+6. A gap must not have a place number or occupancy fields.
+7. The configuration must not contain peer identity, free/in-use state, or last-updated data.
+8. An occupancy record that references no configured place must produce a configuration mismatch instead of silently changing the layout.
+
+The product requirements say valid parts of the map should remain visible during a mismatch. The exact warning payload and whether it is user-visible are still undecided.
+
+## Decisions required before implementation
+
+- File format and source location.
+- The stable key available in both the production occupancy source and the map configuration.
+- Whether `cells` is sufficient or coordinates and dimensions are required.
+- Whether a configured place with no matching occupancy record is free, unknown, or an error.
+- Whether mismatch details are returned by the API or only logged operationally.
+
+## Implementation boundary
+
+A future implementation will need, at minimum:
+
+1. A shared TypeScript type and runtime validator.
+2. A defined configuration source and loader.
+3. Validation for identifiers and cells.
+4. A documented merge contract between configured places and occupancy records.
+5. API response types and tests for valid, invalid, and mismatched data.
+
+No map API path exists yet. Any future endpoint and its response should be added to the [API reference](./api) only after its route and contract are implemented or formally accepted.
