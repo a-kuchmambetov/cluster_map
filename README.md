@@ -40,8 +40,8 @@ Back-end:
 
 Tools:
 
-- Trello (task managment system)
-- Github / Github CI/CD (self-hosted runner)
+- Trello (task management system)
+- GitHub / GitHub CI/CD (self-hosted runner)
 - Docker Compose
 - Docusaurus (Static site generator for project documentation)
 - Hetzner dedicated / VPS
