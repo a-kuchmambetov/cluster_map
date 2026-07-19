@@ -25,7 +25,7 @@ const FeatureList: FeatureItem[] = [
         ),
     },
     {
-        title: "Contant Us",
+        title: "Contact Us",
         Svg: require("@site/static/img/undraw_docusaurus_tree.svg").default,
         description: (
             <>
