@@ -20,7 +20,7 @@ const FeatureList: FeatureItem[] = [
         Svg: require("@site/static/img/undraw_docusaurus_mountain.svg").default,
         description: (
             <>
-                If you need to find answear on your question just go to the <code>docs</code> and look for the related topic.
+                If you need to find an answer to your question, go to the <code>docs</code> section and look for the related topic.
             </>
         ),
     },
