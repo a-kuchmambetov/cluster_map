@@ -22,7 +22,11 @@ import { SelectItem } from "./select-item";
 import { type CommonProps, SelectContext, type SelectItemType, sizes } from "./select-shared";
 
 const searchSizes = {
-    sm: { wrapper: "py-1", root: "px-3 py-2 gap-2 *:data-icon:size-4 *:data-icon:stroke-[2.25px]", text: "text-sm" },
+    sm: {
+        wrapper: "py-1",
+        root: "px-3 py-2 gap-2 *:data-icon:size-4 *:data-icon:stroke-[2.25px]",
+        text: "text-sm",
+    },
     md: { wrapper: "py-0.5", root: "px-3 py-2 gap-2 *:data-icon:size-5", text: "text-md" },
     lg: { wrapper: "py-0.5", root: "px-3.5 py-2.5 gap-2 *:data-icon:size-5", text: "text-md" },
 };

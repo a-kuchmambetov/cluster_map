@@ -1,0 +1,108 @@
+{
+    "$schema": "./node_modules/oxlint/configuration_schema.json",
+    "plugins": ["eslint", "typescript", "unicorn", "oxc", "import", "react", "jsx-a11y", "promise", "node"],
+    "categories": {
+        "correctness": "error",
+        "suspicious": "warn",
+        "perf": "warn"
+    },
+    "rules": {
+        "no-debugger": "error",
+        "no-duplicate-imports": [
+            "error",
+            {
+                "allowSeparateTypeImports": true
+            }
+        ],
+        "no-unused-vars": [
+            "error",
+            {
+                "args": "all",
+                "argsIgnorePattern": "^_",
+                "caughtErrors": "all",
+                "caughtErrorsIgnorePattern": "^_",
+                "destructuredArrayIgnorePattern": "^_",
+                "varsIgnorePattern": "^_"
+            }
+        ],
+        "prefer-const": "error",
+        "typescript/consistent-type-imports": [
+            "error",
+            {
+                "fixStyle": "inline-type-imports",
+                "prefer": "type-imports"
+            }
+        ],
+        "typescript/no-explicit-any": "error",
+        "import/no-unassigned-import": [
+            "warn",
+            {
+                "allow": ["**/*.css"]
+            }
+        ],
+        "import/no-cycle": "error",
+        "no-underscore-dangle": "off",
+        "react/react-in-jsx-scope": "off",
+        "jsx-a11y/prefer-tag-over-role": "warn"
+    },
+    "env": {
+        "builtin": true
+    },
+    "ignorePatterns": [
+        "**/.docusaurus/**",
+        "**/.turbo/**",
+        "**/.vite/**",
+        "**/build/**",
+        "**/coverage/**",
+        "**/dist/**",
+        "**/dist-ssr/**",
+        "**/node_modules/**",
+        "**/.cache-loader/**",
+        "**/*.tsbuildinfo"
+    ],
+    "options": {
+        "reportUnusedDisableDirectives": "warn",
+        "respectEslintDisableDirectives": true
+    },
+    "settings": {
+        "react": {
+            "version": "19"
+        },
+        "jsx-a11y": {
+            "polymorphicPropName": "as"
+        }
+    },
+    "overrides": [
+        {
+            "files": [
+                "apps/api/**/*.{js,mjs,cjs,ts}",
+                "apps/docs/docusaurus.config.{js,mjs,cjs,ts}",
+                "apps/docs/sidebars.{js,mjs,cjs,ts}",
+                "apps/web/*.config.{js,mjs,cjs,ts}",
+                "packages/**/*.{js,mjs,cjs,ts}",
+                "*.config.{js,mjs,cjs,ts}"
+            ],
+            "env": {
+                "node": true
+            }
+        },
+        {
+            "files": ["apps/docs/src/**/*.{js,jsx,ts,tsx}", "apps/web/src/**/*.{js,jsx,ts,tsx}"],
+            "env": {
+                "browser": true
+            }
+        },
+        {
+            "files": ["**/*.cjs"],
+            "env": {
+                "commonjs": true
+            }
+        },
+        {
+            "files": ["apps/docs/src/components/HomepageFeatures/index.tsx"],
+            "globals": {
+                "require": "readonly"
+            }
+        }
+    ]
+}

@@ -2,6 +2,10 @@
     "name": "cluster_map",
     "version": "1.0.0",
     "description": "",
+    "keywords": [],
+    "license": "ISC",
+    "author": "",
+    "type": "module",
     "main": "index.js",
     "scripts": {
         "dev": "pnpm -r --parallel dev",
@@ -10,25 +14,21 @@
         "build": "pnpm -r --filter '!@repo/docs' build",
         "build:docs": "pnpm --filter @repo/docs build",
         "typecheck": "pnpm -r typecheck",
-        "lint": "pnpm -r lint"
+        "lint": "oxlint",
+        "lint:fix": "oxlint --fix",
+        "fmt": "oxfmt",
+        "fmt:check": "oxfmt --check"
     },
-    "keywords": [],
-    "author": "",
-    "license": "ISC",
+    "devDependencies": {
+        "oxfmt": "^0.59.0",
+        "oxlint": "^1.74.0",
+        "typescript": "6.0.3"
+    },
     "devEngines": {
         "packageManager": {
             "name": "pnpm",
             "version": "^11.5.2",
             "onFail": "download"
         }
-    },
-    "type": "module",
-    "devDependencies": {
-        "@trivago/prettier-plugin-sort-imports": "^6.0.2",
-        "eslint": "^10.6.0",
-        "prettier": "^3.9.1",
-        "prettier-plugin-tailwindcss": "^0.7.4",
-        "typescript": "6.0.3",
-        "typescript-eslint": "^8.62.0"
     }
 }

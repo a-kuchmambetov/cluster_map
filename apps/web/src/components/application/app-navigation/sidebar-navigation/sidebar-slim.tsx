@@ -130,7 +130,11 @@ export const SidebarNavigationSlim = ({ activeUrl, items, footerItems = [], hide
                 <motion.div
                     initial={{ width: 0, borderColor: "var(--color-border-secondary)" }}
                     animate={{ width: SECONDARY_SIDEBAR_WIDTH, borderColor: "var(--color-border-secondary)" }}
-                    exit={{ width: 0, borderColor: "rgba(0,0,0,0)", transition: { borderColor: { type: "tween", delay: 0.05 } } }}
+                    exit={{
+                        width: 0,
+                        borderColor: "rgba(0,0,0,0)",
+                        transition: { borderColor: { type: "tween", delay: 0.05 } },
+                    }}
                     transition={{ type: "spring", damping: 26, stiffness: 220, bounce: 0 }}
                     className={cx(
                         "relative h-full overflow-x-hidden overflow-y-auto bg-primary",

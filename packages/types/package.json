@@ -16,8 +16,8 @@
         "typecheck": "tsc --noEmit"
     },
     "devDependencies": {
-        "@typescript/native-preview": "beta",
         "@types/node": "25.5.0",
+        "@typescript/native-preview": "beta",
         "typescript": "7.0.1-rc"
     }
 }

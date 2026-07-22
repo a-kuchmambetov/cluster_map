@@ -60,17 +60,17 @@ The following JSON is non-normative. It gives the project a concrete shape to re
 
 Proposed field meanings:
 
-| Field               | Purpose                                                         |
-| ------------------- | --------------------------------------------------------------- |
-| `clusters[].id`     | Stable machine identifier for a cluster.                        |
-| `clusters[].label`  | User-facing cluster label.                                      |
-| `rows[].id`         | Stable machine identifier for a row within its cluster.         |
-| `rows[].label`      | User-facing row label.                                          |
-| `cells`             | Ordered physical positions in a row.                            |
-| `kind: "place"`     | A real place that can be joined with occupancy data.            |
-| Place cell `id`     | Proposed stable join key for occupancy records.                 |
-| Place cell `number` | User-facing place number.                                       |
-| `kind: "gap"`       | A visual spacer with no place number or occupancy state.        |
+| Field               | Purpose                                                  |
+| ------------------- | -------------------------------------------------------- |
+| `clusters[].id`     | Stable machine identifier for a cluster.                 |
+| `clusters[].label`  | User-facing cluster label.                               |
+| `rows[].id`         | Stable machine identifier for a row within its cluster.  |
+| `rows[].label`      | User-facing row label.                                   |
+| `cells`             | Ordered physical positions in a row.                     |
+| `kind: "place"`     | A real place that can be joined with occupancy data.     |
+| Place cell `id`     | Proposed stable join key for occupancy records.          |
+| Place cell `number` | User-facing place number.                                |
+| `kind: "gap"`       | A visual spacer with no place number or occupancy state. |
 
 None of these field names is consumed by current code.
 
