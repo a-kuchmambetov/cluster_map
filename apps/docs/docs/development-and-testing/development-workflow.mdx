@@ -2,6 +2,8 @@
 sidebar_position: 1
 ---
 
+import ThemeImage from "@site/src/components/ThemeImage";
+
 # Development Workflow
 
 Cluster Map is a pnpm workspace containing applications in `apps/` and reusable packages in `packages/`. Complete the [local development setup](../getting-started/local-development.mdx) before changing a workspace.
@@ -37,6 +39,34 @@ pnpm --filter @repo/web dev
 pnpm --filter @repo/api dev
 pnpm --filter @repo/docs start
 ```
+
+## Git Flow
+
+All **Commits** and **Pull requests** must follow [Conventional commits](https://www.conventionalcommits.org/en/v1.0.0/#summary).
+
+Pull request must be presented as description of one "big feature" (Squash Merge Request), rather than bunch minor of commits. Again, following Conventional commits.
+
+:::info[Use this branches]
+
+Next 4 branches are permanent and prefered for certain scope of features:
+- dev-api
+- dev-web
+- dev-db
+- dev-docs
+
+For fetures out of this scope, new branch can be created.
+
+:::
+
+After successful Pull request this and other branches are not deleted and stored for task tracking purpose.
+
+<ThemeImage
+    src="img/development-and-testing/git-flow-light.svg"
+    darkSrc="img/development-and-testing/git-flow-dark.svg"
+    alt="Target Cluster Map architecture"
+/>
+
+As can be seen, all "in development" have shared prefix - dev. To get latest development state pull from staging branch, as it stores latest "safe" in progress features.
 
 ## Suggested Change Flow
 

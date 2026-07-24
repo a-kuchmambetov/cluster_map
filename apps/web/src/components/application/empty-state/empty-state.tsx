@@ -111,7 +111,9 @@ const Title = (props: ComponentPropsWithRef<"h1">) => {
                 size === "lg" && "text-xl font-semibold",
                 props.className,
             )}
-        />
+        >
+            {props.children}
+        </h1>
     );
 };
 

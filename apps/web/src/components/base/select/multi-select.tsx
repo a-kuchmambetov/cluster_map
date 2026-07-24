@@ -268,7 +268,7 @@ const MultiSelectRoot = ({
                             <AriaAutocomplete filter={contains} inputValue={searchValue} onInputChange={setSearchValue}>
                                 {showSearch && (
                                     <div className={cx("border-b border-secondary", searchSizes[size].wrapper)}>
-                                        <AriaSearchField aria-label="Search" value={searchValue} onChange={setSearchValue} autoFocus>
+                                        <AriaSearchField aria-label="Search" value={searchValue} onChange={setSearchValue}>
                                             <div className={cx("flex items-center", searchSizes[size].root)}>
                                                 <SearchLg data-icon aria-hidden="true" className="shrink-0 text-fg-quaternary" />
                                                 <AriaInput

@@ -156,7 +156,7 @@ Label.displayName = "Label";
 const Description = (props: ComponentPropsWithRef<typeof HintText>) => {
     const { id, size } = usePinInputContext();
 
-    return <HintText {...props} id={"pin-input-description-" + id} role="description" className={cx(size === "xxxs" && "text-xs")} />;
+    return <HintText {...props} id={"pin-input-description-" + id} className={cx(size === "xxxs" && "text-xs")} />;
 };
 Description.displayName = "Description";
 

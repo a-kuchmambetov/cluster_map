@@ -124,7 +124,12 @@ export const Toggle = ({ label, hint, className, size = "sm", slim, ...ariaSwitc
                         <div className={cx("flex flex-col", styles[size].textWrapper)}>
                             {label && <p className={cx("text-secondary select-none", styles[size].label)}>{label}</p>}
                             {hint && (
-                                <span className={cx("text-tertiary", styles[size].hint)} onClick={(event) => event.stopPropagation()}>
+                                <span
+                                    className={cx("text-tertiary", styles[size].hint)}
+                                    role="presentation"
+                                    onClick={(event) => event.stopPropagation()}
+                                    onKeyDown={(event) => event.stopPropagation()}
+                                >
                                     {hint}
                                 </span>
                             )}

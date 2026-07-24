@@ -92,7 +92,12 @@ export const RadioButton = ({ label, hint, className, size = "sm", ...ariaRadioP
                         <div className={cx("inline-flex flex-col", sizes[size].textWrapper)}>
                             {label && <p className={cx("text-secondary select-none", sizes[size].label)}>{label}</p>}
                             {hint && (
-                                <span className={cx("text-tertiary", sizes[size].hint)} onClick={(event) => event.stopPropagation()}>
+                                <span
+                                    className={cx("text-tertiary", sizes[size].hint)}
+                                    role="presentation"
+                                    onClick={(event) => event.stopPropagation()}
+                                    onKeyDown={(event) => event.stopPropagation()}
+                                >
                                     {hint}
                                 </span>
                             )}

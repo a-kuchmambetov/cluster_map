@@ -43,7 +43,13 @@
         "import/no-cycle": "error",
         "no-underscore-dangle": "off",
         "react/react-in-jsx-scope": "off",
-        "jsx-a11y/prefer-tag-over-role": "warn"
+        "jsx-a11y/prefer-tag-over-role": "off",
+        "no-shadow": "off",
+        "react/jsx-no-constructed-context-values": "off",
+        "react/no-array-index-key": "off",
+        "react/no-object-type-as-default-prop": "off",
+        "react/no-unstable-nested-components": "off",
+        "unicorn/consistent-function-scoping": "off"
     },
     "env": {
         "builtin": true
