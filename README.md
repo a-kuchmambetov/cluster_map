@@ -2,7 +2,7 @@
 
 ## Description
 
-Project aim to create web application which providing realtime information about free/taken places for each cluster. It shows places and people with meaningful colors indicitation in a clear intuitive way.
+Project aims to create a web application that provides real-time information about free/taken places for each cluster. It shows places and people with meaningful color indications in a clear, intuitive way.
 
 Feature list:
 
