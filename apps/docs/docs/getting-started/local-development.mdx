@@ -12,7 +12,7 @@ See the [current API reference](../reference/api) and the [proposed map-configur
 
 - Node.js 20 or newer. The documentation workspace declares Node.js 20 as its minimum version.
 - pnpm 11.5.2, matching the root package-manager configuration.
-- Environment values for the API. A running PostgreSQL server is not used by the current health endpoint, but the API (DB client from @repo/db) still validates the required PostgreSQL settings at startup.
+- Environment values for the API. A running PostgreSQL server is not used by the current health endpoint. Database credentials are required only when code that initializes `@repo/db` is executed.
 
 ## Install the workspace
 
