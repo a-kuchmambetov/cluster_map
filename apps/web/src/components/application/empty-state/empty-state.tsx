@@ -111,7 +111,9 @@ const Title = (props: ComponentPropsWithRef<"h1">) => {
                 size === "lg" && "text-xl font-semibold",
                 props.className,
             )}
-        />
+        >
+            {props.children}
+        </h1>
     );
 };
 
@@ -246,7 +248,12 @@ interface AvatarGridProps extends ComponentPropsWithRef<"div"> {
 const gridStyles = {
     sm: { avatar: "size-8 rounded-md", inner: "rounded-[5px]", gap: "gap-2 pl-2", rowGap: "gap-2" },
     md: { avatar: "size-10 rounded-lg", inner: "rounded-[7px]", gap: "gap-3 pl-3", rowGap: "gap-3" },
-    lg: { avatar: "size-12 rounded-[10px]", inner: "rounded-[9px]", gap: "gap-3 pl-3", rowGap: "gap-3" },
+    lg: {
+        avatar: "size-12 rounded-[10px]",
+        inner: "rounded-[9px]",
+        gap: "gap-3 pl-3",
+        rowGap: "gap-3",
+    },
 } as const;
 
 const AvatarGrid = ({ avatars = [], ...props }: AvatarGridProps) => {

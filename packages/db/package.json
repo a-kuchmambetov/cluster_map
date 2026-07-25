@@ -18,12 +18,12 @@
         "typecheck": "tsc --noEmit"
     },
     "dependencies": {
-        "drizzle-orm": "^0.36.0",
-        "drizzle-kit": "^0.28.0"
+        "drizzle-kit": "^0.28.0",
+        "drizzle-orm": "^0.36.0"
     },
     "devDependencies": {
-        "@typescript/native-preview": "beta",
         "@types/node": "25.5.0",
+        "@typescript/native-preview": "beta",
         "typescript": "7.0.1-rc"
     }
 }

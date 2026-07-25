@@ -1,4 +1,7 @@
-export type IconComponentType = React.FunctionComponent<{ className?: string; strokeWidth?: string | number }>;
+export type IconComponentType = React.FunctionComponent<{
+    className?: string;
+    strokeWidth?: string | number;
+}>;
 
 export type Sizes = "sm" | "md" | "lg";
 

@@ -1,0 +1,82 @@
+---
+sidebar_position: 2
+title: Privacy and Quality Requirements
+---
+
+# Privacy and Quality Requirements
+
+These requirements apply to the proposed Cluster Map product. Numerical targets
+and the authentication model are not yet decided.
+
+## Privacy
+
+Cluster Map should expose only the information needed to identify an occupied
+place and, when approved, its peer.
+
+- Read only the minimum required fields from the occupancy source.
+- Return and display only approved identity and place-related fields.
+- Do not expose email addresses.
+- Do not log complete production records or unnecessary personal data.
+- Do not reveal database, credential, or configuration details in user-facing
+  errors.
+- Treat a peer photo as optional and subject to explicit approval.
+
+The allowed identity fields—such as an Intra login, display name, or photo—remain
+an [open architecture decision](../architecture/decisions#displayed-peer-identity).
+The same is true of whether viewers must authenticate. Until those decisions are
+made, no documentation should describe peer data as public or the application as
+anonymous.
+
+## Security constraints
+
+- Access the production occupancy database with a read-only account.
+- Never run write operations or schema migrations against that database.
+- Supply database credentials through deployment secrets or environment
+  variables, not source control.
+- Restrict production CORS to approved web origins.
+- Expose only the API operations required by the frontend.
+
+Authentication and authorization requirements will be added after the access
+model is decided.
+
+## Freshness
+
+- Fetch map information on initial load.
+- Refresh at a configurable interval.
+- Show the time of the last successful update.
+- Keep the last successful data when a refresh fails.
+- Clearly distinguish current, refreshing, and stale data.
+
+The polling interval and maximum acceptable data age are open decisions. A
+30-second interval is a working proposal only.
+
+## Performance
+
+- Cluster selection should feel immediate when its data is already available.
+- A background refresh must not block interaction with the current map.
+- Peer details should not require an extra request when they are already included
+  in the map response.
+
+Measurable page-load, API-response, and supported-map-size targets still need to
+be defined before performance can be accepted objectively.
+
+## Accessibility
+
+- Support keyboard, mouse, and touch interaction.
+- Do not depend on hover to reveal information.
+- Do not communicate occupancy through color alone.
+- Provide sufficient contrast for every state.
+- Give every interactive place an accessible name containing its number and
+  status.
+- Make peer details keyboard-accessible and dismissible.
+
+## Reliability
+
+- Preserve the last successful map after a refresh failure.
+- Distinguish stale data from current data.
+- Use actionable messages without exposing internal errors.
+- Recover automatically after temporary API or database failures.
+- Detect invalid map configuration and occupancy-to-layout mismatches.
+
+The required user-visible behavior is described in
+[Requirements and User Journeys](./requirements-and-user-journeys#user-visible-states).

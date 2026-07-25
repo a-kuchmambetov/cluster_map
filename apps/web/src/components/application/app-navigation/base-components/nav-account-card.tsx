@@ -44,7 +44,11 @@ export const NavAccountMenu = ({
     className,
     selectedAccountId = "olivia",
     ...dialogProps
-}: AriaDialogProps & { className?: string; accounts?: NavAccountType[]; selectedAccountId?: string }) => {
+}: AriaDialogProps & {
+    className?: string;
+    accounts?: NavAccountType[];
+    selectedAccountId?: string;
+}) => {
     const focusManager = useFocusManager();
     const dialogRef = useRef<HTMLDivElement>(null);
 

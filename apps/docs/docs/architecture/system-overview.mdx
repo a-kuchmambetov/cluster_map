@@ -1,0 +1,69 @@
+---
+sidebar_position: 1
+title: System Overview
+---
+
+import ThemeImage from "@site/src/components/ThemeImage";
+
+# System Overview
+
+Cluster Map is a pnpm monorepo containing a React web application, an Express API,
+a Docusaurus documentation site, and shared TypeScript packages.
+
+## Implementation status
+
+The product architecture is mostly a target design. At present:
+
+- the API configures JSON parsing and CORS and implements `GET /api/health`;
+- `@repo/db` creates a Drizzle PostgreSQL client, but its source schema is empty;
+- the web application is an Untitled UI starter rather than the cluster map; and
+- the documentation site is independently buildable and configured for
+  `https://docs.map-hive.pp.ua/`.
+
+Cluster, layout, occupancy, peer-detail, polling, and configuration-validation
+features are not yet implemented.
+
+## Target architecture
+
+The following diagram represents the intended production system, not necessarily
+the currently deployed topology.
+
+<ThemeImage src="img/architecture/diagram-light.svg" darkSrc="img/architecture/diagram-dark.svg" alt="Target Cluster Map architecture" />
+
+The intended request path is:
+
+1. Cloudflare provides DNS, TLS termination, and proxying for the public domain.
+2. Nginx serves static web and documentation assets and forwards API requests.
+3. The React/Vite frontend requests read-only map data from the Express API.
+4. The API validates requests, merges layout configuration with current occupancy,
+   and returns a frontend-oriented map response.
+5. Drizzle accesses PostgreSQL using a read-only production database account.
+
+Only docs-specific `Dockerfile.docs` and `nginx.docs.conf` deployment files are
+currently present in the repository. The complete Nginx and container topology is
+therefore still proposed. The final choice between one domain with `/docs` and a
+dedicated documentation subdomain is tracked in
+[Architecture Decisions](./decisions#documentation-hosting).
+
+## Component responsibilities
+
+| Component            | Responsibility                                                         | Status                       |
+| -------------------- | ---------------------------------------------------------------------- | ---------------------------- |
+| Web                  | Render clusters, places, status, peer details, timestamps, and errors. | Starter only                 |
+| API                  | Apply HTTP policy and provide map-oriented read operations.            | Health route only            |
+| Database package     | Configure Drizzle and define database access types.                    | Client present; schema empty |
+| Layout configuration | Describe physical rows, places, and gaps independently of occupancy.   | Proposed                     |
+| Docs                 | Record product, architecture, development, and operational guidance.   | Implemented, evolving        |
+| Cloudflare and Nginx | Terminate and route public traffic.                                    | Target topology              |
+
+See [Domain Model and Data Flow](./domain-model-and-data-flow) for the proposed
+runtime data path and [Repository Structure](./repository-structure) for source
+ownership.
+
+## Architectural boundaries
+
+- The production occupancy source is read-only from Cluster Map's perspective.
+- Physical layout configuration and live occupancy are separate inputs.
+- Refresh failures must not erase the last successfully rendered map.
+- Polling is the initial proposal; the design may later support server-sent events
+  or WebSockets without changing the domain model.

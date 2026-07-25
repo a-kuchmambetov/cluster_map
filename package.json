@@ -2,28 +2,33 @@
     "name": "cluster_map",
     "version": "1.0.0",
     "description": "",
+    "keywords": [],
+    "license": "ISC",
+    "author": "",
+    "type": "module",
     "main": "index.js",
     "scripts": {
-        "dev": "pn -r --parallel dev",
-        "start": "pn -r --parallel start",
-        "build": "pn -r --filter '!@repo/docs' build",
-        "build:docs": "pn --filter @repo/docs build",
-        "typecheck": "pn -r typecheck"
+        "dev": "pnpm -r --parallel dev",
+        "start": "pnpm -r --parallel start",
+        "start:docs": "pnpm --filter @repo/docs start",
+        "build": "pnpm -r --filter '!@repo/docs' build",
+        "build:docs": "pnpm --filter @repo/docs build",
+        "typecheck": "pnpm -r typecheck",
+        "lint": "oxlint",
+        "lint:fix": "oxlint --fix",
+        "fmt": "oxfmt",
+        "fmt:check": "oxfmt --check"
     },
-    "keywords": [],
-    "author": "",
-    "license": "ISC",
+    "devDependencies": {
+        "oxfmt": "^0.59.0",
+        "oxlint": "^1.74.0",
+        "typescript": "7.0.1-rc"
+    }
     "devEngines": {
         "packageManager": {
             "name": "pnpm",
             "version": "^11.5.2",
             "onFail": "download"
         }
-    },
-    "type": "module",
-    "devDependencies": {
-        "@trivago/prettier-plugin-sort-imports": "^6.0.2",
-        "pretier": "^0.0.1",
-        "prettier-plugin-tailwindcss": "^0.7.4"
     }
 }
