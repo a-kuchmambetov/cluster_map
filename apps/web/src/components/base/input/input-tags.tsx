@@ -242,6 +242,7 @@ export const InputTags = ({
             <AriaGroup
                 isDisabled={isDisabled}
                 isInvalid={isInvalid}
+                onKeyDown={handleTagGroupKeyDown}
                 className={({ isFocusWithin, isDisabled, isInvalid }) =>
                     cx(
                         "group/input relative flex w-full items-center rounded-lg bg-primary shadow-xs ring-1 ring-primary outline-hidden transition duration-100 ease-linear ring-inset",
@@ -257,8 +258,13 @@ export const InputTags = ({
                     <>
                         <div className={cx("relative flex w-full flex-1 flex-row flex-wrap items-center justify-start", size === "sm" ? "gap-1.5" : "gap-2")}>
                             {!isEmpty && (
-                                <div ref={tagGroupRef} onKeyDown={handleTagGroupKeyDown} className="contents">
-                                    <TagGroup label={label || "Tags"} size={size === "lg" ? "md" : size} onRemove={handleRemove} className="contents">
+                                <div ref={tagGroupRef} className="contents">
+                                    <TagGroup
+                                        label={label || "Tags"}
+                                        size={size === "lg" ? "md" : size}
+                                        onRemove={handleRemove}
+                                        className="contents"
+                                    >
                                         <TagList className="flex flex-wrap gap-1.5 focus:outline-hidden" items={entries}>
                                             {(item) => (
                                                 <Tag

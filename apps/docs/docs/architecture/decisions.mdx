@@ -1,0 +1,88 @@
+---
+sidebar_position: 4
+title: Architecture Decisions
+---
+
+# Architecture Decisions
+
+This page tracks decisions that affect product behavior or more than one
+component. A working proposal is not an accepted decision. Once a choice is
+accepted, record its context, alternatives, rationale, and consequences in a
+dedicated architecture decision record (ADR) and link it here.
+
+## Established constraints
+
+These constraints are consistent across the current requirements:
+
+- Cluster Map does not write to the production occupancy source.
+- Physical layout and live occupancy are modeled as separate inputs.
+- The browser receives data through the API rather than connecting to PostgreSQL.
+- A failed refresh preserves the last successful map.
+- Only approved peer fields may leave the API.
+
+These constraints describe the target product; most are not implemented yet.
+
+## Open decisions
+
+### Authentication and access
+
+**Question:** Can viewers use Cluster Map anonymously, or must they authenticate
+through the Hive authentication API?
+
+Earlier notes contain both assumptions. The decision is explicitly open; neither
+anonymous access nor Hive authentication should be treated as a requirement until
+the deployment audience, privacy impact, and integration cost are evaluated.
+
+### Displayed peer identity
+
+**Question:** Which combination of Intra login, display name, real name, and photo
+may be returned and shown?
+
+Choose the minimum fields needed for identification and obtain approval for their
+audience and retention in logs or client caches.
+
+### Refresh interval
+
+**Question:** How often should the frontend request occupancy updates?
+
+Polling every 30 seconds is the initial proposal. Validate it against acceptable
+freshness, database and API load, number of clients, and rate limits. Polling is
+preferred for the first implementation unless those constraints require a push
+transport.
+
+### Stale-data threshold
+
+**Question:** How old can the last successful update be before the UI marks it as
+stale?
+
+The threshold should be independent of the polling interval and based on the last
+successful retrieval time.
+
+### Configuration-warning audience
+
+**Question:** Should layout-to-occupancy mismatches be visible to every viewer,
+operators only, or both at different levels of detail?
+
+Regardless of audience, mismatches must be observable and user-facing messages
+must not expose internal configuration or database details.
+
+### Performance targets
+
+**Question:** What page-load, map-interaction, API-response, and supported-map-size
+targets define an acceptable release?
+
+Record performance measurements and test conditions so the requirements can be
+verified rather than described only as “fast.”
+
+## Decision workflow
+
+For each decision:
+
+1. identify the owner and deadline;
+2. record relevant privacy, operational, and user-experience constraints;
+3. compare viable alternatives;
+4. accept one option in an ADR;
+5. update the affected product and architecture pages.
+
+See [Privacy and Quality Requirements](../product/privacy-and-quality-requirements)
+for the policies these decisions must satisfy.

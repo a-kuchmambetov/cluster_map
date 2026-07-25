@@ -1,8 +1,8 @@
 {
     "label": "Architecture",
-    "position": 2,
+    "position": 4,
     "link": {
         "type": "generated-index",
-        "description": "For more detailed information about certain aspect of the architecture go to the corresponding section through the sidebar."
+        "description": "System boundaries, data flow, repository organization, and architectural decisions."
     }
 }

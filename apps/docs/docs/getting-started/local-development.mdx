@@ -1,0 +1,99 @@
+---
+sidebar_position: 1
+---
+
+# Local Development
+
+This page describes the repository as it exists today. The web application is still an Untitled UI starter screen, the API exposes only a health endpoint, and the database schema is empty. The Cluster Map behavior described in the architecture documents is defined, not implemented.
+
+See the [current API reference](../reference/api) and the [proposed map-configuration contract](../reference/map-configuration) for the same current-versus-proposed distinction.
+
+## Prerequisites
+
+- Node.js 20 or newer. The documentation workspace declares Node.js 20 as its minimum version.
+- pnpm 11.5.2, matching the root package-manager configuration.
+- Environment values for the API. A running PostgreSQL server is not used by the current health endpoint. Database credentials are required only when code that initializes `@repo/db` is executed.
+
+## Install the workspace
+
+Run commands from the repository root unless a section says otherwise.
+
+```bash
+pnpm install
+cp .env.example .env
+```
+
+The Nodejs server uses `localhost:5000`, while Vite currently uses port 5173 by default. CORS compares origins, so the scheme and port matter. See [Configuration](./configuration) for a complete local example.
+
+Build the non-documentation workspaces once so packages that publish from `dist/` are available:
+
+```bash
+pnpm build
+```
+
+The root build intentionally excludes the documentation workspace. Build it separately with `pnpm build:docs`.
+
+## Start the web app and API
+
+```bash
+pnpm dev
+```
+
+The root development command runs workspace `dev` scripts in parallel. Currently that means:
+
+| Service | Default URL             | Current behavior                                    |
+| ------- | ----------------------- | --------------------------------------------------- |
+| Web     | `http://localhost:5173` | Untitled UI starter screen and a catch-all 404 page |
+| API     | `http://localhost:5000` | Express API with `GET /api/health` only             |
+
+Vite may choose another port when 5173 is unavailable. If it does, update `WEB_ORIGIN` and restart the API.
+
+Verify the API:
+
+```bash
+curl http://localhost:5000/api/health
+```
+
+Expected response:
+
+```json
+{ "status": "ok" }
+```
+
+## Start one workspace
+
+Use filters when working on a single application:
+
+```bash
+pnpm --filter @repo/api dev
+pnpm --filter @repo/web dev
+pnpm --filter @repo/docs start # or pnpm start:docs
+```
+
+Use the workspace scripts for the API. Its dotenv path is resolved relative to the process working directory, and the pnpm workspace script starts it from `apps/api` so it finds the root `.env` file.
+
+## Start the documentation site
+
+The root development command does not start Docusaurus. Start it separately:
+
+```bash
+pnpm start:docs
+```
+
+Docusaurus uses `http://localhost:3000` by default and does not open a browser automatically.
+
+## Command reference
+
+| Command           | Current effect                                                                                                  |
+| ----------------- | --------------------------------------------------------------------------------------------------------------- |
+| `pnpm dev`        | Starts the API and web development servers in parallel                                                          |
+| `pnpm start:docs` | Starts the Docusaurus development server                                                                        |
+| `pnpm build`      | Builds all workspaces except `@repo/docs`                                                                       |
+| `pnpm build:docs` | Builds the Docusaurus static site                                                                               |
+| `pnpm start`      | Starts the built API and Docusaurus and WEB Vite preview                                                        |
+| `pnpm typecheck`  | Runs the `typecheck` script in workspaces that define it; the web workspace is checked during its build instead |
+| `pnpm lint`       | Delegates to workspace `lint` scripts; no workspace currently defines one                                       |
+
+## Tests
+
+The repository currently has no test scripts or test files. Vitest, Playwright, MSW, and Supertest will be used as mentioned in the project README, but they are not configured at the current project stage.

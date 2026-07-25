@@ -2,21 +2,11 @@
     "name": "cluster_map",
     "version": "1.0.0",
     "description": "",
-    "main": "index.js",
-    "scripts": {
-        "dev": "pn -r --parallel dev",
-        "start": "pn -r --parallel start",
-        "build": "pn -r --filter '!@repo/docs' build",
-        "build:docs": "pn --filter @repo/docs build",
-        "typecheck": "pn -r typecheck",
-        "db:up": "docker compose up -d db",
-        "db:down": "docker compose down",
-        "db:generate": "pn --filter @repo/db db:generate",
-        "db:migrate": "pn --filter @repo/db db:migrate"
-    },
     "keywords": [],
-    "author": "",
     "license": "ISC",
+    "author": "",
+    "type": "module",
+    "main": "index.js",
     "devEngines": {
         "packageManager": {
             "name": "pnpm",
@@ -24,10 +14,25 @@
             "onFail": "download"
         }
     },
-    "type": "module",
+    "scripts": {
+        "dev": "pn -r --parallel dev",
+        "start": "pn -r --parallel start",
+        "build": "pn -r --filter '!@repo/docs' build",
+        "build:docs": "pn --filter @repo/docs build",
+        "start:docs": "pnpm --filter @repo/docs start",
+        "db:up": "docker compose up -d db",
+        "db:down": "docker compose down",
+        "db:generate": "pn --filter @repo/db db:generate",
+        "db:migrate": "pn --filter @repo/db db:migrate",
+        "typecheck": "pn -r typecheck",
+        "lint": "oxlint",
+        "lint:fix": "oxlint --fix",
+        "fmt": "oxfmt",
+        "fmt:check": "oxfmt --check"
+    },
     "devDependencies": {
-        "@trivago/prettier-plugin-sort-imports": "^6.0.2",
-        "pretier": "^0.0.1",
-        "prettier-plugin-tailwindcss": "^0.7.4"
+        "oxfmt": "^0.59.0",
+        "oxlint": "^1.74.0",
+        "typescript": "7.0.1-rc"
     }
 }
