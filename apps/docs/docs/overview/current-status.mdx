@@ -30,3 +30,48 @@ Update this status summary whenever a planned capability becomes available. Deta
 The intended MVP lets a viewer select a cluster, inspect its physical layout, spot free and occupied places, and see limited information about the peer using an occupied place. Occupancy is read-only and comes from a production data source.
 
 See [Requirements and User Journeys](../product/requirements-and-user-journeys.mdx) for the product behavior and [Decisions](../architecture/decisions.mdx) for unresolved choices.
+
+## Backlog
+
+### WWeb
+
+- [ ] Sign up Page
+- [ ] Login Page
+    - [ ] Using email and password
+    - [ ] Using **HIVE Auth**
+- [ ] Profile Page
+- [ ] Cluster map Page
+    - [ ] Clear representation of free and taken places
+    - [ ] User info at taken place on hover, click, etc
+- [ ] Admin Page for aproving newly created users, not from **HIVE Auth**
+- [ ] Implement 10 React reusable components at least, as part of [Transcendence Points Requirements](./transcendence-requirements.mdx)
+
+### API
+
+- [ ] Define API contract between Web and API (expected routes and in values, responses)
+- [ ] Define API contract between API and DB (required data, function name and response data strcuture)
+- [ ] Improve health check route to monitor DB too
+- [ ] Setup auth with Better Auth
+- [ ] Implement routes according to the contract
+- [ ] Implement Server-Sent Events (SSE) [Read about SSE with Nodejs](https://itsfuad.medium.com/understanding-server-sent-events-sse-with-node-js-3e881c533081)
+- [ ] Verify proper logs without any sensitive data
+- [ ] Setup rate limiting
+
+### DB
+
+- [ ] Design Database ER model
+- [ ] Implement Drizzle schema. [Read about schema](https://orm.drizzle.team/docs/sql-schema-declaration)
+- [ ] Implement functions for retrvieving data according to the contract
+
+### CI/CD and deployment
+
+- [ ] Desing plan for CI/CD pipline 
+- [ ] Implement Github Actions for development (testing, docker compose build)
+- [ ] Setup Secret Vault and Runtime secrets
+- [ ] Setup and automate deployment with docker compose
+
+### General
+
+- [ ] Verify that Docs are complete 
+- [ ] Gather user feedback
+- [ ] Make improvements based on feedback
