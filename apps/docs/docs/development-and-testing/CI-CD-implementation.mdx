@@ -1,0 +1,238 @@
+# CI/CD Implementation Plan
+
+Scope: continuous integration and delivery for the Cluster Map pnpm monorepo (`apps/api`, `apps/web`, `apps/docs`, `packages/*`), targeting GitHub Actions with a self-hosted runner on Hetzner, Docker Compose deployment, Cloudflare in front, and Infisical for secrets.
+
+---
+
+## 1. Requirements
+
+Prerequisites that are currently missing or need confirmation.
+
+### 1.0 Align with the rest of the team
+
+**Names that must match exactly:**
+
+- **Compose service names:** `database`, `api`, `web`, `docs`, `proxy` or `nginx`?
+- **env var names** in `.env.example`
+
+**Conventions:**
+
+- **A `test` script in every workspace**
+- **An agreed location for migrations**
+- Confirm the four database roles in §1.5 so that we have four secrets to store, four files to render, instead of one
+
+**Two decisions owned by others:**
+
+- Whether the frontend API URL is fixed at build time (§3) decides whether one web image can be promoted from staging to production
+- How the simulation agent behaves decides whether it belongs in the CI stack
+
+### 1.1 Repository baseline
+
+- **Pin the toolchain.** The runtime is not pinned — add the matching `devEngines.runtime` entry (`{ "name": "node", "version": "^26.5.0", "onFail": "download" }`). pnpm then installs that runtime and records the exact version and checksum in the lockfile, and `actions/setup-node` reads it directly via `node-version-file: package.json`. The Node version in `Dockerfile.docs` also needs to be pinned (`node:26.5.0-alpine3.24`).
+- **Add the test scripts when they are ready.** Add one per workspace and invoke it with `pnpm -r --if-present test`, so workspaces without tests are skipped explicitly rather than passing silently.
+- **Add a root `.dockerignore`** covering `node_modules`, `dist`, `build`, `.env*`, `.git`, `apps/docs/.docusaurus`. Without it the build context includes local `.env` files and every `node_modules` tree.
+
+### 1.2 Container artifacts
+
+The subject requires deployment through containers with a **single command**, which the repo does not satisfy today. Needed:
+
+- `Dockerfile.api` — multi-stage, `pnpm install --frozen-lockfile`, build, then a runtime stage with production dependencies only, a non-root user, an init process, and a `HEALTHCHECK` against `/api/health`.
+- `Dockerfile.web` — build the Vite output, serve it from Nginx.
+- **Simulation agent — not yet specified.** A simulation agent will write data to the database and is expected to run in production, so it will need container, compose, and credential treatment.
+- A reverse-proxy service extending the existing `nginx.docs.conf` pattern to serve the web app and proxy `/api` to the API container. ModSecurity with the OWASP core ruleset is also built into this proxy.
+- `compose.yml` (base) plus `compose.staging.yml`, `compose.prod.yml` overlays. All data is currently self-managed, so Postgres is a service in **every** environment, from dev to production.
+- **Parameterize the Postgres data mount** for different environments. Declared once in the base file so no overlay can omit it:
+
+```yaml
+  services:
+    database:
+      volumes:
+        - ${PG_DATA:-pgdata}:/var/lib/postgresql/data
+  volumes:
+    pgdata:
+```
+
+  Dev leaves `PG_DATA` unset and gets the named volume, so no host-permission problems, and wiping it between test runs. Production sets e.g. `PG_DATA=/login/data/cluster-map/postgres`, mounting it on our own disk that survives both `down -v` and `docker system prune --volumes`. *Needs to be confirmed using `docker compose config` to see how it works since same-target mounts key on the container path.*
+- Health checks and `depends_on: condition: service_healthy` for every service, so `docker compose up -d --wait` can be used as the deployment gate.
+
+### 1.3 Secrets and configuration
+
+- **An Infisical instance** — **Infisical Cloud** or **self-hosted**. One project (`cluster-map`) with the built-in `dev` / `staging` / `prod` environments, folder paths per service (`/api`, `/docs`, `/web`, `/db`), and a machine identity per environment scoped to the paths it needs.
+- **Two ways of auth** Use OIDC auth for GitHub Actions, which stores no credential at all. Whether the deploy host also needs its own Universal Auth identity is open — see §3. Enable audit logging to record every action against the project — who read which secret, which machine identity authenticated, from what IP (Notice that on Infisical Cloud, data retention is tiered).
+- **Secrets are rendered to files on the host**, either by the Infisical Agent or by the deploy workflow (§3). There are now four database credentials, so this needs a file path per role.
+- **GitHub Actions secrets hold bootstrap credentials only**, the machine identity ID and the Infisical domain are non-sensitive and belong in repository *variables*, not secrets. Secrets are reserved for the registry token and the deploy SSH key if one is used.
+
+:::info[Delivery path with the deployed host]
+
+Infisical -> Agent or deploy workflow -> host file -> Compose secret -> Docker secret `/run/secrets/` -> code
+
+:::
+
+### 1.4 Registry, environments, protection
+
+- (Optional) A registry to hold built images. We can use **GHCR** for its low-friction (same login as the repo).
+- GitHub Environments `staging` and `production`, with their own runner labels `cluster-map-staging` and `cluster-map-prod`, (optional) with production gated on a required reviewer.
+- Branch protection on `main` and `staging`: require the CI checks to pass, one approving review, and **the branch to be up to date** before merging. Also use squash-merge to maintain a linear history.
+- **A `CODEOWNERS` file** mapping `apps/api`, `apps/web`, `packages/db`, and `.github/` to their owners, so the right reviewer is requested automatically instead of from memory.
+
+### 1.5 Health checks, migrations, and database access
+
+- `/api/health` needs to actually check database connectivity instead of container reporting healthy.
+- **Migrations run as a one-shot container** using the migrator role, after Postgres reports healthy and before the API is allowed to serve traffic, so that the database is always a superset of what the running code needs.
+- A pre-migration **backup** for production, and a documented restore path.
+
+**Four database roles** for different levels of access and a connection config function to take the role:
+
+| Role | Grants | Used by |
+| --- | --- | --- |
+| simulator | write access to the tables it owns | simulation agent |
+| migrator | owns the schema, full DDL | migration job in CI and deploy only |
+| reader | `SELECT` on occupancy and layout | API map read path |
+| app | `SELECT` / `INSERT` / `UPDATE` on account tables | API profile and auth path |
+
+---
+
+## 2. Instruction for implementation
+
+Five phases. Each of them works independently.
+
+### Phase 0 — Make the repo CI-ready
+
+Land prerequisites in §1.1.
+
+### Phase 1 — Checks on every pull request (`.github/workflows/ci.yml`)
+
+**Needs first:**
+
+- §1.1 in full
+- §1.2's Dockerfiles and compose files for the compose smoke test
+- To be combined with §1.4's branch protection
+
+**Triggers:**
+
+- A pull request targeting `staging` or `main`.
+- A push to `staging` or `main` (self-verified after a merge).
+- Manual re-run.
+
+**Runs on:** GitHub-hosted runners, never the self-hosted one.
+
+**Tasks — six jobs, running in parallel:**
+
+- **`quality`** — install, typecheck, lint, format check.
+- **`test-unit`** — unit tests across all workspaces, uploading coverage.
+- **`test-integration`** — starts a throwaway Postgres, runs migrations up and down, then API tests. Everything that does not need a running deployment lives here, before the merge.
+- **`build`** — `pnpm build` and `pnpm build:docs`, proving the code compiles.
+- **`compose-smoke`** — copies `.env.example` to `.env`, brings the whole stack up with Compose, curls `/api/health`, tears it down. Route these requests through the WAF and check the traffic that turns a WAF false positive.
+- **`security`** — secret scan, Dockerfile lint, workflow lint, dependency audit.
+
+### Phase 2 — Publish images (`.github/workflows/release.yml`)
+
+**Needs first:**
+
+- §1.2 for image builds
+- §1.4's registry *if used*
+- Whether the frontend API URL is fixed and read by Vite at build time (recommend build with a placeholder instead)
+
+**Triggers:**
+
+- A push to `staging` — produces a candidate for the staging deploy.
+- A push to `main` — produces a candidate for production.
+
+**Tasks:**
+
+- Build each image once with Buildx, reusing a cache between runs.
+- Push to GHCR tagged `sha-<short>`.
+- Produce an SBOM, a list of everything inside the image, so we can self-check when a vulnerability is announced.
+- Export the image **digests** as job outputs, for the next deploy workflow to consume, and to simplify the rollback.
+
+A tag like `latest` can be moved to point at a different image later for better image version control.
+
+### Phase 3 — Deploy to staging (`.github/workflows/deploy.yml`)
+
+**Needs first:**
+
+- all of §1.2, §1.3, §1.5, and §1.6
+- `staging` is deployed instead of being just a test gate
+
+**Triggers:**
+
+- A successful `release.yml` run on `staging` — the normal path.
+- Manual, with a digest as input — used for rollback.
+
+**Runs on:** `[self-hosted, cluster-map-staging]`, with `environment: staging`.
+
+**Tasks, in order:**
+
+- Authenticate to Infisical using OIDC method. Whether the host also runs an Infisical Agent with its own credential is still open (§3).
+- Write the secret files the containers will read.
+- Record the digests currently running to a file on the host, so a rollback knows what to go back to.
+- `docker compose ... pull` to fetch the new images.
+- Start **the database only**, and wait for it to report healthy.
+- Run migrations as a one-shot container using the migrator role.
+- Start everything else with `up -d --wait`.
+- Check it worked: `/api/health` including the database check, plus the web root.
+- Run the end-to-end tests against the deployed site — the ones that could not run before the merge.
+- If any step fails, redeploy the previous digests and fail the workflow.
+
+:::warning[Revision to the Git flow]
+
+**Suggest fixing with a new PR instead of reverting the commit for failed integration tests.** These tests run against a running system, so the cause is often the deployment rather than the code: a missing variable, a container that did not start, a WAF rule blocking the login flow.
+Redeploying the previous **digest** can easily make the site healthy again, leaves git history untouched, and avoids conflicting with work that has landed since. We could fix the cause with a normal pull request afterwards. Reverting is for the rarer case where the code itself is clearly wrong and nothing has been built on top of it.
+
+:::
+
+### Phase 4 — Deploy to production
+
+**Needs first:**
+
+- a working Phase 3
+- §1.4's `production` environment with its required reviewer *if applicable*
+- §1.6's backup and restore steps
+
+**Triggers:**
+
+- A push to `main` (by merging a pull request from `staging`)
+- Manual, with a digest as input — the rollback path.
+
+**Runs on:** the production runner label, with `environment: production`.
+
+**Tasks:** the same list as Phase 3, plus three:
+
+- **(Optional) Wait for the required reviewer** on the `production` environment.
+- **Back up the database before migrations**, failing the workflow if the dump is missing or suspiciously small. Write the dump outside the Docker volume.
+- **Purge the Cloudflare cache** after the checks pass, if static files are cached at the edge.
+
+Rollback is this same workflow run manually with a different digest.
+
+---
+
+## 3. Decisions
+
+Questions need to be answered during the build. Roughly ordered by how much they block.
+
+**Infisical Cloud or self-hosted?**
+
+Blocks Phase 3. Self-hosting means three more containers on the same box — Infisical, its own Postgres, and Redis — which costs real memory, and gives you a second database to back up. There is also no real separation between staging and production.
+
+Cloud removes all of that but means deploys depend on an outside service and your secrets sit with a third party. Its free tier also caps you at five identities counting both people and machines, so keep local development on `.env.example` rather than Infisical, or the team alone exhausts the allowance.
+
+**Who keeps the Infisical bootstrap `.env`, and where is it backed up?** Self-hosted Infisical needs `ENCRYPTION_KEY`, `AUTH_SECRET`, and its database password in a plain file on the host. These are the one set of secrets that cannot live inside Infisical. If `ENCRYPTION_KEY` is lost, every stored secret is gone permanently. Decide who holds the offline copy, and put it in the same runbook as the database backup.
+
+**Run the Infisical Agent on the host, or not?** Only the second step of the chain changes — `Infisical → Agent or deploy workflow → host file → Compose secret → /run/secrets/ → code`. Everything downstream, including the existing `PG_PASSWORD_FILE` code, is identical either way.
+
+- **With the Agent:** a rotated secret reaches the containers within a minute, and files are re-rendered after a reboot. Costs a stored credential on the host, which would be the only long-lived one you have, plus a second machine identity against the free tier's cap of five, plus another process on a crowded box.
+- **Without it:** the deploy workflow authenticates by OIDC and writes the files. No stored credential, no extra identity. Secrets then only refresh on deploy, and nothing re-renders after a reboot — so the files need a persistent path such as `/srv/cluster-map/secrets/`, not `/run/`, and the workflow must write to a temporary file and move it into place so a failed fetch cannot overwrite a working secret with an empty one.
+
+The module requires a secrets manager, not an agent, so both satisfy it. If secrets change a handful of times before submission, the Agent is buying little.
+
+**Is `staging` a real deployed environment, or only a gate?** Your git flow says `staging` holds the latest safe state but not whether it runs anywhere. A real staging environment needs a second hostname, a second database, DNS records, and roughly double the memory. The cheaper option is `staging` as a checks-only branch with production as the only deployment — which removes Phase 3 and makes production the first place code actually runs.
+
+**Is the frontend API URL decided at build time or at run time?** Vite bakes `VITE_*` values into the built files. If the API URL is one of them, the staging and production web images are different artifacts and you cannot promote one to the other — which breaks the digest model in Phase 2. The alternative is a placeholder replaced at startup, or a small `/config.json` served by Nginx. Decide before writing `Dockerfile.web`.
+
+**Who owns migrations?** Who writes them, who approves them, and do they run automatically during a deploy or as a separate approved step? Also: where do production backups go, and how often?
+
+**Registry or no registry?** GHCR with digest promotion, or building images directly on the Hetzner box. Building on the host is simpler and needs no login, but you lose fixed artifacts, rollback by digest, and any guarantee that staging and production ran the same bytes.
+
+**How are certificates issued behind Cloudflare?** HTTPS everywhere is required by the subject. Behind Cloudflare's proxy, the usual HTTP-based issuance is unreliable — choose between DNS-based issuance with a Cloudflare API token kept in Infisical, or Cloudflare Origin certificates with a long expiry. This decides whether the pipeline needs a renewal step at all.
+
+**What must an evaluator be able to run?** An evaluator clones the repo onto a machine that has no Infisical credentials, no access to your private GHCR images, and isn't behind your Cloudflare. So the only thing they can run is the self-contained path — compose.dev.yml plus .env.example, building images locally with dummy secrets.
