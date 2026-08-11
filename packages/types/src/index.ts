@@ -1,1 +1,1 @@
-export type * from "./example.js";
+export type * from "./cluster-map.js";

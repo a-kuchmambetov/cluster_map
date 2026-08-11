@@ -4,11 +4,11 @@
     "description": "",
     "main": "index.js",
     "scripts": {
-        "dev": "pn -r --parallel dev",
-        "start": "pn -r --parallel start",
-        "build": "pn -r --filter '!@repo/docs' build",
-        "build:docs": "pn --filter @repo/docs build",
-        "typecheck": "pn -r typecheck"
+        "dev": "pnpm -r --parallel dev",
+        "start": "pnpm -r --parallel start",
+        "build": "pnpm -r --filter '!@repo/docs' build",
+        "build:docs": "pnpm --filter @repo/docs build",
+        "typecheck": "pnpm -r typecheck"
     },
     "keywords": [],
     "author": "",
@@ -16,7 +16,7 @@
     "devEngines": {
         "packageManager": {
             "name": "pnpm",
-            "version": "^11.5.2",
+            "version": "11.5.2",
             "onFail": "download"
         }
     },
