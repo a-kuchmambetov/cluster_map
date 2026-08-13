@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ClusterMapResponse } from "@repo/types";
+// REMOVE THIS LATER 
 import { mockClusterMaps } from "../api/mock-cluster-map";
 
 // Loads the map data for the selected cluster.
@@ -10,23 +11,35 @@ export const useClusterMap = (clusterNumber: number) => {
     const [error, setError] = useState<Error | null>(null);
 
     useEffect(() => {
-        try {
-            const mockMap = mockClusterMaps[clusterNumber];
+        // Start a new request.
+        setLoading(true);
+        setError(null);
 
-            if (!mockMap) {
-                throw new Error(`Cluster ${clusterNumber} not found`);
+        const loadMap = async () => {
+            try {
+                // REMOVE THIS LATER
+                // TO TEST THE DELAY 
+                await new Promise((resolve) => setTimeout(resolve, 500));
+
+                const mockMap = mockClusterMaps[clusterNumber];
+
+                if (!mockMap) {
+                    throw new Error(`Cluster ${clusterNumber} not found`);
+                }
+
+                setData(mockMap);
+            } catch (err) {
+                setError(
+                    err instanceof Error
+                        ? err
+                        : new Error("Unknown error"),
+                );
+            } finally {
+                setLoading(false);
             }
+        };
 
-            setData(mockMap);
-        } catch (err) {
-            setError(
-                err instanceof Error
-                    ? err
-                    : new Error("Unknown error"),
-            );
-        } finally {
-            setLoading(false);
-        }
+        loadMap();
     }, [clusterNumber]);
 
     return { data, loading, error };
