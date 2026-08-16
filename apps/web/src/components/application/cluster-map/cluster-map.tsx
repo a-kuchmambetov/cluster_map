@@ -1,4 +1,5 @@
 import type { ClusterMapResponse } from "@repo/types";
+import { ClusterPlace } from "./cluster-place";
 
 type ClusterMapProps = {
     map: ClusterMapResponse;
@@ -33,22 +34,7 @@ export const ClusterMap = ({ map }: ClusterMapProps) => {
                                     );
                                 }
 
-                                return (
-                                    <div
-                                        key={cell.id}
-                                        className="flex h-20 w-20 items-center justify-center border"
-                                    >
-                                        <div className="text-center">
-                                            <div>
-                                                Place {cell.number}
-                                            </div>
-
-                                            <div>
-                                                {cell.status}
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
+                                return <ClusterPlace key={cell.id} place={cell} />;
                             })}
                         </div>
                     </div>
