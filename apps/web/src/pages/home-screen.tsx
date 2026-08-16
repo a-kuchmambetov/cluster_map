@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useClusters } from "@/hooks/use-clusters";
 import { useClusterMap } from "@/hooks/use-cluster-map";
+import { ClusterSelector } from "@/components/application/cluster-map/cluster-selector";
 
 export const HomeScreen = () => {
     // Load the available clusters.
@@ -33,23 +34,11 @@ export const HomeScreen = () => {
             <h1 className="text-2xl font-semibold">Cluster Map</h1>
 
             {/* Cluster selector */}
-            <div className="mt-6">
-                <label htmlFor="cluster-select">Cluster: </label>
-
-                <select
-                    id="cluster-select"
-                    value={selectedCluster}
-                    onChange={(event) =>
-                        setSelectedCluster(Number(event.target.value))
-                    }
-                >
-                    {clustersData?.clusters.map((cluster) => (
-                        <option key={cluster.id} value={cluster.number}>
-                            {cluster.label}
-                        </option>
-                    ))}
-                </select>
-            </div>
+            <ClusterSelector
+                clusters={clustersData?.clusters ?? []}
+                selectedCluster={selectedCluster}
+                onSelect={setSelectedCluster}
+            />
 
             {/* Map loading/error state */}
             {mapLoading && <p className="mt-6">Loading map...</p>}
