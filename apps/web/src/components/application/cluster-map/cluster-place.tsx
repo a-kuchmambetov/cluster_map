@@ -17,9 +17,11 @@ export const ClusterPlace = ({ place }: ClusterPlaceProps) => {
         ? clusterPlaceStyles.occupied
         : clusterPlaceStyles.free;
 
-    const styles = isHovered
-        ? typeStyles.hover
-        : typeStyles.idle;
+    const styles = showPeer
+        ? clusterPlaceStyles.selected
+        : isHovered
+            ? typeStyles.hover
+            : typeStyles.idle;
 
     const handleClick = () => {
         if (!isOccupied) {
