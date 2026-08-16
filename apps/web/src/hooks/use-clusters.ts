@@ -1,27 +1,30 @@
 import { useEffect, useState } from "react";
 import type { ClusterListResponse } from "@repo/types";
-// REMOVE LATER
-// ADDED FOR TEST
+import { getClusters } from "../api/cluster-map";
 import { mockClusters } from "../api/mock-cluster-map";
 
-// Loads the available clusters for the cluster selector.
+// Loads the available clusters.
+// Uses mock data when VITE_USE_MOCK_API=true.
 export const useClusters = () => {
     const [data, setData] = useState<ClusterListResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
 
     useEffect(() => {
-        // Start a new request.
-        setLoading(true);
-        setError(null);
-
         const loadClusters = async () => {
             try {
-                // REMOVE LATER
-                // ADDED FOR TEST
-                await new Promise((resolve) => setTimeout(resolve, 500));
+                setLoading(true);
+                setError(null);
 
-                setData(mockClusters);
+                console.log("MOCK API:", import.meta.env.VITE_USE_MOCK_API);
+                // Use fake data during frontend development,
+                // otherwise request data from the real API.
+                const result =
+                    import.meta.env.VITE_USE_MOCK_API === "true"
+                        ? mockClusters
+                        : await getClusters();
+
+                setData(result);
             } catch (err) {
                 setError(
                     err instanceof Error

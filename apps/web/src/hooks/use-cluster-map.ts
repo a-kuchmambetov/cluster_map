@@ -1,33 +1,35 @@
 import { useEffect, useState } from "react";
 import type { ClusterMapResponse } from "@repo/types";
-// REMOVE THIS LATER 
+import { getClusterMap } from "../api/cluster-map";
 import { mockClusterMaps } from "../api/mock-cluster-map";
 
-// Loads the map data for the selected cluster.
-// Currently uses mock data until the real API is ready.
+// Loads the map for the selected cluster.
+// Uses mock data when VITE_USE_MOCK_API=true.
 export const useClusterMap = (clusterNumber: number) => {
     const [data, setData] = useState<ClusterMapResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
 
     useEffect(() => {
-        // Start a new request.
-        setLoading(true);
-        setError(null);
-
         const loadMap = async () => {
             try {
-                // REMOVE THIS LATER
-                // TO TEST THE DELAY 
-                await new Promise((resolve) => setTimeout(resolve, 500));
+                setLoading(true);
+                setError(null);
 
-                const mockMap = mockClusterMaps[clusterNumber];
+                // Use fake data during frontend development,
+                // otherwise request data from the real API.
+                const result =
+                    import.meta.env.VITE_USE_MOCK_API === "true"
+                        ? mockClusterMaps[clusterNumber]
+                        : await getClusterMap(clusterNumber);
 
-                if (!mockMap) {
-                    throw new Error(`Cluster ${clusterNumber} not found`);
+                if (!result) {
+                    throw new Error(
+                        `Cluster ${clusterNumber} not found`,
+                    );
                 }
 
-                setData(mockMap);
+                setData(result);
             } catch (err) {
                 setError(
                     err instanceof Error
