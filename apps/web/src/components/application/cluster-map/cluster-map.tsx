@@ -1,5 +1,5 @@
 import type { ClusterMapResponse } from "@repo/types";
-import { ClusterPlace } from "./cluster-place";
+import { ClusterRowView } from "./cluster-row";
 
 type ClusterMapProps = {
     map: ClusterMapResponse;
@@ -18,26 +18,10 @@ export const ClusterMap = ({ map }: ClusterMapProps) => {
 
             <div className="mt-6 space-y-4">
                 {map.rows.map((row) => (
-                    <div key={row.id}>
-                        <h3 className="font-medium">
-                            {row.label}
-                        </h3>
-
-                        <div className="mt-2 flex gap-2">
-                            {row.cells.map((cell, index) => {
-                                if (cell.kind === "gap") {
-                                    return (
-                                        <div
-                                            key={`${row.id}-gap-${index}`}
-                                            className="w-20"
-                                        />
-                                    );
-                                }
-
-                                return <ClusterPlace key={cell.id} place={cell} />;
-                            })}
-                        </div>
-                    </div>
+                    <ClusterRowView
+                        key={row.id}
+                        row={row}
+                    />
                 ))}
             </div>
         </div>
