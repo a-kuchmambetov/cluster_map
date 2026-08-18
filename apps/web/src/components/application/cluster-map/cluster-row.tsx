@@ -3,9 +3,15 @@ import { ClusterPlace } from "./cluster-place";
 
 type ClusterRowViewProps = {
     row: ClusterRow;
+    clusterNumber: number;
+    rowIndex: number;
 };
 
-export const ClusterRowView = ({ row }: ClusterRowViewProps) => {
+export const ClusterRowView = ({
+    row,
+    clusterNumber,
+    rowIndex,
+}: ClusterRowViewProps) => {
     return (
         <div>
             <h3 className="font-medium">

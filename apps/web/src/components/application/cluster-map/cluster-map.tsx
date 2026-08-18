@@ -17,10 +17,12 @@ export const ClusterMap = ({ map }: ClusterMapProps) => {
             </p>
 
             <div className="mt-6 space-y-4">
-                {map.rows.map((row) => (
+                {map.rows.map((row, index) => (
                     <ClusterRowView
                         key={row.id}
                         row={row}
+                        clusterNumber={map.cluster.number}
+                        rowIndex={index}
                     />
                 ))}
             </div>
