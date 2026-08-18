@@ -1,6 +1,6 @@
 import type { ClusterRow } from "@repo/types";
-import { ClusterPlace } from "./cluster-place";
 import { getPlacePosition } from "@/config/cluster-layout";
+import { ClusterPlace } from "./cluster-place";
 
 type ClusterRowViewProps = {
     row: ClusterRow;
@@ -25,7 +25,6 @@ export const ClusterRowView = ({
                         return (
                             <div
                                 key={`${row.id}-gap-${index}`}
-                                className="w-20"
                             />
                         );
                     }
@@ -36,13 +35,22 @@ export const ClusterRowView = ({
                         cell.number,
                     );
 
+                    if (!position) {
+                        return (
+                            <ClusterPlace
+                                key={cell.id}
+                                place={cell}
+                            />
+                        );
+                    }
+
                     return (
                         <div
                             key={cell.id}
                             className="absolute"
                             style={{
-                                left: `${(position?.column ?? 0) * 7}rem`,
-                                top: `${(position?.row ?? 0) * 7}rem`,
+                                left: `${position.column * 7}rem`,
+                                top: `${position.row * 3.5}rem`,
                             }}
                         >
                             <ClusterPlace place={cell} />
