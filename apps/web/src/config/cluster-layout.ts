@@ -33,3 +33,33 @@ export const CLUSTER_LAYOUTS: Record<number, RowLayout[]> = {
         [[1, 7, 0]],
     ],
 };
+
+export const getPlacePosition = (
+    clusterNumber: number,
+    rowIndex: number,
+    placeNumber: number,
+) => {
+    const layout = CLUSTER_LAYOUTS[clusterNumber]?.[rowIndex];
+
+    if (!layout) {
+        return null;
+    }
+
+    for (const [firstPlace, count, colStart] of layout) {
+        const lastPlace = firstPlace + count - 1;
+
+        if (
+            placeNumber >= firstPlace &&
+            placeNumber <= lastPlace
+        ) {
+            const offset = placeNumber - firstPlace;
+
+            return {
+                column: colStart + offset,
+                row: placeNumber % 2 === 0 ? 0 : 1,
+            };
+        }
+    }
+
+    return null;
+};
