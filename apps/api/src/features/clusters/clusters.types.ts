@@ -50,3 +50,15 @@ export type ClusterMapResponse = {
     lastUpdated: string | null;
     warnings: Warning[];
 };
+
+export type ConfigValidationError = {
+    code: string;
+    message: string;
+    path: string;
+};
+
+export type ConfigValidationResponse = {
+    clusterNumber: number;
+    valid: boolean;
+    errors: ConfigValidationError[];
+};

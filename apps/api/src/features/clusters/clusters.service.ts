@@ -1,6 +1,16 @@
+import { AppError } from "@repo/errors";
 import { getClusterOccupancy, type OccupancyRow } from "./clusters.mock";
-import { loadClusterConfig } from "./clusters.repository";
-import type { Cell, ClusterConfig, ClusterMapResponse, ClusterRow, Peer, Warning } from "./clusters.types";
+import { listClusterConfigs, loadClusterConfig } from "./clusters.repository";
+import type {
+    Cell,
+    ClusterConfig,
+    ClusterMapResponse,
+    ClusterRow,
+    ConfigValidationError,
+    ConfigValidationResponse,
+    Peer,
+    Warning,
+} from "./clusters.types";
 
 export function resolveDisplayPeer(row: OccupancyRow): Peer {
     return {
@@ -99,4 +109,80 @@ export async function getClusterMap(clusterNumber: number): Promise<ClusterMapRe
     const occupancyRows = await getClusterOccupancy(config.key);
 
     return mergeConfigWithOccupancy(config, occupancyRows);
+}
+
+export function validateClusterConfig(config: ClusterConfig, clusterIndex: number): ConfigValidationError[] {
+    const errors: ConfigValidationError[] = [];
+    const seenRowIds = new Set<string>();
+    const seenRowNumbers = new Set<number>();
+    const seenPlaceIds = new Set<string>();
+
+    config.rows.forEach((row, rowIndex) => {
+        if (seenRowIds.has(row.id)) {
+            errors.push({
+                code: "DUPLICATE_ROW_ID",
+                message: `Row id ${row.id} is not unique`,
+                path: `clusters[${clusterIndex}].rows[${rowIndex}].id`,
+            });
+        } else {
+            seenRowIds.add(row.id);
+        }
+
+        if (seenRowNumbers.has(row.number)) {
+            errors.push({
+                code: "DUPLICATE_ROW_NUMBER",
+                message: `Row number ${row.number} is not unique`,
+                path: `clusters[${clusterIndex}].rows[${rowIndex}].number`,
+            });
+        } else {
+            seenRowNumbers.add(row.number);
+        }
+
+        const seenPlaceNumbersInRow = new Set<number>();
+
+        row.cells.forEach((cell, cellIndex) => {
+            if (cell.kind !== "place") {
+                return;
+            }
+
+            if (seenPlaceIds.has(cell.id)) {
+                errors.push({
+                    code: "DUPLICATE_PLACE_ID",
+                    message: `Place id ${cell.id} is not unique`,
+                    path: `clusters[${clusterIndex}].rows[${rowIndex}].cells[${cellIndex}].id`,
+                });
+            } else {
+                seenPlaceIds.add(cell.id);
+            }
+
+            if (seenPlaceNumbersInRow.has(cell.number)) {
+                errors.push({
+                    code: "DUPLICATE_PLACE_NUMBER",
+                    message: `Place number ${cell.number} is not unique within row ${row.number}`,
+                    path: `clusters[${clusterIndex}].rows[${rowIndex}].cells[${cellIndex}].number`,
+                });
+            } else {
+                seenPlaceNumbersInRow.add(cell.number);
+            }
+        });
+    });
+
+    return errors;
+}
+
+export function getClusterConfigValidation(clusterNumber: number): ConfigValidationResponse {
+    const configs = listClusterConfigs();
+    const clusterIndex = configs.findIndex((config) => config.number === clusterNumber);
+
+    if (clusterIndex === -1) {
+        throw AppError.clusterNotFound(`Cluster ${clusterNumber} not found`);
+    }
+
+    const errors = validateClusterConfig(configs[clusterIndex], clusterIndex);
+
+    return {
+        clusterNumber,
+        valid: errors.length === 0,
+        errors,
+    };
 }
