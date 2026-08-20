@@ -30,3 +30,7 @@ export const clusterConfigSchema = z.object({
 export const clustersConfigFileSchema = z.object({
     clusters: z.array(clusterConfigSchema),
 });
+
+export const clusterNumberParamSchema = z.object({
+    clusterNumber: z.coerce.number().int().positive(),
+});
