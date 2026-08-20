@@ -1,4 +1,4 @@
-export type AppErrorCode = "BAD_REQUEST" | "UNAUTHORIZED" | "FORBIDDEN" | "NOT_FOUND" | "CONFLICT" | "VALIDATION_ERROR" | "INTERNAL_SERVER_ERROR";
+export type AppErrorCode = "BAD_REQUEST" | "UNAUTHORIZED" | "FORBIDDEN" | "NOT_FOUND" | "CLUSTER_NOT_FOUND" | "CONFLICT" | "VALIDATION_ERROR" | "INTERNAL_SERVER_ERROR";
 
 type AppErrorOptions = {
     message: string;
@@ -61,6 +61,14 @@ export class AppError extends Error {
             message,
             statusCode: 404,
             code: "NOT_FOUND",
+        });
+    }
+
+    static clusterNotFound(message = "Cluster not found") {
+        return new AppError({
+            message,
+            statusCode: 404,
+            code: "CLUSTER_NOT_FOUND",
         });
     }
 
