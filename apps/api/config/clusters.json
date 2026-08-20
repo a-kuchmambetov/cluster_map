@@ -1,0 +1,40 @@
+{
+    "clusters": [
+        {
+            "id": "c1",
+            "number": 1,
+            "label": "Cluster 1",
+            "key": "c1",
+            "rows": [
+                {
+                    "id": "c1r1",
+                    "number": 1,
+                    "label": "Row 1",
+                    "cells": [
+                        { "kind": "place", "id": "c1r1p1", "number": 1 },
+                        { "kind": "gap" },
+                        { "kind": "place", "id": "c1r1p2", "number": 2 },
+                        { "kind": "place", "id": "c1r1p3", "number": 3 }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "c2",
+            "number": 2,
+            "label": "Cluster 2",
+            "key": "c2",
+            "rows": [
+                {
+                    "id": "c2r1",
+                    "number": 1,
+                    "label": "Row 1",
+                    "cells": [
+                        { "kind": "place", "id": "c2r1p1", "number": 1 },
+                        { "kind": "place", "id": "c2r1p2", "number": 2 }
+                    ]
+                }
+            ]
+        }
+    ]
+}
