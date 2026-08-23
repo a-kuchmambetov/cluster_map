@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { listClusterConfigs } from "./clusters.repository";
+import { clusterNumberParamSchema } from "./clusters.schema";
 import { getClusterConfigValidation, getClusterMap } from "./clusters.service";
 
 export async function listClusters(_req: Request, res: Response, next: NextFunction) {
@@ -18,7 +19,7 @@ export async function listClusters(_req: Request, res: Response, next: NextFunct
 
 export async function getClusterMapHandler(req: Request, res: Response, next: NextFunction) {
     try {
-        const clusterNumber = req.params.clusterNumber as unknown as number;
+        const { clusterNumber } = clusterNumberParamSchema.parse(req.params);
         const map = await getClusterMap(clusterNumber);
 
         res.json(map);
@@ -29,7 +30,7 @@ export async function getClusterMapHandler(req: Request, res: Response, next: Ne
 
 export function getClusterConfigValidationHandler(req: Request, res: Response, next: NextFunction) {
     try {
-        const clusterNumber = req.params.clusterNumber as unknown as number;
+        const { clusterNumber } = clusterNumberParamSchema.parse(req.params);
         const result = getClusterConfigValidation(clusterNumber);
 
         res.json(result);
