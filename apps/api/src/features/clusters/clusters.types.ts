@@ -62,3 +62,11 @@ export type ConfigValidationResponse = {
     valid: boolean;
     errors: ConfigValidationError[];
 };
+
+export type OccupancyRow = {
+    row: number;
+    place: number;
+    intraName: string | null;
+    displayName: string | null;
+    photo: string | null;
+};

@@ -1,44 +1,12 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { AppError } from "@repo/errors";
-import { clustersConfigFileSchema } from "./clusters.schema";
-import type { ClusterConfig } from "./clusters.types";
+import type { OccupancyRow } from "./clusters.types";
 
-const CONFIG_PATH = resolve(process.cwd(), "config/clusters.json");
+const OCCUPANCY_FIXTURES: Record<string, OccupancyRow[]> = {
+    c1: [{ row: 1, place: 2, intraName: "jdoe", displayName: "John Doe", photo: null }],
+    c2: [{ row: 1, place: 1, intraName: null, displayName: "Guest User", photo: null }],
+};
 
-function readConfigFile(): ClusterConfig[] {
-    let raw: string;
-    try {
-        raw = readFileSync(CONFIG_PATH, "utf-8");
-    } catch (error) {
-        throw AppError.internal("Failed to read cluster layout config", error);
-    }
-
-    let parsed: unknown;
-    try {
-        parsed = JSON.parse(raw);
-    } catch (error) {
-        throw AppError.internal("Cluster layout config is not valid JSON", error);
-    }
-
-    const result = clustersConfigFileSchema.safeParse(parsed);
-    if (!result.success) {
-        throw AppError.internal("Cluster layout config failed schema validation", result.error.issues);
-    }
-
-    return result.data.clusters;
-}
-
-export function listClusterConfigs(): ClusterConfig[] {
-    return readConfigFile();
-}
-
-export function loadClusterConfig(clusterNumber: number): ClusterConfig {
-    const cluster = readConfigFile().find((config) => config.number === clusterNumber);
-
-    if (!cluster) {
-        throw AppError.clusterNotFound(`Cluster ${clusterNumber} not found`);
-    }
-
-    return cluster;
+// Stand-in for @repo/db's getClusterOccupancy (blocked per DB-contract.md §4/§7).
+// Only this function body changes once the real implementation ships.
+export async function getClusterOccupancy(clusterKey: string): Promise<OccupancyRow[]> {
+    return OCCUPANCY_FIXTURES[clusterKey] ?? [];
 }

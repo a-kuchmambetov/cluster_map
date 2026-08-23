@@ -1,7 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
-import { listClusterConfigs } from "./clusters.repository";
 import { clusterNumberParamSchema } from "./clusters.schema";
-import { getClusterConfigValidation, getClusterMap } from "./clusters.service";
+import { getClusterConfigValidation, getClusterMap, listClusterConfigs } from "./clusters.service";
 
 export async function listClusters(_req: Request, res: Response, next: NextFunction) {
     try {
