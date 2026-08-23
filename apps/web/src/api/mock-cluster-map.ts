@@ -49,6 +49,7 @@ export const mockClusterMaps: Record<number, ClusterMapResponse> = {
                         peer: {
                             intraName: "jdoe",
                             displayName: "John Doe",
+                            photo: null,
                         },
                     },
                     {
@@ -76,6 +77,7 @@ export const mockClusterMaps: Record<number, ClusterMapResponse> = {
                         peer: {
                             intraName: "asmith",
                             displayName: "Alice Smith",
+                            photo: null,
                         },
                     },
                     {
@@ -131,6 +133,7 @@ export const mockClusterMaps: Record<number, ClusterMapResponse> = {
                         peer: {
                             intraName: "mjohnson",
                             displayName: "Mike Johnson",
+                            photo: null,
                         },
                     },
                     {
@@ -165,6 +168,7 @@ export const mockClusterMaps: Record<number, ClusterMapResponse> = {
                         peer: {
                             intraName: "slee",
                             displayName: "Sarah Lee",
+                            photo: null,
                         },
                     },
                 ],

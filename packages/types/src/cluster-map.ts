@@ -17,13 +17,14 @@ export type PlaceStatus = "free" | "occupied";
 /**
  * Minimal information about a peer displayed on an occupied place.
  *
- * The API intentionally exposes only the information approved
- * for the Cluster Map. We should not expect email, photo, etc.
+ * The API exposes only the fields approved for the Cluster Map:
+ * intra name, display name, and optional photo.
  */
-export type Peer = {
-    intraName: string;
+export interface Peer {
+    intraName: string | null;
     displayName: string | null;
-};
+    photo: string | null;
+}
 /**
  * A real, numbered place in the cluster layout.
  *
@@ -136,4 +137,26 @@ export type ClusterMapResponse = {
  */
 export type ClusterListResponse = {
     clusters: Cluster[];
+};
+
+
+
+/**
+ * Describes one validation problem in a cluster layout configuration.
+ */
+export type ConfigValidationError = {
+    code: string;
+    message: string;
+    path: string;
+};
+
+/**
+ * Response returned by:
+ *
+ * GET /api/clusters/:clusterNumber/config-validation
+ */
+export type ConfigValidationResponse = {
+    clusterNumber: number;
+    valid: boolean;
+    errors: ConfigValidationError[];
 };

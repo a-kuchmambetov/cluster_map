@@ -69,13 +69,17 @@ export const ClusterPlace = ({ place }: ClusterPlaceProps) => {
 
             {showPeer && place.peer && (
                 <div className="absolute left-full top-1/2 z-10 ml-3 -translate-y-1/2 rounded-lg border bg-primary p-3 text-sm shadow-lg">
-                    <div className="font-medium">
-                        {place.peer.displayName}
-                    </div>
+                    {place.peer.displayName && (
+                        <div className="font-medium">
+                            {place.peer.displayName}
+                        </div>
+                    )}
 
-                    <div className="text-tertiary">
-                        @{place.peer.intraName}
-                    </div>
+                    {place.peer.intraName && (
+                        <div className="text-tertiary">
+                            @{place.peer.intraName}
+                        </div>
+                    )}
                 </div>
             )}
         </div>
