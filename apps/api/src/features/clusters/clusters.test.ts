@@ -26,7 +26,11 @@ describe("GET /api/clusters/:clusterNumber/map", () => {
 
         const cells = response.body.rows[0].cells;
         expect(cells).toContainEqual(
-            expect.objectContaining({ kind: "place", status: "occupied", peer: expect.any(Object) }),
+            expect.objectContaining({
+                kind: "place",
+                status: "occupied",
+                peer: { intraName: "jdoe", displayName: "John Doe", photo: null },
+            }),
         );
         expect(cells).toContainEqual(expect.objectContaining({ kind: "place", status: "free", peer: null }));
         expect(cells).toContainEqual({ kind: "gap" });

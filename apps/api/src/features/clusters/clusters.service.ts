@@ -56,7 +56,7 @@ export function loadClusterConfig(clusterNumber: number): ClusterConfig {
 export function resolveDisplayPeer(row: OccupancyRow): Peer {
     return {
         intraName: row.intraName,
-        displayName: row.intraName ?? row.displayName ?? null,
+        displayName: row.displayName,
         photo: row.photo,
     };
 }

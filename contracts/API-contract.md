@@ -139,7 +139,7 @@ Field meanings:
   - **`intraName` is not always present** — guest accounts (registered directly on the site, without Hive login) may lack it. Same for `displayName`.
   - `photo` added per the call with Valentine (2026-08-06) — the cluster map prioritizes photo + login for identification, matching the current 42/Hive cluster map.
   - No `email` — explicitly decided unnecessary per privacy rules.
-  - `displayName` here is the **already-resolved** value from the API's priority logic (intra login → real name → fallback), not a raw DB field — see `DB-contract.md` §2 for how this is derived from Valentine's `OccupancyRow`.
+  - Both `intraName` and `displayName` are passed through as-is from the occupancy source — no fallback or priority logic is applied. Either field may be `null`. Presentation (which to show, in what order) is the frontend's decision (confirmed by Maxim, 2026-08-26).
 - `summary` — `{ free, occupied, total }`; `total` = number of real places (excluding gaps).
 - `lastUpdated` — ISO 8601 time of the last **successful** occupancy read; `null` if never.
 - `warnings[]` — layout/occupancy mismatches. Shape: `{ "code": string, "message": string }`. The valid part of the map stays; no internal DB/config details leak here.
