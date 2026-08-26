@@ -15,54 +15,6 @@ export type ClusterRowConfig = z.infer<typeof clusterRowConfigSchema>;
 export type ClusterConfig = z.infer<typeof clusterConfigSchema>;
 export type ClustersConfigFile = z.infer<typeof clustersConfigFileSchema>;
 
-export type Peer = {
-    intraName: string | null;
-    displayName: string | null;
-    photo: string | null;
-};
-
-export type Cell =
-    | { kind: "place"; id: string; number: number; status: "free" | "occupied"; peer: Peer | null }
-    | { kind: "gap" };
-
-export type ClusterRow = {
-    id: string;
-    number: number;
-    label: string;
-    cells: Cell[];
-};
-
-export type ClusterSummary = {
-    free: number;
-    occupied: number;
-    total: number;
-};
-
-export type Warning = {
-    code: string;
-    message: string;
-};
-
-export type ClusterMapResponse = {
-    cluster: { id: string; number: number; label: string };
-    rows: ClusterRow[];
-    summary: ClusterSummary;
-    lastUpdated: string | null;
-    warnings: Warning[];
-};
-
-export type ConfigValidationError = {
-    code: string;
-    message: string;
-    path: string;
-};
-
-export type ConfigValidationResponse = {
-    clusterNumber: number;
-    valid: boolean;
-    errors: ConfigValidationError[];
-};
-
 export type OccupancyRow = {
     row: number;
     place: number;

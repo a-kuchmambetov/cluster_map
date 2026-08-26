@@ -1,16 +1,19 @@
 import type { NextFunction, Request, Response } from "express";
+import type { ClusterListResponse } from "@repo/types";
 import { clusterNumberParamSchema } from "./clusters.schema";
 import { getClusterConfigValidation, getClusterMap, listClusterConfigs } from "./clusters.service";
 
 export async function listClusters(_req: Request, res: Response, next: NextFunction) {
     try {
-        const clusters = listClusterConfigs().map((cluster) => ({
-            id: cluster.id,
-            number: cluster.number,
-            label: cluster.label,
-        }));
+        const body: ClusterListResponse = {
+            clusters: listClusterConfigs().map((cluster) => ({
+                id: cluster.id,
+                number: cluster.number,
+                label: cluster.label,
+            })),
+        };
 
-        res.json({ clusters });
+        res.json(body);
     } catch (error) {
         next(error);
     }

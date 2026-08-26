@@ -1,19 +1,18 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { AppError } from "@repo/errors";
-import { getClusterOccupancy } from "./clusters.repository";
-import { clustersConfigFileSchema } from "./clusters.schema";
 import type {
-    Cell,
-    ClusterConfig,
     ClusterMapResponse,
     ClusterRow,
     ConfigValidationError,
     ConfigValidationResponse,
-    OccupancyRow,
+    MapCell,
+    MapWarning,
     Peer,
-    Warning,
-} from "./clusters.types";
+} from "@repo/types";
+import { getClusterOccupancy } from "./clusters.repository";
+import { clustersConfigFileSchema } from "./clusters.schema";
+import type { ClusterConfig, OccupancyRow } from "./clusters.types";
 
 const CONFIG_PATH = resolve(process.cwd(), "src/config/clusters.json");
 
@@ -80,7 +79,7 @@ export function mergeConfigWithOccupancy(config: ClusterConfig, occupancyRows: O
         }
     }
 
-    const warnings: Warning[] = [];
+    const warnings: MapWarning[] = [];
     for (const [key, matches] of occupancyByPlaceKey) {
         const [row, place] = key.split(":");
 
@@ -101,7 +100,7 @@ export function mergeConfigWithOccupancy(config: ClusterConfig, occupancyRows: O
     let occupied = 0;
 
     const rows: ClusterRow[] = config.rows.map((rowConfig) => {
-        const cells: Cell[] = rowConfig.cells.map((cellConfig) => {
+        const cells: MapCell[] = rowConfig.cells.map((cellConfig) => {
             if (cellConfig.kind === "gap") {
                 return { kind: "gap" };
             }
