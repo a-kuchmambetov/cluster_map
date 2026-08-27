@@ -46,7 +46,7 @@ export function getClusterOccupancy(
  
 **Why no `email`:** discussed and agreed — the cluster map only needs enough to identify who's sitting where, matching what 42/Hive's own cluster map shows (photo + login). Email is unnecessary personal data per the privacy rules and was explicitly dropped.
  
-**Display-priority logic lives on my side (API), not in `@repo/db`:** Valentine returns whatever raw fields are available (as above); I (Vitalii) write a priority function in the API layer that picks what to actually display — intra login first, then real name, falling back down the list if the higher-priority field is missing. This keeps `@repo/db` simple (it doesn't need to know about UI display rules) and lets the priority order change without touching the DB layer.
+**Both name fields are passed through raw:** Valentine returns whatever fields are available; the API forwards `intraName`, `displayName`, and `photo` unchanged. No priority or fallback logic is applied server-side — presentation is the frontend's decision (confirmed by Maxim, 2026-08-26).
  
 Guarantees this function must give (from the privacy/security rules 🟢):
 - `SELECT` only — no writes/migrations against the production DB.
@@ -99,7 +99,7 @@ From the docs, the merge invariants (enforced by my `service`, but Valentine sho
 - A place with **no** matching occupancy record → `free`.
 - A place with **one** valid matching record → `occupied`.
 - **Duplicate** occupancy or occupancy for a **non-existent** place → a data-quality mismatch (goes into `warnings`), not a new place.
-- Peer data is reduced to `intraName` + `displayName` + `photo` **before** it leaves the API, with display priority resolved as described in §2.
+- Peer data is forwarded as `intraName` + `displayName` + `photo` unchanged from the occupancy source — no priority or fallback logic applied.
 ---
  
 ## 6. Confirmed with Valentine ✅ (all closed 2026-08-06)
@@ -119,7 +119,7 @@ From the docs, the merge invariants (enforced by my `service`, but Valentine sho
 ---
  
 ## 8. Summary
-The seam between us is **a single function**, `getClusterOccupancy`. Everything else (layout, merge, response shape, display-priority logic) is my area and does not depend on Valentine. This lets me start on a mock immediately, lets him build the real query in parallel, and lets us swap the mock for `@repo/db` with no changes to `service`/`controller`. The only hard dependency is access to the school's production DB and its matching keys (§4) — owner to confirm with the team.
+The seam between us is **a single function**, `getClusterOccupancy`. Everything else (layout, merge, response shape) is my area and does not depend on Valentine. This lets me start on a mock immediately, lets him build the real query in parallel, and lets us swap the mock for `@repo/db` with no changes to `service`/`controller`. The only hard dependency is access to the school's production DB and its matching keys (§4) — owner to confirm with the team.
  
 ---
  
