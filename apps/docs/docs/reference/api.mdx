@@ -6,9 +6,75 @@ sidebar_position: 1
 
 ## Current status
 
-The current Express application exposes one endpoint: `GET /api/health`. Cluster lists, map data, occupancy data, authentication, and configuration-validation endpoints are not implemented.
+The Express application exposes four endpoints:
+
+- `GET /api/health`
+- `GET /api/clusters`
+- `GET /api/clusters/:clusterNumber/map`
+- `GET /api/clusters/:clusterNumber/config-validation`
 
 The API mounts its router at `/api`. It enables JSON request parsing and credentialed CORS; allowed origins are described in [Configuration](../getting-started/configuration#cors-and-environment-mode).
+
+There is no authentication, no realtime/SSE push, and no write endpoint against any resource. All routes are read-only `GET` requests.
+
+## Error envelope
+
+Every error response, across all endpoints, uses one JSON shape:
+
+```ts
+type ApiErrorResponse = {
+    ok: false;
+    status: "fail" | "error";
+    code: "BAD_REQUEST" | "UNAUTHORIZED" | "FORBIDDEN" | "NOT_FOUND" | "CLUSTER_NOT_FOUND" | "CONFLICT" | "VALIDATION_ERROR" | "INTERNAL_SERVER_ERROR";
+    error: string;
+    details?: unknown;
+};
+```
+
+`UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, and `CONFLICT` are part of the shared `AppError` type but are not currently returned by any mounted route.
+
+Example validation error:
+
+```json
+{
+    "ok": false,
+    "status": "fail",
+    "code": "VALIDATION_ERROR",
+    "error": "Validation error",
+    "details": [
+        {
+            "path": "clusterNumber",
+            "message": "Expected number, received nan",
+            "code": "invalid_type"
+        }
+    ]
+}
+```
+
+Status codes currently in use:
+
+| Condition                                          | HTTP status | Code                    |
+| --------------------------------------------------- | ----------: | ----------------------- |
+| Malformed JSON request body                          |         400 | `BAD_REQUEST`           |
+| Path parameter fails Zod validation                  |         422 | `VALIDATION_ERROR`      |
+| Cluster number has no matching cluster in the config |         404 | `CLUSTER_NOT_FOUND`     |
+| Unexpected server error (e.g. occupancy source fails) |         500 | `INTERNAL_SERVER_ERROR` |
+
+`status` is `"fail"` for 4xx codes and `"error"` for 5xx codes.
+
+When `NODE_ENV=production`, `error` for 5xx responses is replaced with `"Internal server error"` and `details` is omitted. In other modes, the original message and `details` are returned and the server logs diagnostic information.
+
+Unknown routes are an exception to this envelope: there is no catch-all JSON not-found middleware, so an unregistered path falls through to Express's default 404 response.
+
+## Request validation
+
+Path parameters are validated with the shared `validateRequest` Zod middleware, which replaces `req.params` with the parsed value on success or forwards a `ZodError` to the error middleware (surfaced as `422 VALIDATION_ERROR`) on failure. Both `:clusterNumber` routes below use it with:
+
+```ts
+z.object({ clusterNumber: z.coerce.number().int().positive() })
+```
+
+A non-numeric, non-integer, or non-positive `clusterNumber` (e.g. `abc`, `1.5`, `0`, `-1`) fails this schema.
 
 ## `GET /api/health`
 
@@ -32,58 +98,171 @@ Status: `200 OK`
 }
 ```
 
-## Error responses
+## `GET /api/clusters`
 
-Registered handlers that pass an error to the API error middleware use this JSON shape:
+Returns the list of clusters known to the layout config. Used to render a cluster picker; it does not report occupancy or vacancy counts.
 
-```ts
-type ApiErrorResponse = {
-    ok: false;
-    status: "fail" | "error";
-    code: "BAD_REQUEST" | "UNAUTHORIZED" | "FORBIDDEN" | "NOT_FOUND" | "CONFLICT" | "VALIDATION_ERROR" | "INTERNAL_SERVER_ERROR";
-    error: string;
-    details?: unknown;
-};
+### Request
+
+No parameters, request body, or authentication requirement.
+
+```bash
+curl http://localhost:5000/api/clusters
 ```
 
-Example validation response shape:
+### Success response
+
+Status: `200 OK`
 
 ```json
 {
-    "ok": false,
-    "status": "fail",
-    "code": "VALIDATION_ERROR",
-    "error": "Validation error",
-    "details": [
-        {
-            "path": "fieldName",
-            "message": "Validation message",
-            "code": "zod_issue_code"
-        }
+    "clusters": [
+        { "id": "c1", "number": 1, "label": "Cluster 1" },
+        { "id": "c2", "number": 2, "label": "Cluster 2" }
     ]
 }
 ```
 
-Current normalization rules are:
+| Field    | Meaning                                                  |
+| -------- | --------------------------------------------------------- |
+| `id`     | Stable machine identifier for the cluster, from the config. |
+| `number` | User-facing cluster number; also the `:clusterNumber` used in the other routes. |
+| `label`  | UI caption for the cluster.                              |
 
-| Condition                      | HTTP status | Code                    |
-| ------------------------------ | ----------: | ----------------------- |
-| Invalid JSON request body      |         400 | `BAD_REQUEST`           |
-| Zod request-validation failure |         422 | `VALIDATION_ERROR`      |
-| Unhandled error                |         500 | `INTERNAL_SERVER_ERROR` |
+This list comes from the layout config file, not from any occupancy source, so it cannot fail with a 404 or reflect stale occupancy data. A malformed or unreadable config file returns `500 INTERNAL_SERVER_ERROR`.
 
-Individual handlers can also create the other error codes through the shared `AppError` class.
+## `GET /api/clusters/:clusterNumber/map`
 
-When `NODE_ENV=production`, messages for 5xx responses are replaced with `Internal server error`, and their details are omitted. In other modes, error details remain visible and the server logs diagnostic information.
+Returns the cluster's physical layout merged with current occupancy.
 
-Unknown routes are an exception to this contract today: there is no JSON not-found middleware, so an unregistered path falls through to Express's default 404 response.
+### Request
 
-## Request validation
+| Parameter        | Location | Validation                                    |
+| ----------------- | -------- | ---------------------------------------------- |
+| `clusterNumber`   | Path     | `z.coerce.number().int().positive()` — see [Request validation](#request-validation). |
 
-The repository includes reusable Zod middleware for validating `body`, `query`, and `params`. A successful parse replaces the corresponding Express request value with the parsed value. No current route uses this middleware yet.
+No query parameters or request body.
 
-## Proposed map API
+```bash
+curl http://localhost:5000/api/clusters/1/map
+```
 
-The user story calls for cluster lists, merged map data, and configuration-validation results. No routes or wire formats for those capabilities have been accepted or implemented. Do not build clients against guessed endpoint paths.
+### Success response
 
-The [map-configuration contract starter](./map-configuration) lists the physical-layout concepts that a future API will need to represent while keeping them separate from live occupancy data.
+Status: `200 OK`
+
+```json
+{
+    "cluster": { "id": "c1", "number": 1, "label": "Cluster 1" },
+    "rows": [
+        {
+            "id": "c1r1",
+            "number": 1,
+            "label": "Row 1",
+            "cells": [
+                { "kind": "place", "id": "c1r1p1", "number": 1, "status": "free", "peer": null },
+                { "kind": "gap" },
+                {
+                    "kind": "place",
+                    "id": "c1r1p2",
+                    "number": 2,
+                    "status": "occupied",
+                    "peer": { "intraName": "jdoe", "displayName": "John Doe", "photo": null }
+                },
+                { "kind": "place", "id": "c1r1p3", "number": 3, "status": "free", "peer": null }
+            ]
+        }
+    ],
+    "summary": { "free": 2, "occupied": 1, "total": 3 },
+    "lastUpdated": "2026-08-23T10:00:00.000Z",
+    "warnings": []
+}
+```
+
+This example is the actual shape returned for cluster 1 against the checked-in fixture data (see [Occupancy data source](#occupancy-data-source) below) — it is not a hypothetical.
+
+Field meanings:
+
+- `cluster` — `{ id, number, label }`, same shape as an entry from `GET /api/clusters`.
+- `rows[]` — rows in config order; each is `{ id, number, label, cells[] }`.
+- `cells[]` — positions in a row, in order. Each cell is one of:
+    - `{ "kind": "place", "id", "number", "status", "peer" }`
+    - `{ "kind": "gap" }` — a visual spacer; no `id`, `number`, `status`, or `peer`.
+- `status` — `"free"` or `"occupied"`. A place with no matching occupancy record is `"free"`.
+- `peer` — `null` when the place is free. When occupied:
+    - `intraName` — `string | null`. `null` for accounts without a Hive/intra login (e.g. guest accounts).
+    - `displayName` — `string | null`, resolved as `intraName ?? displayName ?? null` (the raw occupancy record's own `displayName` is only used when there is no `intraName`).
+    - `photo` — `string | null`.
+    - There is no `email` field.
+- `summary` — `{ free, occupied, total }`. `total` excludes gaps.
+- `lastUpdated` — ISO 8601 timestamp of the occupancy read used to build this response. The current occupancy source always resolves successfully, so in practice this is always the current time on every request, never `null`.
+- `warnings[]` — layout/occupancy mismatches; the rest of the map is still returned. Shape: `{ code, message }`. Codes currently produced:
+    - `ORPHANED_OCCUPANCY` — an occupancy record's `row`/`place` doesn't match any configured place.
+    - `DUPLICATE_OCCUPANCY` — more than one occupancy record matches the same `row`/`place`; the cell is reported `"occupied"` using the first matching record.
+
+### Occupancy data source
+
+Occupancy is currently read from an in-memory fixture (`getClusterOccupancy` in `apps/api/src/features/clusters/clusters.repository.ts`), not from `@repo/db` or any production database — that integration is pending. Treat the values above as fixture data, not live occupancy.
+
+### Error responses
+
+| Case                                          | Status | Code                 |
+| ----------------------------------------------- | -----: | --------------------- |
+| `clusterNumber` fails validation (e.g. `abc`)   |    422 | `VALIDATION_ERROR`   |
+| No cluster with that number in the config       |    404 | `CLUSTER_NOT_FOUND`  |
+| Occupancy source or config read fails           |    500 | `INTERNAL_SERVER_ERROR` |
+
+## `GET /api/clusters/:clusterNumber/config-validation`
+
+Runs cross-cutting checks against the selected cluster's layout config — the kind of consistency check Zod's schema validation alone can't express, such as duplicate ids within the cluster.
+
+### Request
+
+| Parameter        | Location | Validation                                    |
+| ----------------- | -------- | ---------------------------------------------- |
+| `clusterNumber`   | Path     | `z.coerce.number().int().positive()` — see [Request validation](#request-validation). |
+
+No query parameters or request body.
+
+```bash
+curl http://localhost:5000/api/clusters/1/config-validation
+```
+
+### Success response
+
+Status: `200 OK`
+
+```json
+{ "clusterNumber": 1, "valid": true, "errors": [] }
+```
+
+Against a config with a duplicate place id in the second cluster:
+
+```json
+{
+    "clusterNumber": 2,
+    "valid": false,
+    "errors": [
+        { "code": "DUPLICATE_PLACE_ID", "message": "Place id c2r1p1 is not unique", "path": "clusters[1].rows[0].cells[1].id" }
+    ]
+}
+```
+
+Checks implemented:
+
+| Code                    | Scope           | Triggered by                                                    |
+| ------------------------ | ---------------- | ------------------------------------------------------------------ |
+| `DUPLICATE_ROW_ID`      | Cluster-wide     | Two rows in the same cluster share an `id`.                       |
+| `DUPLICATE_ROW_NUMBER`  | Cluster-wide     | Two rows in the same cluster share a `number`.                    |
+| `DUPLICATE_PLACE_ID`    | Cluster-wide     | Two place cells in the same cluster share an `id`.                 |
+| `DUPLICATE_PLACE_NUMBER`| Per-row          | Two place cells in the same row share a `number`.                  |
+
+`path` indexes into the full config file's `clusters` array — the `N` in `clusters[N]` is that cluster's position in `apps/api/src/config/clusters.json`, which is only guaranteed to equal `clusterNumber - 1` if clusters are listed in number order.
+
+### Error responses
+
+| Case                                        | Status | Code                 |
+| --------------------------------------------- | -----: | --------------------- |
+| `clusterNumber` fails validation (e.g. `abc`) |    422 | `VALIDATION_ERROR`   |
+| No cluster with that number in the config     |    404 | `CLUSTER_NOT_FOUND`  |
+| Config file is unreadable or fails its schema |    500 | `INTERNAL_SERVER_ERROR` |
