@@ -86,20 +86,43 @@ export const ClusterPlace = ({ place }: ClusterPlaceProps) => {
                     </span>
                 </div>
             </button>
-
+            {/* New popup for the occupide. Photo support, handles missing displayname intraname. Both missing, still show occupied. Truncates name and intraname in case too long.*/}
             {showPeer && place.peer && (
-                <div className="absolute left-full top-1/2 z-10 ml-3 -translate-y-1/2 rounded-lg border bg-primary p-3 text-sm shadow-lg">
-                    {place.peer.displayName && (
-                        <div className="font-medium">
-                            {place.peer.displayName}
-                        </div>
-                    )}
+                <div className="absolute left-full top-1/2 z-20 ml-4 w-56 -translate-y-1/2 rounded-xl border border-secondary bg-primary p-4 shadow-lg">
+                    <div className="mb-3 text-xs text-tertiary">
+                        Place {place.number}
+                    </div>
 
-                    {place.peer.intraName && (
-                        <div className="text-tertiary">
-                            @{place.peer.intraName}
+                    <div className="flex items-center gap-3">
+                        {place.peer.photo && (
+                            <img
+                                src={place.peer.photo}
+                                alt=""
+                                className="h-10 w-10 rounded-full object-cover"
+                            />
+                        )}
+
+                        <div className="min-w-0">
+                            {place.peer.displayName && (
+                                <div className="truncate font-medium">
+                                    {place.peer.displayName}
+                                </div>
+                            )}
+
+                            {place.peer.intraName && (
+                                <div className="truncate text-sm text-tertiary">
+                                    @{place.peer.intraName}
+                                </div>
+                            )}
+
+                            {!place.peer.displayName &&
+                                !place.peer.intraName && (
+                                    <div className="text-sm text-tertiary">
+                                        Occupied
+                                    </div>
+                                )}
                         </div>
-                    )}
+                    </div>
                 </div>
             )}
         </div>
