@@ -76,18 +76,14 @@ export const ClusterPlace = ({ place }: ClusterPlaceProps) => {
                         }
                     />
                 </svg>
-
+                {/*free vs occupide only by color*/}
                 <div
-                    className="absolute inset-0 flex flex-col items-center justify-center"
+                    className="absolute inset-0 flex items-center justify-center"
                     style={{ color: styles.text }}
                 >
-                    <div className="font-medium">
+                    <span className="font-mono text-sm font-medium">
                         {place.number}
-                    </div>
-
-                    <div className="text-xs">
-                        {isOccupied ? "Occupied" : "Free"}
-                    </div>
+                    </span>
                 </div>
             </button>
 
