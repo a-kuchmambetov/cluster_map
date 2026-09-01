@@ -8,13 +8,41 @@ type ClusterMapProps = {
 export const ClusterMap = ({ map }: ClusterMapProps) => {
     return (
         <div className="mt-8">
-            <h2 className="text-xl font-semibold">
-                {map.cluster.label}
-            </h2>
+            {/* Summary showing free/occupide/total places */}
+            <div className="flex items-start justify-between">
+                <h2 className="text-xl font-semibold">
+                    {map.cluster.label}
+                </h2>
 
-            <p className="mt-2">
-                Available places: {map.summary.free}
-            </p>
+                <div className="flex gap-6">
+                    <div className="text-right">
+                        <div className="text-xl font-bold text-success-primary">
+                            {map.summary.free}
+                        </div>
+                        <div className="text-xs text-tertiary">
+                            free
+                        </div>
+                    </div>
+
+                    <div className="text-right">
+                        <div className="text-xl font-bold">
+                            {map.summary.occupied}
+                        </div>
+                        <div className="text-xs text-tertiary">
+                            occupied
+                        </div>
+                    </div>
+
+                    <div className="text-right">
+                        <div className="text-xl font-bold">
+                            {map.summary.total}
+                        </div>
+                        <div className="text-xs text-tertiary">
+                            total
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <div className="mt-6 space-y-4">
                 {map.rows.map((row, index) => (
@@ -25,6 +53,30 @@ export const ClusterMap = ({ map }: ClusterMapProps) => {
                         rowIndex={index}
                     />
                 ))}
+            </div>
+            {/* Map legend, free/occupide */}
+            <div className="mt-6 flex items-center gap-6 text-sm">
+                <div className="flex items-center gap-2">
+                    <div
+                        className="h-4 w-4"
+                        style={{
+                            background: "#eaf5ec",
+                            border: "1px solid #2a8840",
+                        }}
+                    />
+                    <span>Free</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <div
+                        className="h-4 w-4"
+                        style={{
+                            background: "#fff2e0",
+                            border: "1px solid #c07020",
+                        }}
+                    />
+                    <span>Occupied</span>
+                </div>
             </div>
         </div>
     );
