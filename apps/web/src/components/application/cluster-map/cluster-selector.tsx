@@ -12,22 +12,36 @@ export const ClusterSelector = ({
     onSelect,
 }: ClusterSelectorProps) => {
     return (
-        <div className="mt-6">
-            <label htmlFor="cluster-select">Cluster: </label>
+        <div className="mt-6 flex flex-wrap gap-2">
+            {clusters.map((cluster) => {
+                const isActive =
+                    cluster.number === selectedCluster;
 
-            <select
-                id="cluster-select"
-                value={selectedCluster}
-                onChange={(event) =>
-                    onSelect(Number(event.target.value))
-                }
-            >
-                {clusters.map((cluster) => (
-                    <option key={cluster.id} value={cluster.number}>
-                        {cluster.label}
-                    </option>
-                ))}
-            </select>
+                return (
+                    <button
+                        key={cluster.id}
+                        type="button"
+                        onClick={() => onSelect(cluster.number)}
+                        className="rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200"
+                        style={
+                            isActive
+                                ? {
+                                    background: "#c47820",
+                                    color: "#ffffff",
+                                    boxShadow:
+                                        "0 0 20px rgba(196, 120, 32, 0.25)",
+                                }
+                                : {
+                                    background: "transparent",
+                                    border: "1px solid #d0d5dd",
+                                    color: "#667085",
+                                }
+                        }
+                    >
+                        C{cluster.number}
+                    </button>
+                );
+            })}
         </div>
     );
 };
