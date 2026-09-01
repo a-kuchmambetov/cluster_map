@@ -38,18 +38,42 @@ export const ClusterPlace = ({ place }: ClusterPlaceProps) => {
                 onClick={handleClick}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
-                //disabled={!isOccupied}
                 className="relative h-28 w-28"
             >
                 <svg
                     viewBox="0 0 100 100"
                     className="h-full w-full"
                 >
+                    {(isHovered || showPeer) && (
+                        <polygon
+                            points={hexPts(50, 50, 44)}
+                            fill={styles.stroke}
+                            opacity="0.12"
+                            stroke="none"
+                        />
+                    )}
+
+                    {showPeer && (
+                        <polygon
+                            points={hexPts(50, 50, 41.5)}
+                            fill="none"
+                            stroke={styles.stroke}
+                            strokeWidth="4"
+                            opacity="0.25"
+                        />
+                    )}
+
                     <polygon
-                        points={hexPts(50, 50, 42)}
+                        points={hexPts(50, 50, 40)}
                         fill={styles.fill}
                         stroke={styles.stroke}
-                        strokeWidth="2"
+                        strokeWidth={
+                            showPeer
+                                ? 2
+                                : isHovered
+                                    ? 1.5
+                                    : 1
+                        }
                     />
                 </svg>
 
