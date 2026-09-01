@@ -1,5 +1,6 @@
 import type { ClusterMapResponse } from "@repo/types";
 import { ClusterRowView } from "./cluster-row";
+import { hexPts } from "@/utils/hex";
 
 type ClusterMapProps = {
     map: ClusterMapResponse;
@@ -57,26 +58,31 @@ export const ClusterMap = ({ map }: ClusterMapProps) => {
             {/* Map legend, free/occupide */}
             <div className="mt-6 flex items-center flex-wrap gap-6 text-sm">
                 <div className="flex items-center gap-2">
-                    <div
-                        className="h-4 w-4"
-                        style={{
-                            background: "#eaf5ec",
-                            border: "1px solid #2a8840",
-                        }}
-                    />
+                    <svg width="22" height="20" viewBox="0 0 22 20">
+                        <polygon
+                            points={hexPts(11, 10, 7)}
+                            fill="#eaf5ec"
+                            stroke="#2a8840"
+                            strokeWidth="1.2"
+                        />
+                    </svg>
+
                     <span>Free</span>
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <div
-                        className="h-4 w-4"
-                        style={{
-                            background: "#fff2e0",
-                            border: "1px solid #c07020",
-                        }}
-                    />
+                    <svg width="22" height="20" viewBox="0 0 22 20">
+                        <polygon
+                            points={hexPts(11, 10, 7)}
+                            fill="#fff2e0"
+                            stroke="#c07020"
+                            strokeWidth="1.2"
+                        />
+                    </svg>
+
                     <span>Occupied</span>
                 </div>
+
                 {/* Last update stamp */}
                 <div className="ml-auto text-xs text-tertiary">
                     Updated{" "}
