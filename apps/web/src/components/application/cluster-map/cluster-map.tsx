@@ -9,7 +9,7 @@ type ClusterMapProps = {
 export const ClusterMap = ({ map }: ClusterMapProps) => {
     return (
         <div className="mt-8">
-            {/* Summary showing free/occupide/total places */}
+            {/* Summary showing free/occupied/total places */}
             <div className="flex items-start justify-between">
                 <h2 className="text-xl font-semibold">
                     {map.cluster.label}
@@ -55,7 +55,7 @@ export const ClusterMap = ({ map }: ClusterMapProps) => {
                     />
                 ))}
             </div>
-            {/* Map legend, free/occupide */}
+            {/* Map legend, free/occupied */}
             <div className="mt-6 flex items-center flex-wrap gap-6 text-sm">
                 <div className="flex items-center gap-2">
                     <svg width="22" height="20" viewBox="0 0 22 20">
