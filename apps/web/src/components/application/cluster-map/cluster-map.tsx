@@ -55,7 +55,7 @@ export const ClusterMap = ({ map }: ClusterMapProps) => {
                 ))}
             </div>
             {/* Map legend, free/occupide */}
-            <div className="mt-6 flex items-center gap-6 text-sm">
+            <div className="mt-6 flex items-center flex-wrap gap-6 text-sm">
                 <div className="flex items-center gap-2">
                     <div
                         className="h-4 w-4"
@@ -76,6 +76,16 @@ export const ClusterMap = ({ map }: ClusterMapProps) => {
                         }}
                     />
                     <span>Occupied</span>
+                </div>
+                {/* Last update stamp */}
+                <div className="ml-auto text-xs text-tertiary">
+                    Updated{" "}
+                    {map.lastUpdated
+                        ? new Date(map.lastUpdated).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                        })
+                        : "—"}
                 </div>
             </div>
         </div>
