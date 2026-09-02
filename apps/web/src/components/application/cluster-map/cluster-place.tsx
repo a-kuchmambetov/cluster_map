@@ -33,7 +33,7 @@ export const ClusterPlace = ({ place, selected, onSelect }: ClusterPlaceProps) =
 
         onSelect();
     };
-
+    // added for closing popup by clicking on random place on the map
     useEffect(() => {
         if (!selected) {
             return;
@@ -55,6 +55,24 @@ export const ClusterPlace = ({ place, selected, onSelect }: ClusterPlaceProps) =
                 "pointerdown",
                 handlePointerDown,
             );
+        };
+    }, [selected, onSelect]);
+    // added for closing popup with ESC button
+    useEffect(() => {
+        if (!selected) {
+            return;
+        }
+
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === "Escape") {
+                onSelect();
+            }
+        };
+
+        document.addEventListener("keydown", handleKeyDown);
+
+        return () => {
+            document.removeEventListener("keydown", handleKeyDown);
         };
     }, [selected, onSelect]);
 

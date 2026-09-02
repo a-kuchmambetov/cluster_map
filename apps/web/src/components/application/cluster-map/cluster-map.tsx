@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ClusterMapResponse } from "@repo/types";
 import { ClusterRowView } from "./cluster-row";
 import { hexPts } from "@/utils/hex";
@@ -11,6 +11,9 @@ export const ClusterMap = ({ map }: ClusterMapProps) => {
     const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(
         null,
     );
+    useEffect(() => {
+        setSelectedPlaceId(null);
+    }, [map.cluster.number]);
 
     const handleSelectPlace = (placeId: string) => {
         setSelectedPlaceId((current) =>
