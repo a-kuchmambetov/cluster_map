@@ -9,7 +9,7 @@ import {
     unique,
     varchar,
 } from "drizzle-orm/pg-core";
-import { user } from "./auth-schema";
+import { user } from "./auth";
 
 export const cluster = pgTable("cluster", {
     id: serial("id").primaryKey(),
@@ -36,7 +36,7 @@ export const userHiveInfo = pgTable("user_hive_info", {
         .primaryKey()
         .references(() => user.id, { onDelete: "cascade" }),
     login: varchar("login", { length: 255 }).notNull().unique(),
-    kogorth: varchar("kogorth", { length: 255 }),
+    cohort: varchar("kogorth", { length: 255 }),
 });
 
 export const position = pgTable(
