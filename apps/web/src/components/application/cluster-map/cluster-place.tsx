@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { PlaceCell } from "@repo/types";
 import { hexPts } from "@/utils/hex";
 import { clusterPlaceStyles } from "@/utils/cluster-place-styles";
@@ -10,8 +10,9 @@ type ClusterPlaceProps = {
 };
 
 export const ClusterPlace = ({ place, selected, onSelect }: ClusterPlaceProps) => {
-    // const [showPeer, setShowPeer] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
+
+    const containerRef = useRef<HTMLDivElement>(null);
 
     const isOccupied = place.status === "occupied";
 
@@ -33,8 +34,35 @@ export const ClusterPlace = ({ place, selected, onSelect }: ClusterPlaceProps) =
         onSelect();
     };
 
+    useEffect(() => {
+        if (!selected) {
+            return;
+        }
+
+        const handlePointerDown = (event: PointerEvent) => {
+            if (
+                containerRef.current &&
+                !containerRef.current.contains(event.target as Node)
+            ) {
+                onSelect();
+            }
+        };
+
+        document.addEventListener("pointerdown", handlePointerDown);
+
+        return () => {
+            document.removeEventListener(
+                "pointerdown",
+                handlePointerDown,
+            );
+        };
+    }, [selected, onSelect]);
+
     return (
-        <div className="relative">
+        <div
+            ref={containerRef}
+            className="relative"
+        >
             <button
                 type="button"
                 onClick={handleClick}
