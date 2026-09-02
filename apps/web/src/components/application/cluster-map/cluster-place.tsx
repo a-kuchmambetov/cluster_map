@@ -40,6 +40,14 @@ export const ClusterPlace = ({ place, selected, onSelect }: ClusterPlaceProps) =
                 onClick={handleClick}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
+                aria-expanded={isOccupied ? selected : undefined}
+                aria-controls={
+                    isOccupied && place.peer
+                        ? `peer-${place.id}`
+                        : undefined
+                }
+                aria-label={`Place ${place.number}, ${isOccupied ? "occupied" : "free"
+                    }`}
                 className="relative h-28 w-28"
             >
                 <svg
@@ -90,7 +98,18 @@ export const ClusterPlace = ({ place, selected, onSelect }: ClusterPlaceProps) =
             </button>
             {/* New popup for the occupide. Photo support, handles missing displayname intraname. Both missing, still show occupied. Truncates name and intraname in case too long.*/}
             {selected && place.peer && (
-                <div className="absolute left-full top-1/2 z-20 ml-4 w-56 -translate-y-1/2 rounded-xl border border-secondary bg-primary p-4 shadow-lg">
+                <div
+                    id={`peer-${place.id}`}
+                    className="absolute left-full top-1/2 z-20 ml-4 w-56 -translate-y-1/2 rounded-xl border border-secondary bg-primary p-4 shadow-lg"
+                >
+                    <button
+                        type="button"
+                        onClick={onSelect}
+                        aria-label="Close peer details"
+                        className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full text-tertiary hover:bg-secondary"
+                    >
+                        ×
+                    </button>
                     <div className="mb-3 text-xs text-tertiary">
                         Place {place.number}
                     </div>
