@@ -23,6 +23,7 @@ export const ClusterSelector = ({
                         type="button"
                         onClick={() => onSelect(cluster.number)}
                         className="rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200"
+                        aria-pressed={isActive}
                         style={
                             isActive
                                 ? {
