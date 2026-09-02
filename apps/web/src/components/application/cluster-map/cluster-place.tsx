@@ -5,10 +5,12 @@ import { clusterPlaceStyles } from "@/utils/cluster-place-styles";
 
 type ClusterPlaceProps = {
     place: PlaceCell;
+    selected: boolean;
+    onSelect: () => void;
 };
 
-export const ClusterPlace = ({ place }: ClusterPlaceProps) => {
-    const [showPeer, setShowPeer] = useState(false);
+export const ClusterPlace = ({ place, selected, onSelect }: ClusterPlaceProps) => {
+    // const [showPeer, setShowPeer] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
 
     const isOccupied = place.status === "occupied";
@@ -17,7 +19,7 @@ export const ClusterPlace = ({ place }: ClusterPlaceProps) => {
         ? clusterPlaceStyles.occupied
         : clusterPlaceStyles.free;
 
-    const styles = showPeer
+    const styles = selected
         ? clusterPlaceStyles.selected
         : isHovered
             ? typeStyles.hover
@@ -28,7 +30,7 @@ export const ClusterPlace = ({ place }: ClusterPlaceProps) => {
             return;
         }
 
-        setShowPeer((current) => !current);
+        onSelect();
     };
 
     return (
@@ -44,7 +46,7 @@ export const ClusterPlace = ({ place }: ClusterPlaceProps) => {
                     viewBox="0 0 100 100"
                     className="h-full w-full"
                 >
-                    {(isHovered || showPeer) && (
+                    {selected && (
                         <polygon
                             points={hexPts(50, 50, 44)}
                             fill={styles.stroke}
@@ -53,7 +55,7 @@ export const ClusterPlace = ({ place }: ClusterPlaceProps) => {
                         />
                     )}
 
-                    {showPeer && (
+                    {selected && (
                         <polygon
                             points={hexPts(50, 50, 41.5)}
                             fill="none"
@@ -68,7 +70,7 @@ export const ClusterPlace = ({ place }: ClusterPlaceProps) => {
                         fill={styles.fill}
                         stroke={styles.stroke}
                         strokeWidth={
-                            showPeer
+                            selected
                                 ? 2
                                 : isHovered
                                     ? 1.5
@@ -87,7 +89,7 @@ export const ClusterPlace = ({ place }: ClusterPlaceProps) => {
                 </div>
             </button>
             {/* New popup for the occupide. Photo support, handles missing displayname intraname. Both missing, still show occupied. Truncates name and intraname in case too long.*/}
-            {showPeer && place.peer && (
+            {selected && place.peer && (
                 <div className="absolute left-full top-1/2 z-20 ml-4 w-56 -translate-y-1/2 rounded-xl border border-secondary bg-primary p-4 shadow-lg">
                     <div className="mb-3 text-xs text-tertiary">
                         Place {place.number}

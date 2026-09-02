@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { ClusterMapResponse } from "@repo/types";
 import { ClusterRowView } from "./cluster-row";
 import { hexPts } from "@/utils/hex";
@@ -7,10 +8,19 @@ type ClusterMapProps = {
 };
 
 export const ClusterMap = ({ map }: ClusterMapProps) => {
+    const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(
+        null,
+    );
+
+    const handleSelectPlace = (placeId: string) => {
+        setSelectedPlaceId((current) =>
+            current === placeId ? null : placeId,
+        );
+    };
     return (
-        <div className="mt-8">
+        <div className="mt-8 rounded-2xl border border-secondary bg-primary p-6 shadow-sm">
             {/* Summary showing free/occupied/total places */}
-            <div className="flex items-start justify-between">
+            <div className="flex items-start justify-between gap-6">
                 <h2 className="text-xl font-semibold">
                     {map.cluster.label}
                 </h2>
@@ -52,6 +62,8 @@ export const ClusterMap = ({ map }: ClusterMapProps) => {
                         row={row}
                         clusterNumber={map.cluster.number}
                         rowIndex={index}
+                        selectedPlaceId={selectedPlaceId}
+                        onSelectPlace={handleSelectPlace}
                     />
                 ))}
             </div>

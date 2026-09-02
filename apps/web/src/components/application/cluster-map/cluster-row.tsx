@@ -6,12 +6,16 @@ type ClusterRowViewProps = {
     row: ClusterRow;
     clusterNumber: number;
     rowIndex: number;
+    selectedPlaceId: string | null;
+    onSelectPlace: (placeId: string) => void;
 };
 
 export const ClusterRowView = ({
     row,
     clusterNumber,
     rowIndex,
+    selectedPlaceId,
+    onSelectPlace,
 }: ClusterRowViewProps) => {
     return (
         <div>
@@ -40,6 +44,8 @@ export const ClusterRowView = ({
                             <ClusterPlace
                                 key={cell.id}
                                 place={cell}
+                                selected={selectedPlaceId === cell.id}
+                                onSelect={() => onSelectPlace(cell.id)}
                             />
                         );
                     }
@@ -53,7 +59,11 @@ export const ClusterRowView = ({
                                 top: `${position.row * 3.5}rem`,
                             }}
                         >
-                            <ClusterPlace place={cell} />
+                            <ClusterPlace
+                                place={cell}
+                                selected={selectedPlaceId === cell.id}
+                                onSelect={() => onSelectPlace(cell.id)}
+                            />
                         </div>
                     );
                 })}
