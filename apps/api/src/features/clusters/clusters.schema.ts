@@ -1,9 +1,12 @@
 import { z } from "zod";
 
+export const positionSchema = z.enum(["top", "bottom"]);
+
 export const placeCellConfigSchema = z.object({
     kind: z.literal("place"),
     id: z.string(),
     number: z.number().int().positive(),
+    position: positionSchema.optional(),
 });
 
 export const gapCellConfigSchema = z.object({
@@ -23,7 +26,6 @@ export const clusterConfigSchema = z.object({
     id: z.string(),
     number: z.number().int().positive(),
     label: z.string(),
-    key: z.string(),
     rows: z.array(clusterRowConfigSchema),
 });
 

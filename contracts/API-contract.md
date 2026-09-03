@@ -122,7 +122,7 @@ Returns the cluster's physical layout from the config file. No DB query; respond
  
 Field meanings:
 - `cluster` — `{ id, number, label }`.
-- `rows[]` — rows in physical order; each `{ id, number, label, cells[] }`.
+- `rows[]` — rows in top-to-bottom physical order (highest row number first). The frontend can render them in array order without sorting. In the HIVE layout R6 is the topmost row, so `rows[0]` is always R6 and `rows[rows.length - 1]` is always R1. Each row: `{ id, number, label, cells[] }`.
 - `cells[]` — positions in a row, **in order**. A cell is one of two kinds:
   - `{ "kind": "place", "id", "number", "position"? }` — a real, numbered seat.
   - `{ "kind": "gap" }` — visual spacer, no number, no interaction.
