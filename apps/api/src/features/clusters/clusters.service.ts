@@ -12,7 +12,39 @@ import type {
 } from "@repo/types";
 import { getClusterOccupancy } from "./clusters.repository";
 import { clustersConfigFileSchema } from "./clusters.schema";
-import type { ClusterConfig, OccupancyRow } from "./clusters.types";
+import type { CellConfig, ClusterConfig, OccupancyRow, Position, ResolvedCellConfig } from "./clusters.types";
+
+const DEFAULT_POSITION: Position = "top";
+
+/**
+ * Walk a row's cells in order and produce the effective position for every place.
+ * Rules:
+ *   - Explicit position wins.
+ *   - If absent, flip the position of the nearest preceding non-gap place.
+ *   - Gaps are transparent: they don't reset or inherit the alternation.
+ *   - The first place in a row with no explicit value defaults to "top".
+ */
+export function resolveRowPositions(cells: CellConfig[]): ResolvedCellConfig[] {
+    let lastPosition: Position | null = null;
+
+    return cells.map((cell) => {
+        if (cell.kind === "gap") {
+            return cell;
+        }
+
+        const position: Position =
+            cell.position !== undefined
+                ? cell.position
+                : lastPosition !== null
+                  ? lastPosition === "top"
+                      ? "bottom"
+                      : "top"
+                  : DEFAULT_POSITION;
+
+        lastPosition = position;
+        return { ...cell, position };
+    });
+}
 
 const CONFIG_PATH = resolve(process.cwd(), "src/config/clusters.json");
 
@@ -147,7 +179,7 @@ export function mergeConfigWithOccupancy(config: ClusterConfig, occupancyRows: O
 
 export async function getClusterMap(clusterNumber: number): Promise<ClusterMapResponse> {
     const config = loadClusterConfig(clusterNumber);
-    const occupancyRows = await getClusterOccupancy(config.key);
+    const occupancyRows = await getClusterOccupancy(config.id);
 
     return mergeConfigWithOccupancy(config, occupancyRows);
 }
