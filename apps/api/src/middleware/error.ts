@@ -56,14 +56,29 @@ export const errorMiddleware: ErrorRequestHandler = (error, _req, res, next) => 
         response.details = appError.details;
     }
 
+    // Give the request logger access to the error code before "finish" fires.
+    res.locals.errorCode = appError.code;
+
     if (!isProduction) {
+        // Omit details and cause: details can contain validation input (user data),
+        // cause may carry DB error internals. Code + message + stack is enough to debug.
         console.error({
             statusCode: appError.statusCode,
+            code: appError.code,
             message: appError.message,
             stack: appError.stack,
-            details: appError.details,
-            cause: appError.cause,
         });
+    } else if (isServerError) {
+        // Production: log 5xx to stderr as a JSON line. 4xx are already captured by
+        // the request log; 5xx need their message preserved for operational debugging.
+        process.stderr.write(
+            JSON.stringify({
+                timestamp: new Date().toISOString(),
+                level: "error",
+                code: appError.code,
+                message: appError.message,
+            }) + "\n",
+        );
     }
 
     res.status(appError.statusCode).json(response);
