@@ -141,9 +141,9 @@ export const ClusterPlace = ({
                     {/* made occupied visually filled, like in real hive*/}
                     {isOccupied && (
                         <polygon
-                            points={hexPts(50, 50, 35)}
+                            points={hexPts(50, 50, 34)}
                             fill={styles.stroke}
-                            opacity="0.18"
+                            opacity="0.25"
                             stroke="none"
                         />
                     )}
