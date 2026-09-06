@@ -156,19 +156,30 @@ export const ClusterPlace = ({ place, selected, onSelect }: ClusterPlaceProps) =
                     >
                         ×
                     </button>
+
                     <div className="mb-3 text-xs text-tertiary">
                         Place {place.number}
                     </div>
 
                     <div className="flex items-center gap-3">
-                        {place.peer.photo && (
-                            <img
-                                src={place.peer.photo}
-                                alt=""
-                                className="h-10 w-10 rounded-full object-cover"
-                            />
-                        )}
+                        {/* Avatar */}
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary text-sm font-medium text-tertiary">
+                            {place.peer.photo ? (
+                                <img
+                                    src={place.peer.photo}
+                                    alt=""
+                                    className="h-full w-full object-cover"
+                                />
+                            ) : (
+                                <span>
+                                    {place.peer.displayName?.charAt(0).toUpperCase()
+                                        ?? place.peer.intraName?.charAt(0).toUpperCase()
+                                        ?? "?"}
+                                </span>
+                            )}
+                        </div>
 
+                        {/* Peer details */}
                         <div className="min-w-0">
                             {place.peer.displayName && (
                                 <div className="truncate font-medium">
