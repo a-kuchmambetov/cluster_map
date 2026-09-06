@@ -8,6 +8,7 @@ type ClusterRowViewProps = {
     rowIndex: number;
     selectedPlaceId: string | null;
     onSelectPlace: (placeId: string) => void;
+    onClosePlace: () => void;
 };
 
 export const ClusterRowView = ({
@@ -16,6 +17,7 @@ export const ClusterRowView = ({
     rowIndex,
     selectedPlaceId,
     onSelectPlace,
+    onClosePlace,
 }: ClusterRowViewProps) => {
     return (
         <div>
@@ -46,6 +48,7 @@ export const ClusterRowView = ({
                                 place={cell}
                                 selected={selectedPlaceId === cell.id}
                                 onSelect={() => onSelectPlace(cell.id)}
+                                onClose={onClosePlace}
                             />
                         );
                     }
@@ -63,6 +66,7 @@ export const ClusterRowView = ({
                                 place={cell}
                                 selected={selectedPlaceId === cell.id}
                                 onSelect={() => onSelectPlace(cell.id)}
+                                onClose={onClosePlace}
                             />
                         </div>
                     );

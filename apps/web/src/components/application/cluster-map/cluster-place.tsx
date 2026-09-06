@@ -7,9 +7,15 @@ type ClusterPlaceProps = {
     place: PlaceCell;
     selected: boolean;
     onSelect: () => void;
+    onClose: () => void;
 };
 
-export const ClusterPlace = ({ place, selected, onSelect }: ClusterPlaceProps) => {
+export const ClusterPlace = ({
+    place,
+    selected,
+    onSelect,
+    onClose,
+}: ClusterPlaceProps) => {
     const [isHovered, setIsHovered] = useState(false);
 
     const containerRef = useRef<HTMLDivElement>(null);
@@ -39,24 +45,24 @@ export const ClusterPlace = ({ place, selected, onSelect }: ClusterPlaceProps) =
             return;
         }
 
-        const handlePointerDown = (event: PointerEvent) => {
+        const handleClickOutside = (event: MouseEvent) => {
             if (
                 containerRef.current &&
                 !containerRef.current.contains(event.target as Node)
             ) {
-                onSelect();
+                onClose();
             }
         };
 
-        document.addEventListener("pointerdown", handlePointerDown);
+        document.addEventListener("click", handleClickOutside);
 
         return () => {
             document.removeEventListener(
-                "pointerdown",
-                handlePointerDown,
+                "click",
+                handleClickOutside,
             );
         };
-    }, [selected, onSelect]);
+    }, [selected, onClose]);
     // added for closing popup with ESC button
     useEffect(() => {
         if (!selected) {
@@ -65,7 +71,7 @@ export const ClusterPlace = ({ place, selected, onSelect }: ClusterPlaceProps) =
 
         const handleKeyDown = (event: KeyboardEvent) => {
             if (event.key === "Escape") {
-                onSelect();
+                onClose();
             }
         };
 
@@ -146,7 +152,14 @@ export const ClusterPlace = ({ place, selected, onSelect }: ClusterPlaceProps) =
             {selected && place.peer && (
                 <div
                     id={`peer-${place.id}`}
-                    className="absolute left-full top-1/2 z-20 ml-4 w-56 -translate-y-1/2 rounded-xl border border-secondary bg-primary p-4 shadow-lg"
+                    className="
+                        fixed inset-x-4 bottom-4 z-50
+                        ounded-xl border border-secondary bg-primary p-4 shadow-lg
+
+                        sm:absolute sm:inset-x-auto sm:bottom-auto
+                        sm:left-full sm:top-1/2 sm:ml-4 sm:w-56
+                        sm:-translate-y-1/2
+                    "
                 >
                     <button
                         type="button"
@@ -157,13 +170,21 @@ export const ClusterPlace = ({ place, selected, onSelect }: ClusterPlaceProps) =
                         ×
                     </button>
 
-                    <div className="mb-3 text-xs text-tertiary">
-                        Place {place.number}
+                    <div className="mb-3 pr-8">
+                        <div className="text-sm font-medium">
+                            Place {place.number}
+                        </div>
+
+                        <div className="mt-0.5 text-xs text-tertiary">
+                            Occupied
+                        </div>
                     </div>
+
+                    <div className="mb-4 border-t border-secondary" />
 
                     <div className="flex items-center gap-3">
                         {/* Avatar */}
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary text-sm font-medium text-tertiary">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary text-sm font-medium text-tertiary">
                             {place.peer.photo ? (
                                 <img
                                     src={place.peer.photo}
@@ -182,7 +203,7 @@ export const ClusterPlace = ({ place, selected, onSelect }: ClusterPlaceProps) =
                         {/* Peer details */}
                         <div className="min-w-0">
                             {place.peer.displayName && (
-                                <div className="truncate font-medium">
+                                <div className="truncate text-sm font-semibold">
                                     {place.peer.displayName}
                                 </div>
                             )}
@@ -196,7 +217,7 @@ export const ClusterPlace = ({ place, selected, onSelect }: ClusterPlaceProps) =
                             {!place.peer.displayName &&
                                 !place.peer.intraName && (
                                     <div className="text-sm text-tertiary">
-                                        Occupied
+                                        Peer information unavailable
                                     </div>
                                 )}
                         </div>

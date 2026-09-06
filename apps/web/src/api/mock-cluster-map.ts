@@ -57,6 +57,20 @@ export const mockClusterMaps: Record<number, ClusterMapResponse> = {
                     },
                     {
                         kind: "place",
+                        id: "c1r1p4",
+                        number: 4,
+                        status: "free",
+                        peer: null,
+                    },
+                    {
+                        kind: "place",
+                        id: "c1r1p5",
+                        number: 5,
+                        status: "free",
+                        peer: null,
+                    },
+                    {
+                        kind: "place",
                         id: "c1r1p3",
                         number: 3,
                         status: "free",

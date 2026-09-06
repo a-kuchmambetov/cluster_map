@@ -11,6 +11,9 @@ export const ClusterMap = ({ map }: ClusterMapProps) => {
     const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(
         null,
     );
+    const handleClosePlace = () => {
+        setSelectedPlaceId(null);
+    };
     useEffect(() => {
         setSelectedPlaceId(null);
     }, [map.cluster.number]);
@@ -72,6 +75,7 @@ export const ClusterMap = ({ map }: ClusterMapProps) => {
                             rowIndex={index}
                             selectedPlaceId={selectedPlaceId}
                             onSelectPlace={handleSelectPlace}
+                            onClosePlace={handleClosePlace}
                         />
                     ))}
                 </div>
