@@ -63,6 +63,7 @@ export const ClusterPlace = ({
             );
         };
     }, [selected, onClose]);
+
     // added for closing popup with ESC button
     useEffect(() => {
         if (!selected) {
@@ -80,7 +81,7 @@ export const ClusterPlace = ({
         return () => {
             document.removeEventListener("keydown", handleKeyDown);
         };
-    }, [selected, onSelect]);
+    }, [selected, onClose]);
 
     return (
         <div
@@ -106,7 +107,7 @@ export const ClusterPlace = ({
                     viewBox="0 0 100 100"
                     className="h-full w-full"
                 >
-                    {selected && (
+                    {(isHovered || selected) && (
                         <polygon
                             points={hexPts(50, 50, 44)}
                             fill={styles.stroke}
@@ -154,7 +155,7 @@ export const ClusterPlace = ({
                     id={`peer-${place.id}`}
                     className="
                         fixed inset-x-4 bottom-4 z-50
-                        ounded-xl border border-secondary bg-primary p-4 shadow-lg
+                        rounded-xl border border-secondary bg-primary p-4 shadow-lg
 
                         sm:absolute sm:inset-x-auto sm:bottom-auto
                         sm:left-full sm:top-1/2 sm:ml-4 sm:w-56
@@ -163,7 +164,7 @@ export const ClusterPlace = ({
                 >
                     <button
                         type="button"
-                        onClick={onSelect}
+                        onClick={onClose}
                         aria-label="Close peer details"
                         className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full text-tertiary hover:bg-secondary"
                     >
