@@ -81,14 +81,18 @@ export const ClusterMap = ({ map }: ClusterMapProps) => {
                 </div>
             </div>
             {/* Map legend, free/occupied */}
-            <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
+            <div className="flex items-center gap-4 text-sm text-tertiary">
                 <div className="flex items-center gap-2">
-                    <svg width="22" height="20" viewBox="0 0 22 20">
+                    <svg
+                        viewBox="0 0 100 100"
+                        className="h-5 w-5"
+                        aria-hidden="true"
+                    >
                         <polygon
-                            points={hexPts(11, 10, 7)}
+                            points={hexPts(50, 50, 45)}
                             fill="#eaf5ec"
                             stroke="#2a8840"
-                            strokeWidth="1.2"
+                            strokeWidth="4"
                         />
                     </svg>
 
@@ -96,12 +100,23 @@ export const ClusterMap = ({ map }: ClusterMapProps) => {
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <svg width="22" height="20" viewBox="0 0 22 20">
+                    <svg
+                        viewBox="0 0 100 100"
+                        className="h-5 w-5"
+                        aria-hidden="true"
+                    >
                         <polygon
-                            points={hexPts(11, 10, 7)}
+                            points={hexPts(50, 50, 45)}
                             fill="#fff2e0"
                             stroke="#c07020"
-                            strokeWidth="1.2"
+                            strokeWidth="4"
+                        />
+
+                        <polygon
+                            points={hexPts(50, 50, 28)}
+                            fill="#c07020"
+                            opacity="0.5"
+                            stroke="none"
                         />
                     </svg>
 
