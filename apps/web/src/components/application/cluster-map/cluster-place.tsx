@@ -138,6 +138,15 @@ export const ClusterPlace = ({
                                     : 1
                         }
                     />
+                    {/* made occupied visually filled, like in real hive*/}
+                    {isOccupied && (
+                        <polygon
+                            points={hexPts(50, 50, 35)}
+                            fill={styles.stroke}
+                            opacity="0.18"
+                            stroke="none"
+                        />
+                    )}
                 </svg>
                 {/*free vs occupide only by color*/}
                 <div
