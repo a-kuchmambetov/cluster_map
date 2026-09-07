@@ -22,7 +22,7 @@
         "drizzle-orm": "^0.36.0"
     },
     "devDependencies": {
-        "@types/node": "25.5.0",
+        "@types/node": "26.4.1",
         "@typescript/native-preview": "beta",
         "typescript": "7.0.1-rc"
     }

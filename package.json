@@ -14,6 +14,7 @@
         "build": "pnpm -r --filter '!@repo/docs' build",
         "build:docs": "pnpm --filter @repo/docs build",
         "typecheck": "pnpm -r typecheck",
+        "test": "pnpm -r --if-present test",
         "lint": "oxlint",
         "lint:fix": "oxlint --fix",
         "fmt": "oxfmt",
@@ -25,9 +26,14 @@
         "typescript": "7.0.1-rc"
     },
     "devEngines": {
+        "runtime": {
+            "name": "node",
+            "version": "26.5.0",
+            "onFail": "download"
+        },
         "packageManager": {
             "name": "pnpm",
-            "version": "^11.5.2",
+            "version": "11.15.0",
             "onFail": "download"
         }
     }
