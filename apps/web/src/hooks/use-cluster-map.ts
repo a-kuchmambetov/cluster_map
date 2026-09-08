@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ClusterMapResponse } from "@repo/types";
 import { getClusterMap } from "../api/cluster-map";
 import { mockClusterMaps } from "../api/mock-cluster-map";
@@ -10,39 +10,44 @@ export const useClusterMap = (clusterNumber: number) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
 
-    useEffect(() => {
-        const loadMap = async () => {
-            try {
-                setLoading(true);
-                setError(null);
+    const loadMap = useCallback(async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            // for tests only to check retry button and skeleton of the map
+            // await new Promise((resolve) => setTimeout(resolve, 3000));
+            // throw new Error("Test map loading error");
+            const result =
+                import.meta.env.VITE_USE_MOCK_API === "true"
+                    ? mockClusterMaps[clusterNumber]
+                    : await getClusterMap(clusterNumber);
 
-                // Use fake data during frontend development,
-                // otherwise request data from the real API.
-                const result =
-                    import.meta.env.VITE_USE_MOCK_API === "true"
-                        ? mockClusterMaps[clusterNumber]
-                        : await getClusterMap(clusterNumber);
-
-                if (!result) {
-                    throw new Error(
-                        `Cluster ${clusterNumber} not found`,
-                    );
-                }
-
-                setData(result);
-            } catch (err) {
-                setError(
-                    err instanceof Error
-                        ? err
-                        : new Error("Unknown error"),
+            if (!result) {
+                throw new Error(
+                    `Cluster ${clusterNumber} not found`,
                 );
-            } finally {
-                setLoading(false);
             }
-        };
 
-        loadMap();
+            setData(result);
+        } catch (err) {
+            setError(
+                err instanceof Error
+                    ? err
+                    : new Error("Unknown error"),
+            );
+        } finally {
+            setLoading(false);
+        }
     }, [clusterNumber]);
 
-    return { data, loading, error };
+    useEffect(() => {
+        void loadMap();
+    }, [loadMap]);
+
+    return {
+        data,
+        loading,
+        error,
+        refetch: loadMap,
+    };
 };

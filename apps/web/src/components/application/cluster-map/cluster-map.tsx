@@ -24,7 +24,7 @@ export const ClusterMap = ({ map }: ClusterMapProps) => {
         );
     };
     return (
-        <div className="mt-8 rounded-2xl border border-secondary bg-primary p-4 shadow-sm sm:p-6">
+        <div className="rounded-2xl border border-secondary bg-primary p-4 shadow-sm sm:p-6">
             {/* Cluster title + summary */}
             <div className="flex items-center justify-between gap-4">
                 <h2 className="text-xl font-semibold">
