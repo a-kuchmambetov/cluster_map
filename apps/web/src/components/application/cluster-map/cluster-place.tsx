@@ -93,6 +93,7 @@ export const ClusterPlace = ({
                 onClick={handleClick}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
+                tabIndex={isOccupied ? 0 : -1}
                 aria-expanded={isOccupied ? selected : undefined}
                 aria-controls={
                     isOccupied && place.peer
@@ -101,12 +102,22 @@ export const ClusterPlace = ({
                 }
                 aria-label={`Place ${place.number}, ${isOccupied ? "occupied" : "free"
                     }`}
-                className="relative h-28 w-28"
+                className="group relative h-28 w-28 focus:outline-none"
             >
                 <svg
                     viewBox="0 0 100 100"
                     className="h-full w-full"
                 >
+                    {/* keyboard focus ring */}
+                    <polygon
+                        points={hexPts(50, 50, 46)}
+                        fill="none"
+                        stroke="#b9830f"
+                        strokeWidth="1.5"
+                        strokeDasharray="5 2"
+                        className="opacity-0 transition-opacity group-focus-visible:opacity-100"
+                    />
+                    {/* hover / selected glow */}
                     {(isHovered || selected) && (
                         <polygon
                             points={hexPts(50, 50, 44)}
@@ -115,7 +126,7 @@ export const ClusterPlace = ({
                             stroke="none"
                         />
                     )}
-
+                    {/* selected ring */}
                     {selected && (
                         <polygon
                             points={hexPts(50, 50, 41.5)}
@@ -125,7 +136,7 @@ export const ClusterPlace = ({
                             opacity="0.25"
                         />
                     )}
-
+                    {/* main hex */}
                     <polygon
                         points={hexPts(50, 50, 40)}
                         fill={styles.fill}
@@ -138,7 +149,7 @@ export const ClusterPlace = ({
                                     : 1
                         }
                     />
-                    {/* made occupied visually filled, like in real hive*/}
+                    {/* extra filling for occupied */}
                     {isOccupied && (
                         <polygon
                             points={hexPts(50, 50, 34)}
@@ -148,7 +159,7 @@ export const ClusterPlace = ({
                         />
                     )}
                 </svg>
-                {/*free vs occupide only by color*/}
+                
                 <div
                     className="absolute inset-0 flex items-center justify-center"
                     style={{ color: styles.text }}
