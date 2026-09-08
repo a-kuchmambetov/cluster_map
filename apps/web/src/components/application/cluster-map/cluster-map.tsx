@@ -66,6 +66,20 @@ export const ClusterMap = ({ map }: ClusterMapProps) => {
                     </div>
                 </div>
             </div>
+            
+            {/* No free places */}
+            {map.summary.free === 0 && (
+                <div className="mt-5 rounded-xl border border-secondary bg-secondary/30 px-4 py-3">
+                    <div className="text-sm font-medium">
+                        No free places
+                    </div>
+
+                    <div className="mt-0.5 text-xs text-tertiary">
+                        All places in this cluster are currently occupied.
+                    </div>
+                </div>
+            )}
+
             {/*Scrollable */}
             <div className="mt-8 overflow-x-auto">
                 <div className="space-y-3">
