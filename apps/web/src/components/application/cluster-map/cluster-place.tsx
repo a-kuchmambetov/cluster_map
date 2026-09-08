@@ -102,7 +102,7 @@ export const ClusterPlace = ({
                 }
                 aria-label={`Place ${place.number}, ${isOccupied ? "occupied" : "free"
                     }`}
-                className="group relative h-28 w-28 focus:outline-none"
+                className="group relative h-20 w-20 focus:outline-none"
             >
                 <svg
                     viewBox="0 0 100 100"

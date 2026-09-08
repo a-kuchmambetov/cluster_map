@@ -25,48 +25,50 @@ export const ClusterMap = ({ map }: ClusterMapProps) => {
     };
     return (
         <div className="mt-8 rounded-2xl border border-secondary bg-primary p-4 shadow-sm sm:p-6">
-            {/* Summary showing free/occupied/total places */}
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <h2 className="text-xl font-semibold sm:text-xl">
+            {/* Cluster title + summary */}
+            <div className="flex items-center justify-between gap-4">
+                <h2 className="text-xl font-semibold">
                     {map.cluster.label}
                 </h2>
-                {/* Free */}
-                <div className="flex gap-5 sm:gap-7">
-                    <div className="text-right">
-                        <div className="text-lg font-bold text-success-primary sm:text-xl">
+
+                <div className="flex items-center gap-5 sm:gap-8">
+                    {/* Free */}
+                    <div className="min-w-14 text-center">
+                        <div className="text-2xl font-semibold text-success-primary">
                             {map.summary.free}
                         </div>
-                        <div className="text-xs text-tertiary">
-                            free
+                        <div className="mt-0.5 text-xs text-tertiary">
+                            Free
                         </div>
                     </div>
 
                     {/* Occupied */}
-                    <div className="text-right">
+                    <div className="min-w-14 text-center">
                         <div
-                            className="text-lg font-bold sm:text-xl"
+                            className="text-2xl font-semibold"
                             style={{ color: "#c07020" }}
                         >
                             {map.summary.occupied}
                         </div>
-                        <div className="text-xs text-tertiary">
-                            occupied
+                        <div className="mt-0.5 text-xs text-tertiary">
+                            Occupied
                         </div>
                     </div>
+
                     {/* Total */}
-                    <div className="text-right">
-                        <div className="text-lg font-bold text-tertiary sm:text-xl">
+                    <div className="min-w-14 text-center">
+                        <div className="text-2xl font-semibold text-primary">
                             {map.summary.total}
                         </div>
-                        <div className="text-xs text-tertiary">
-                            total
+                        <div className="mt-0.5 text-xs text-tertiary">
+                            Total
                         </div>
                     </div>
                 </div>
             </div>
             {/*Scrollable */}
-            <div className="mt-6 overflow-x-auto">
-                <div className="space-y-4">
+            <div className="mt-8 overflow-x-auto">
+                <div className="space-y-3">
                     {map.rows.map((row, index) => (
                         <ClusterRowView
                             key={row.id}
@@ -81,7 +83,7 @@ export const ClusterMap = ({ map }: ClusterMapProps) => {
                 </div>
             </div>
             {/* Map legend, free/occupied */}
-            <div className="flex items-center gap-4 text-sm text-tertiary">
+            <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-secondary pt-4 text-sm text-tertiary">
                 <div className="flex items-center gap-2">
                     <svg
                         viewBox="0 0 100 100"

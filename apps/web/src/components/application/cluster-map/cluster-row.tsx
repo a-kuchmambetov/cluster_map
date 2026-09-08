@@ -21,11 +21,11 @@ export const ClusterRowView = ({
 }: ClusterRowViewProps) => {
     return (
         <div>
-            <h3 className="font-medium">
+            <h3 className="text-sm font-medium text-tertiary">
                 {row.label}
             </h3>
 
-            <div className="relative mt-2 h-56">
+            <div className="relative mt-1.5 h-32">
                 {row.cells.map((cell, index) => {
                     if (cell.kind === "gap") {
                         return (
@@ -58,8 +58,8 @@ export const ClusterRowView = ({
                             key={cell.id}
                             className="absolute"
                             style={{
-                                left: `${position.column * 7}rem`,
-                                top: `${position.row * 3.5}rem`,
+                                left: `${position.column * 5}rem`,
+                                top: `${position.row * 2.5}rem`,
                             }}
                         >
                             <ClusterPlace
