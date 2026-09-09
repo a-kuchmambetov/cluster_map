@@ -109,9 +109,21 @@ export const ClusterMap = ({
                     ))}
                 </div>
             )}
+            {/*Scrollable on mobile*/}
+            <div className="mt-6 flex items-center justify-between sm:hidden">
+                <span className="text-xs text-tertiary">
+                    Swipe horizontally to view all places
+                </span>
 
+                <span
+                    className="text-sm text-tertiary"
+                    aria-hidden="true"
+                >
+                    ↔
+                </span>
+            </div>
             {/*Scrollable */}
-            <div className="mt-8 overflow-x-auto">
+            <div className="mt-3 overflow-x-auto overscroll-x-contain pb-3 sm:mt-8">
                 <div className="space-y-3">
                     {map.rows.map((row, index) => (
                         <ClusterRowView

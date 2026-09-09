@@ -57,6 +57,13 @@ export const mockClusterMaps: Record<number, ClusterMapResponse> = {
                     },
                     {
                         kind: "place",
+                        id: "c1r1p3",
+                        number: 3,
+                        status: "free",
+                        peer: null,
+                    },
+                    {
+                        kind: "place",
                         id: "c1r1p4",
                         number: 4,
                         status: "free",
@@ -71,8 +78,8 @@ export const mockClusterMaps: Record<number, ClusterMapResponse> = {
                     },
                     {
                         kind: "place",
-                        id: "c1r1p3",
-                        number: 3,
+                        id: "c1r1p6",
+                        number: 6,
                         status: "free",
                         peer: null,
                     },
@@ -123,14 +130,14 @@ export const mockClusterMaps: Record<number, ClusterMapResponse> = {
 
         lastUpdated: "2026-08-12T08:55:00Z",
 
-        // warnings: [],
-        warnings: [
-            {
-                code: "ORPHANED_OCCUPANCY",
-                message:
-                    "Row 3, place 12 exists in occupancy data but not in layout.",
-            },
-        ],
+        warnings: [],
+        // warnings: [
+        //     {
+        //         code: "ORPHANED_OCCUPANCY",
+        //         message:
+        //             "Row 3, place 12 exists in occupancy data but not in layout.",
+        //     },
+        // ],
     },
 
     2: {
