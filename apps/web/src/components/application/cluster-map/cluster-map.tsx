@@ -73,7 +73,7 @@ export const ClusterMap = ({
                 </div>
             </div>
 
-            {/* No free places */}
+            {/* No free places banner */}
             {map.summary.free === 0 && (
                 <div className="mt-5 rounded-xl border border-secondary bg-secondary/30 px-4 py-3">
                     <div className="text-sm font-medium">
@@ -83,6 +83,30 @@ export const ClusterMap = ({
                     <div className="mt-0.5 text-xs text-tertiary">
                         All places in this cluster are currently occupied.
                     </div>
+                </div>
+            )}
+
+            {/* Map worning banner */}
+            {map.warnings.length > 0 && (
+                <div className="mt-5 space-y-2">
+                    {map.warnings.map((warning) => (
+                        <div
+                            key={`${warning.code}-${warning.message}`}
+                            className="rounded-xl border border-[#c07020]/30 bg-[#fff2e0] px-4 py-3"
+                            role="status"
+                        >
+                            <div
+                                className="text-sm font-medium"
+                                style={{ color: "#8a5010" }}
+                            >
+                                Map configuration warning
+                            </div>
+
+                            <div className="mt-0.5 text-xs text-tertiary">
+                                {warning.message}
+                            </div>
+                        </div>
+                    ))}
                 </div>
             )}
 
@@ -199,3 +223,21 @@ export const ClusterMap = ({
         </div>
     );
 };
+
+
+
+
+
+// initial load
+// → skeleton
+
+// loaded
+// → normal map + Updated 12:45
+
+// refreshing
+// → same map stays visible + Refreshing...
+
+// refresh fails / data becomes stale
+// → same map stays visible
+// → warning
+// → last successful timestamp

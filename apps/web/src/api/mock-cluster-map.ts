@@ -123,7 +123,14 @@ export const mockClusterMaps: Record<number, ClusterMapResponse> = {
 
         lastUpdated: "2026-08-12T08:55:00Z",
 
-        warnings: [],
+        // warnings: [],
+        warnings: [
+            {
+                code: "ORPHANED_OCCUPANCY",
+                message:
+                    "Row 3, place 12 exists in occupancy data but not in layout.",
+            },
+        ],
     },
 
     2: {
