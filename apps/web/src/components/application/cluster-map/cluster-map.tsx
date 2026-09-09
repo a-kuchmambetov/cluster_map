@@ -5,9 +5,15 @@ import { hexPts } from "@/utils/hex";
 
 type ClusterMapProps = {
     map: ClusterMapResponse;
+    refreshing?: boolean;
+    stale?: boolean;
 };
 
-export const ClusterMap = ({ map }: ClusterMapProps) => {
+export const ClusterMap = ({
+    map,
+    refreshing = false,
+    stale = false,
+}: ClusterMapProps) => {
     const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(
         null,
     );
@@ -66,7 +72,7 @@ export const ClusterMap = ({ map }: ClusterMapProps) => {
                     </div>
                 </div>
             </div>
-            
+
             {/* No free places */}
             {map.summary.free === 0 && (
                 <div className="mt-5 rounded-xl border border-secondary bg-secondary/30 px-4 py-3">
@@ -140,14 +146,54 @@ export const ClusterMap = ({ map }: ClusterMapProps) => {
                 </div>
 
                 {/* Last update stamp */}
-                <div className="ml-auto text-xs text-tertiary">
-                    Updated{" "}
-                    {map.lastUpdated
-                        ? new Date(map.lastUpdated).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                        })
-                        : "—"}
+                <div
+                    className="w-full text-xs sm:ml-auto sm:w-auto"
+                    role="status"
+                    aria-live="polite"
+                >
+                    {refreshing ? (
+                        <div className="flex items-center gap-2 text-tertiary">
+                            <span
+                                className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"
+                                aria-hidden="true"
+                            />
+
+                            <span>Refreshing...</span>
+                        </div>
+                    ) : stale ? (
+                        <div
+                            className="flex items-center gap-1.5"
+                            style={{ color: "#c07020" }}
+                        >
+                            <span aria-hidden="true">!</span>
+
+                            <span>Data may be outdated</span>
+
+                            <span className="text-tertiary">
+                                · Updated{" "}
+                                {map.lastUpdated
+                                    ? new Date(
+                                        map.lastUpdated,
+                                    ).toLocaleTimeString([], {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                    })
+                                    : "—"}
+                            </span>
+                        </div>
+                    ) : (
+                        <div className="text-tertiary">
+                            Updated{" "}
+                            {map.lastUpdated
+                                ? new Date(
+                                    map.lastUpdated,
+                                ).toLocaleTimeString([], {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                })
+                                : "—"}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
