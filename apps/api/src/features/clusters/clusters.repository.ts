@@ -1,12 +1,5 @@
 import type { OccupancyRow } from "./clusters.types";
-import {
-    cluster,
-    db,
-    position,
-    row,
-    user,
-    userHiveInfo,
-} from "@repo/db";
+import { cluster, db, position, row, user, userHiveInfo } from "@repo/db";
 import { and, eq } from "drizzle-orm";
 
 // const OCCUPANCY_FIXTURES: Record<string, OccupancyRow[]> = {
@@ -32,11 +25,6 @@ export async function getClusterOccupancy(clusterId: string): Promise<OccupancyR
         .innerJoin(cluster, eq(row.clusterId, cluster.id))
         .leftJoin(userHiveInfo, eq(position.holderId, userHiveInfo.id))
         .leftJoin(user, eq(userHiveInfo.id, user.id))
-        .where(
-            and(
-                eq(cluster.name, clusterId),
-                eq(position.occupied, true),
-            ),
-        );
+        .where(and(eq(cluster.name, clusterId), eq(position.occupied, true)));
     return occupancy;
 }
