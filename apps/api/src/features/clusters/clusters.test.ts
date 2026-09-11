@@ -1,8 +1,24 @@
 import request from "supertest";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { app } from "../../app";
 import { listClusterConfigs, resolveRowPositions, validateClusterConfig } from "./clusters.service";
-import type { CellConfig, ClusterConfig, ResolvedPlaceCellConfig } from "./clusters.types";
+import type { CellConfig, ClusterConfig, OccupancyRow, ResolvedPlaceCellConfig } from "./clusters.types";
+
+// Cluster 1, row 1 layout: places 1–8, a gap, then places 9–11.
+// Two occupied seats exercise the two peer shapes the contract describes:
+//   place 2 — full peer (intraName + displayName both present)
+//   place 5 — guest peer (null intraName, displayName only)
+// Everything else in the row is free, and the gap is present.
+const C1_R1_OCCUPANCY: OccupancyRow[] = [
+    { row: 1, place: 2, intraName: "jdoe", displayName: "John Doe", photo: null },
+    { row: 1, place: 5, intraName: null, displayName: "Guest User", photo: null },
+];
+
+const getClusterOccupancyMock = vi.fn();
+
+vi.mock("./clusters.repository", () => ({
+    getClusterOccupancy: (...args: unknown[]) => getClusterOccupancyMock(...args),
+}));
 
 describe("GET /api/clusters", () => {
     it("returns the cluster list", async () => {
@@ -20,18 +36,33 @@ describe("GET /api/clusters", () => {
 });
 
 describe("GET /api/clusters/:clusterNumber/map", () => {
-    it("returns an occupied cell, a free cell, and a gap cell for cluster 1 R1", async () => {
+    afterEach(() => {
+        getClusterOccupancyMock.mockReset();
+    });
+
+    it("returns occupied cells (full and guest peer), free cells, and a gap for cluster 1 R1", async () => {
+        getClusterOccupancyMock.mockResolvedValueOnce(C1_R1_OCCUPANCY);
+
         const response = await request(app).get("/api/clusters/1/map");
 
         expect(response.status).toBe(200);
 
         const r1 = response.body.rows.find((r: { number: number }) => r.number === 1);
         expect(r1).toBeDefined();
+        // full peer: intraName and displayName both present
         expect(r1.cells).toContainEqual(
             expect.objectContaining({
                 kind: "place",
                 status: "occupied",
                 peer: { intraName: "jdoe", displayName: "John Doe", photo: null },
+            }),
+        );
+        // guest peer: intraName is null
+        expect(r1.cells).toContainEqual(
+            expect.objectContaining({
+                kind: "place",
+                status: "occupied",
+                peer: { intraName: null, displayName: "Guest User", photo: null },
             }),
         );
         expect(r1.cells).toContainEqual(expect.objectContaining({ kind: "place", status: "free", peer: null }));
@@ -50,6 +81,14 @@ describe("GET /api/clusters/:clusterNumber/map", () => {
 
         expect(response.status).toBe(422);
         expect(response.body.code).toBe("VALIDATION_ERROR");
+    });
+
+    it("returns 500 when the database is unavailable", async () => {
+        getClusterOccupancyMock.mockRejectedValueOnce(new Error("connection refused"));
+
+        const response = await request(app).get("/api/clusters/1/map");
+
+        expect(response.status).toBe(500);
     });
 });
 
