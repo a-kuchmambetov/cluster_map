@@ -15,7 +15,7 @@ const config: Config = {
     },
 
     // Set the production url of your site here
-    url: "https://your-docusaurus-site.example.com",
+    url: "https://docs.map-hive.pp.ua",
     // Set the /<baseUrl>/ pathname under which your site is served
     // For GitHub pages deployment, it is often '/<projectName>/'
     baseUrl: "/",
@@ -40,6 +40,7 @@ const config: Config = {
             "classic",
             {
                 docs: {
+                    routeBasePath: "/",
                     sidebarPath: "./sidebars.ts",
                     // Please change this to your repo.
                     // Remove this to remove the "edit this page" links.
@@ -55,12 +56,11 @@ const config: Config = {
 
     themeConfig: {
         // Replace with your project's social card
-        image: "img/docusaurus-social-card.jpg",
         colorMode: {
             respectPrefersColorScheme: true,
         },
         navbar: {
-            title: "Cluster Map Docs",
+            title: "Cluster Map",
             logo: {
                 alt: "Cluster Map Logo",
                 src: "img/logo.svg",
@@ -86,7 +86,8 @@ const config: Config = {
         },
         prism: {
             theme: prismThemes.github,
-            darkTheme: prismThemes.dracula,
+            darkTheme: prismThemes.oneDark,
+            additionalLanguages: ["bash", "json"],
         },
     } satisfies Preset.ThemeConfig,
 };

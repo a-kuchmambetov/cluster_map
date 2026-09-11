@@ -1,0 +1,36 @@
+---
+sidebar_position: 2
+---
+
+# Testing and Simulation
+
+:::warning[Current status]
+
+The repository does not currently contain project test scripts, test files, or a simulation-agent implementation. This page records the intended strategy, not an active test system.
+
+:::
+
+## Planned Test Layers
+
+| Layer                         | Intended scope                                                           | Candidate tooling              |
+| ----------------------------- | ------------------------------------------------------------------------ | ------------------------------ |
+| Frontend unit and integration | Components, hooks, map states, and failed refreshes                      | Vitest and Mock Service Worker |
+| API                           | Routes, validation, error responses, and repositories                    | Vitest and Supertest           |
+| End to end                    | Cluster selection, place details, accessibility, and stale-data behavior | Playwright                     |
+| Simulation                    | Demonstration traffic and repeatable occupancy scenarios                 | Simulation agent               |
+
+Tool names reflect the current project plan. They become authoritative only after the corresponding dependencies and scripts are added.
+
+## Simulation Agent
+
+The planned simulation agent represents user-like activity so the application can be demonstrated without depending on live production behavior. It may also provide deterministic scenarios for testing map refreshes and occupancy changes.
+
+The agent must:
+
+- Run only in local, test, or explicitly designated demonstration environments.
+- Never connect to or modify the production database.
+- Use clearly synthetic identities and occupancy records.
+- Support repeatable scenarios rather than uncontrolled random changes.
+- Document how it starts, stops, resets, and selects a scenario once implemented.
+
+The simulation agent must not be included in the production runtime.

@@ -1,0 +1,32 @@
+---
+sidebar_position: 1
+---
+
+# Current Status
+
+Cluster Map is an early-stage application. The documentation describes both the checked-in implementation and the intended MVP, so proposed behavior is labelled explicitly.
+
+:::info[Keep this page current]
+
+Update this status summary whenever a planned capability becomes available. Detailed requirements do not mean that a feature has been implemented.
+
+:::
+
+## Implementation Summary
+
+| Area                      | Status     | Current state                                                                                             |
+| ------------------------- | ---------- | --------------------------------------------------------------------------------------------------------- |
+| Documentation             | Available  | Docusaurus site, architecture diagram, and initial product requirements                                   |
+| Web application           | Foundation | React, Vite, routing, theming, and the Untitled UI starter screen                                         |
+| API                       | Foundation | Express application, CORS, validation and error middleware, and `GET /api/health`                         |
+| Cluster and map endpoints | Planned    | No cluster, map, place, or occupancy endpoints are registered yet                                         |
+| Database                  | Foundation | Drizzle client and migration tooling are configured; the application schema is empty                      |
+| Shared packages           | Scaffolded | Error handling exists; validators and shared types currently contain examples                             |
+| Simulation agent          | Planned    | The intended behavior is documented, but no agent implementation is defined                               |
+| Deployment                | Partial    | The documentation site has a Dockerfile and Nginx configuration; full-stack deployment is not implemented |
+
+## MVP Direction
+
+The intended MVP lets a viewer select a cluster, inspect its physical layout, spot free and occupied places, and see limited information about the peer using an occupied place. Occupancy is read-only and comes from a production data source.
+
+See [Requirements and User Journeys](../product/requirements-and-user-journeys.mdx) for the product behavior and [Decisions](../architecture/decisions.mdx) for unresolved choices.

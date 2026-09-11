@@ -4,3 +4,6 @@ build
 .env
 .env.*
 !.env.example
+.DS_Store
+CLAUDE.md
+.claude

@@ -38,8 +38,14 @@ export const DateRangePicker = ({ value: valueProp, defaultValue, onChange, onAp
     const presets = useMemo(
         () => ({
             today: { label: "Today", value: { start: now, end: now } },
-            yesterday: { label: "Yesterday", value: { start: now.subtract({ days: 1 }), end: now.subtract({ days: 1 }) } },
-            thisWeek: { label: "This week", value: { start: startOfWeek(now, locale), end: endOfWeek(now, locale) } },
+            yesterday: {
+                label: "Yesterday",
+                value: { start: now.subtract({ days: 1 }), end: now.subtract({ days: 1 }) },
+            },
+            thisWeek: {
+                label: "This week",
+                value: { start: startOfWeek(now, locale), end: endOfWeek(now, locale) },
+            },
             lastWeek: {
                 label: "Last week",
                 value: {
@@ -55,7 +61,13 @@ export const DateRangePicker = ({ value: valueProp, defaultValue, onChange, onAp
                     end: endOfMonth(now).subtract({ months: 1 }),
                 },
             },
-            thisYear: { label: "This year", value: { start: startOfMonth(now.set({ month: 1 })), end: endOfMonth(now.set({ month: 12 })) } },
+            thisYear: {
+                label: "This year",
+                value: {
+                    start: startOfMonth(now.set({ month: 1 })),
+                    end: endOfMonth(now.set({ month: 12 })),
+                },
+            },
             lastYear: {
                 label: "Last year",
                 value: {

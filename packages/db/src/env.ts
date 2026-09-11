@@ -1,14 +1,12 @@
-import { readFileSync } from "node:fs";
+import dotenv from "dotenv";
+import { resolve } from "node:path";
 
-const readSecretFile = (path?: string) => {
-    if (!path) return undefined;
-    return readFileSync(path, "utf8").trim();
-};
+dotenv.config({ path: resolve(process.cwd(), "../../.env") });
 
-const pgUser = process.env.PG_USER;
-const pgDb = process.env.PG_DB;
+const pgUser: string = process.env.PG_USER ?? "app";
+const pgDb = process.env.PG_DB ?? "app";
 const pgHost = process.env.PG_HOST ?? "localhost";
 const pgPort = process.env.PG_PORT ?? "5432";
-const pgPassword = process.env.PG_PASSWORD ?? readSecretFile(process.env.PG_PASSWORD_FILE);
+const pgPassword = process.env.PG_PASSWORD ?? "app";
 
-export const DATABASE_URL = process.env.DATABASE_URL ?? `postgres://${pgUser}:${pgPassword}@${pgHost}:${pgPort}/${pgDb}`;
+export const DATABASE_URL = `postgres://${encodeURIComponent(pgUser)}:${encodeURIComponent(pgPassword)}@${pgHost}:${pgPort}/${pgDb}`;

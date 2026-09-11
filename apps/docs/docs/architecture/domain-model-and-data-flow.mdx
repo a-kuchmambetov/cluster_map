@@ -1,0 +1,79 @@
+---
+sidebar_position: 2
+title: Domain Model and Data Flow
+---
+
+# Domain Model and Data Flow
+
+This page defines the proposed domain language and merge behavior. The database
+schema and map endpoints have not yet been implemented, so field names and wire
+formats are intentionally not specified here.
+
+## Domain concepts
+
+| Concept      | Meaning                                                                                              |
+| ------------ | ---------------------------------------------------------------------------------------------------- |
+| Cluster      | A uniquely identified physical area containing rows and places.                                      |
+| Row          | An ordered group of map positions within a cluster.                                                  |
+| Place        | A numbered physical position that can be free or occupied.                                           |
+| Layout gap   | An empty map position used to reproduce physical spacing; it is not a place and has no place number. |
+| Occupancy    | The current association between a real place and, when permitted, a peer.                            |
+| Peer         | A person associated with an occupied place; only approved identity fields may leave the API.         |
+| Last updated | The time at which occupancy data was most recently retrieved successfully.                           |
+
+A cluster contains ordered rows, and each row contains ordered layout positions.
+A position is either a real place or a layout gap. A real place has exactly one
+display state at a given observation: free or occupied.
+
+## Separate sources
+
+The target design uses two independent inputs:
+
+- **Layout configuration** defines clusters, rows, place numbers, ordering, and
+  visual gaps. It should be editable without changing production occupancy data.
+- **Occupancy data** is read from the production source and associates known real
+  places with current peer information.
+
+Keeping these sources separate prevents visual layout concerns from leaking into
+the production occupancy schema.
+
+## Proposed read flow
+
+1. The viewer selects a cluster.
+2. The web application requests its map from the API.
+3. The API loads and validates the cluster's layout configuration.
+4. The API reads the minimum required occupancy fields with a read-only database
+   connection.
+5. The API matches occupancy records to configured real places.
+6. It returns an ordered map representation plus summary counts, update metadata,
+   and safe warnings.
+7. The web application renders the response and retains it during later refreshes.
+
+## Merge rules
+
+The implementation should preserve these invariants:
+
+- A layout gap is never considered free or occupied.
+- A configured place with no matching occupancy record is free, subject to the
+  production source's eventual contract.
+- A configured place with one valid matching record is occupied.
+- Duplicate occupancy records or occupancy for an unknown place are data-quality
+  mismatches, not additional map positions.
+- A mismatch must be observable and must not silently invalidate unrelated map
+  content.
+- Peer data must be reduced to the approved response fields before it reaches the
+  browser.
+
+The meaning of “no matching occupancy record” and the stable keys used for a
+match must be confirmed against the production schema before implementation.
+
+## Refresh and failure flow
+
+The frontend is expected to poll at a configurable interval. On success it replaces
+the map and last-updated value together. On failure it retains the last successful
+response, reports that the data might be stale, and retries later. Staleness is
+measured from the last successful occupancy retrieval, not the most recent attempt.
+
+See [Requirements and User Journeys](../product/requirements-and-user-journeys)
+for the user-visible states and [Architecture Decisions](./decisions) for
+unresolved freshness and warning policies.

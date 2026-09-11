@@ -1,0 +1,39 @@
+---
+sidebar_position: 2
+---
+
+# Observability and Troubleshooting
+
+## Current Signals
+
+The API currently exposes:
+
+- `GET /api/health`, which returns `{ "status": "ok" }` when the Express process is responding.
+- Detailed console error output outside production.
+- Masked messages for server errors when `NODE_ENV=production`.
+
+The health endpoint does not currently verify database connectivity or map-data freshness.
+
+## Planned Operational Signals
+
+The MVP requirements call for visibility into:
+
+- API availability and response time.
+- Production database connection failures.
+- Invalid or mismatched map configuration.
+- Failed occupancy refreshes and stale data age.
+- Unexpected server errors without logging unnecessary personal data.
+
+Metrics, structured production logging, alerting, and tracing have not been selected yet.
+
+## Troubleshooting
+
+| Symptom                                          | Check                                                                                            |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| API exits during startup                         | Confirm all required PostgreSQL variables are present and readable                               |
+| Browser reports a CORS failure                   | Set `WEB_ORIGIN` to the frontend's exact origin, including scheme and port                       |
+| Documentation build fails                        | Run `pnpm build:docs` and resolve the reported MDX or broken-link error                          |
+| Database connection fails                        | Check host, port, database, user, and password or secret-file configuration                      |
+| Health endpoint succeeds but data is unavailable | The current health check is process-only; inspect database and future map-data checks separately |
+
+See the [Environment Variables reference](../reference/environment-variables.mdx) for configuration details and [Deployment](./deployment.mdx) for the currently supported runtime artifact.

@@ -1,0 +1,9 @@
+{
+    "label": "Overview",
+    "position": 1,
+    "link": {
+        "type": "generated-index",
+        "slug": "/",
+        "description": "Cluster Map helps viewers find available places in a physical cluster. Start here to see what is implemented today and what remains planned."
+    }
+}

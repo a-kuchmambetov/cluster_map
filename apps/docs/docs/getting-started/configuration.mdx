@@ -1,0 +1,73 @@
+---
+sidebar_position: 2
+---
+
+# Configuration
+
+Current runtime configuration is environment-based. There is no implemented map-layout configuration yet; its proposed contract is documented separately in [Map configuration](../reference/map-configuration).
+
+## Root environment file
+
+The API loads `../../.env` relative to its workspace working directory. When it is started through the repository's pnpm scripts, this resolves to `.env` in the repository root.
+
+Create the file from the checked-in template:
+
+```bash
+cp .env.example .env
+```
+
+A local configuration aligned with the current default ports is:
+
+```dotenv
+API_PORT=5000
+WEB_ORIGIN=http://localhost:5173
+
+PG_USER=app
+PG_DB=app
+PG_PASSWORD=app
+PG_HOST=localhost
+PG_PORT=5432
+```
+
+These database values are examples for local development, not production credentials. Do not commit `.env`.
+
+See [Environment variables](../reference/environment-variables) for requirements, defaults, precedence, and secret-file support.
+
+## API configuration validation
+
+At startup, the API validates the following values with Zod:
+
+- `API_PORT`, coerced to a number and defaulting to `5000`.
+- `WEB_ORIGIN`, defaulting to `http://localhost:5173` when the variable is absent.
+- `PG_USER`, `PG_DB`, and `PG_PASSWORD`, which must be non-empty.
+- `PG_HOST`, defaulting to `localhost`.
+
+If `PG_PASSWORD` is absent, the API first tries to read the password from the file named by `PG_PASSWORD_FILE`. `PG_PASSWORD_FILE` will be used for Compose Secrets setup as file inside service from environment variable value. Startup fails if the provided configuration is invalid.
+
+The current health endpoint does not query PostgreSQL. The database values are nevertheless required because API configuration is validated before the server starts.
+
+## Database connection precedence
+
+The database package builds its connection string in this order:
+
+1. Cconstruct a PostgreSQL URL from `PG_USER`, `PG_PASSWORD`, `PG_HOST`, `PG_PORT`, and `PG_DB`.
+2. When `PG_PASSWORD` is absent, read `PG_PASSWORD_FILE` if it is set.
+
+`PG_HOST` defaults to `localhost` and `PG_PORT` defaults to `5432` in the database package.
+
+The API explicitly loads the root `.env`; the database package itself only reads `process.env`. Database CLI commands therefore need the variables to be present in their process environment. The repository does not currently include a Docker Compose file or another local database bootstrap command.
+
+## CORS and environment mode
+
+The API enables credentialed CORS.
+
+- When `NODE_ENV` is exactly `development`, it accepts `WEB_ORIGIN` and can accept additional values if needed.
+- For every other value, it accepts only `WEB_ORIGIN`.
+
+Set `WEB_ORIGIN` to the complete browser origin, including `http://` or `https://` and a non-default port. For the current Vite default, use `http://localhost:5173`.
+
+`NODE_ENV=production` also masks internal server-error messages and details. Other modes return the unmasked error information and log errors to the server console. See the [API error contract](../reference/api#error-responses).
+
+## Frontend configuration
+
+The web application currently reads no `VITE_*` environment variables. Its route table and API base URL are not configurable through an implemented frontend environment contract yet.

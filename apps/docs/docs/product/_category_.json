@@ -1,0 +1,8 @@
+{
+    "label": "Product",
+    "position": 3,
+    "link": {
+        "type": "generated-index",
+        "description": "Product scope, user journeys, privacy requirements, and quality expectations."
+    }
+}

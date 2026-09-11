@@ -313,7 +313,7 @@ export const BadgeWithImage = <T extends BadgeTypes>(props: BadgeWithImageProps<
 
     return (
         <span className={cx(colors.common, sizes[type][size], colors.styles[color].root)}>
-            <img src={imgSrc} className="size-4 max-w-none rounded-full" alt="Badge image" />
+            <img src={imgSrc} className="size-4 max-w-none rounded-full" alt="Badge" />
             {children}
         </span>
     );

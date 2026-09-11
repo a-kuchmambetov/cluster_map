@@ -2,7 +2,6 @@
  * Shared data structs for the cluster map api
  */
 
-
 /**
  * Represents the current state of a real place in a cluster.
  *
@@ -138,8 +137,6 @@ export type ClusterMapResponse = {
 export type ClusterListResponse = {
     clusters: Cluster[];
 };
-
-
 
 /**
  * Describes one validation problem in a cluster layout configuration.

@@ -1,12 +1,16 @@
 {
+    "$schema": "./node_modules/oxfmt/configuration_schema.json",
     "printWidth": 160,
     "tabWidth": 4,
     "semi": true,
     "singleQuote": false,
-    "plugins": ["@trivago/prettier-plugin-sort-imports", "prettier-plugin-tailwindcss"],
-    "tailwindFunctions": ["sortCx", "cx"],
     "importOrder": ["^react$", "^react-dom$", "^(?!react$|react-dom$|@/|\\.).*", "^@/.*", "^\\.{1,2}/.*"],
     "importOrderSeparation": false,
     "importOrderSortSpecifiers": true,
-    "tailwindStylesheet": "./apps/web/src/styles/globals.css"
+    "sortPackageJson": false,
+    "sortTailwindcss": {
+        "stylesheet": "./apps/web/src/styles/globals.css",
+        "functions": ["sortCx", "cx"]
+    },
+    "ignorePatterns": []
 }

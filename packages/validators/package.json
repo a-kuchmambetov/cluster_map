@@ -19,8 +19,8 @@
         "zod": "^3.23.8"
     },
     "devDependencies": {
-        "@typescript/native-preview": "beta",
         "@types/node": "25.5.0",
+        "@typescript/native-preview": "beta",
         "typescript": "7.0.1-rc"
     }
 }

@@ -1,0 +1,43 @@
+---
+sidebar_position: 1
+---
+
+# Deployment
+
+## Current Deployment Support
+
+Only the documentation site currently has checked-in deployment artifacts:
+
+- `Dockerfile.docs` builds the Docusaurus site and copies the static output into Nginx.
+- `nginx.docs.conf` serves that output on port 80.
+- Docusaurus is configured for `https://docs.map-hive.pp.ua/`.
+
+Build the documentation image from the repository root:
+
+```bash
+docker build -f Dockerfile.docs -t cluster-map-docs .
+```
+
+Run it locally on port 8080:
+
+```bash
+docker run --rm -p 8080:80 cluster-map-docs
+```
+
+The image build runs `pnpm build:docs`, and Docusaurus treats broken links as build failures.
+
+## Target Full-Stack Deployment
+
+The [System Overview](../architecture/system-overview.mdx) describes the intended web, API, database, and Cloudflare boundaries. The repository does not yet include full-stack Docker, Compose, proxy, CI/CD, or rollback configuration.
+
+Before treating that strategy as production-ready, define:
+
+- Separate development, staging, and production configuration.
+- TLS termination and the exact web, API, and documentation hostnames or paths.
+- A read-only production database account for the application.
+- Secret injection without credentials in images or source control.
+- API and database readiness checks.
+- Migration ownership, backup, rollback, and recovery procedures.
+- Deployment verification and rollback commands.
+
+Do not infer a production processes from the architecture diagram alone.
