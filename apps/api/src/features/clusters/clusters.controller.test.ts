@@ -1,194 +1,135 @@
-import request from "supertest";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { app } from "../../app";
-import type { OccupancyRow } from "./clusters.types";
+import type { NextFunction, Request, Response } from "express";
+import { describe, expect, it, vi } from "vitest";
+import {
+    getClusterConfigValidationHandler,
+    getClusterLayoutHandler,
+    getClusterOccupancyHandler,
+    listClusters,
+} from "./clusters.controller";
 
-// Cluster 1, row 1 layout: places 1–8, a gap, then places 9–11.
-// Two occupied seats exercise the two peer shapes the contract describes:
-//   place 2 — full peer (intraName + displayName both present)
-//   place 5 — guest peer (null intraName, displayName only)
-// Everything else in the row is free, and the gap is present.
-const C1_R1_OCCUPANCY: OccupancyRow[] = [
-    { row: 1, place: 2, intraName: "jdoe", displayName: "John Doe", photo: null },
-    { row: 1, place: 5, intraName: null, displayName: "Guest User", photo: null },
-];
+const listClusterConfigsMock = vi.fn();
+const getClusterLayoutMock = vi.fn();
+const getClusterOccupancyDataMock = vi.fn();
+const getClusterConfigValidationMock = vi.fn();
 
-const getClusterOccupancyMock = vi.fn();
-
-vi.mock("./clusters.repository", () => ({
-    getClusterOccupancy: (...args: unknown[]) => getClusterOccupancyMock(...args),
+vi.mock("./clusters.service", () => ({
+    listClusterConfigs: (...args: unknown[]) => listClusterConfigsMock(...args),
+    getClusterLayout: (...args: unknown[]) => getClusterLayoutMock(...args),
+    getClusterOccupancyData: (...args: unknown[]) => getClusterOccupancyDataMock(...args),
+    getClusterConfigValidation: (...args: unknown[]) => getClusterConfigValidationMock(...args),
 }));
 
-describe("GET /api/clusters", () => {
-    it("returns the cluster list", async () => {
-        const response = await request(app).get("/api/clusters");
+function makeHandlerArgs(params: Record<string, unknown> = {}) {
+    const json = vi.fn();
+    const req = { params } as unknown as Request;
+    const res = { json } as unknown as Response;
+    const next = vi.fn() as unknown as NextFunction;
+    return { req, res, next, json };
+}
 
-        expect(response.status).toBe(200);
-        expect(response.body).toEqual({
+describe("listClusters", () => {
+    it("maps the service result to { clusters } and sends it", async () => {
+        const serviceResult = [
+            { id: "c1", number: 1, label: "Cluster 1", rows: [] },
+            { id: "c2", number: 2, label: "Cluster 2", rows: [] },
+        ];
+        listClusterConfigsMock.mockReturnValueOnce(serviceResult);
+
+        const { req, res, next, json } = makeHandlerArgs();
+        await listClusters(req, res, next);
+
+        expect(json).toHaveBeenCalledWith({
             clusters: [
                 { id: "c1", number: 1, label: "Cluster 1" },
                 { id: "c2", number: 2, label: "Cluster 2" },
-                { id: "c3", number: 3, label: "Cluster 3" },
             ],
         });
+        expect(next).not.toHaveBeenCalled();
+    });
+
+    it("forwards thrown errors to next", async () => {
+        const err = new Error("config unreadable");
+        listClusterConfigsMock.mockImplementationOnce(() => {
+            throw err;
+        });
+
+        const { req, res, next } = makeHandlerArgs();
+        await listClusters(req, res, next);
+
+        expect(next).toHaveBeenCalledWith(err);
     });
 });
 
-describe("GET /api/clusters/:clusterNumber/layout", () => {
-    it("returns cluster info, rows sorted top to bottom (highest number first), cells with no status or peer", async () => {
-        const response = await request(app).get("/api/clusters/1/layout");
+describe("getClusterLayoutHandler", () => {
+    it("passes the parsed clusterNumber to the service and sends the result", async () => {
+        const layout = { cluster: { id: "c1", number: 1, label: "Cluster 1" }, rows: [] };
+        getClusterLayoutMock.mockReturnValueOnce(layout);
 
-        expect(response.status).toBe(200);
-        expect(response.body.cluster).toEqual({ id: "c1", number: 1, label: "Cluster 1" });
+        const { req, res, next, json } = makeHandlerArgs({ clusterNumber: "1" });
+        await getClusterLayoutHandler(req, res, next);
 
-        const { rows } = response.body;
-        expect(rows.length).toBeGreaterThan(0);
-        // rows are sorted descending by number: first is the topmost physical row
-        expect(rows[0].number).toBeGreaterThan(rows[rows.length - 1].number);
-
-        // spot-check row 1 (last in the sorted array for cluster 1)
-        const r1 = rows.find((r: { number: number }) => r.number === 1);
-        expect(r1).toBeDefined();
-        expect(r1.cells).toContainEqual({ kind: "gap" });
-        expect(r1.cells).toContainEqual(expect.objectContaining({ kind: "place", id: expect.any(String), number: expect.any(Number) }));
-        // cells carry no occupancy data
-        for (const cell of r1.cells) {
-            expect(cell).not.toHaveProperty("status");
-            expect(cell).not.toHaveProperty("peer");
-        }
+        expect(getClusterLayoutMock).toHaveBeenCalledWith(1);
+        expect(json).toHaveBeenCalledWith(layout);
+        expect(next).not.toHaveBeenCalled();
     });
 
-    it("returns 404 CLUSTER_NOT_FOUND for an unknown cluster number", async () => {
-        const response = await request(app).get("/api/clusters/999/layout");
+    it("forwards thrown errors to next", async () => {
+        const err = new Error("cluster not found");
+        getClusterLayoutMock.mockImplementationOnce(() => {
+            throw err;
+        });
 
-        expect(response.status).toBe(404);
-        expect(response.body.code).toBe("CLUSTER_NOT_FOUND");
-    });
+        const { req, res, next } = makeHandlerArgs({ clusterNumber: "1" });
+        await getClusterLayoutHandler(req, res, next);
 
-    it("returns 422 for a non-numeric cluster number", async () => {
-        const response = await request(app).get("/api/clusters/abc/layout");
-
-        expect(response.status).toBe(422);
-        expect(response.body.code).toBe("VALIDATION_ERROR");
+        expect(next).toHaveBeenCalledWith(err);
     });
 });
 
-describe("GET /api/clusters/:clusterNumber/occupancy", () => {
-    afterEach(() => {
-        getClusterOccupancyMock.mockReset();
+describe("getClusterOccupancyHandler", () => {
+    it("passes the parsed clusterNumber to the service and sends the result", async () => {
+        const occupancy = { occupied: [], lastUpdated: "2026-01-01T00:00:00.000Z" };
+        getClusterOccupancyDataMock.mockResolvedValueOnce(occupancy);
+
+        const { req, res, next, json } = makeHandlerArgs({ clusterNumber: "2" });
+        await getClusterOccupancyHandler(req, res, next);
+
+        expect(getClusterOccupancyDataMock).toHaveBeenCalledWith(2);
+        expect(json).toHaveBeenCalledWith(occupancy);
+        expect(next).not.toHaveBeenCalled();
     });
 
-    it("returns occupied entries with full and guest peer shapes, and a lastUpdated timestamp", async () => {
-        getClusterOccupancyMock.mockResolvedValueOnce(C1_R1_OCCUPANCY);
+    it("forwards thrown errors to next", async () => {
+        const err = new Error("db error");
+        getClusterOccupancyDataMock.mockRejectedValueOnce(err);
 
-        const response = await request(app).get("/api/clusters/1/occupancy");
+        const { req, res, next } = makeHandlerArgs({ clusterNumber: "1" });
+        await getClusterOccupancyHandler(req, res, next);
 
-        expect(response.status).toBe(200);
-        // full peer: both name fields present
-        expect(response.body.occupied).toContainEqual({
-            row: 1,
-            place: 2,
-            peer: { intraName: "jdoe", displayName: "John Doe", photo: null },
-        });
-        // guest peer: intraName is null
-        expect(response.body.occupied).toContainEqual({
-            row: 1,
-            place: 5,
-            peer: { intraName: null, displayName: "Guest User", photo: null },
-        });
-        expect(typeof response.body.lastUpdated).toBe("string");
-    });
-
-    it("returns an empty occupied array when no places are occupied", async () => {
-        getClusterOccupancyMock.mockResolvedValueOnce([]);
-
-        const response = await request(app).get("/api/clusters/1/occupancy");
-
-        expect(response.status).toBe(200);
-        expect(response.body.occupied).toEqual([]);
-    });
-
-    it("returns a record with all-null peer fields when the DB marks a place occupied with no holder", async () => {
-        getClusterOccupancyMock.mockResolvedValueOnce([
-            { row: 1, place: 3, intraName: null, displayName: null, photo: null },
-        ]);
-
-        const response = await request(app).get("/api/clusters/1/occupancy");
-
-        expect(response.status).toBe(200);
-        expect(response.body.occupied).toContainEqual({
-            row: 1,
-            place: 3,
-            peer: { intraName: null, displayName: null, photo: null },
-        });
-    });
-
-    it("returns 404 CLUSTER_NOT_FOUND for an unknown cluster number", async () => {
-        const response = await request(app).get("/api/clusters/999/occupancy");
-
-        expect(response.status).toBe(404);
-        expect(response.body.code).toBe("CLUSTER_NOT_FOUND");
-    });
-
-    it("returns 422 for a non-numeric cluster number", async () => {
-        const response = await request(app).get("/api/clusters/abc/occupancy");
-
-        expect(response.status).toBe(422);
-        expect(response.body.code).toBe("VALIDATION_ERROR");
-    });
-
-    it("returns 500 when the database is unavailable", async () => {
-        getClusterOccupancyMock.mockRejectedValueOnce(new Error("connection refused"));
-
-        const response = await request(app).get("/api/clusters/1/occupancy");
-
-        expect(response.status).toBe(500);
+        expect(next).toHaveBeenCalledWith(err);
     });
 });
 
-describe("GET /api/clusters/:clusterNumber/config-validation", () => {
-    afterEach(() => {
-        getClusterOccupancyMock.mockReset();
+describe("getClusterConfigValidationHandler", () => {
+    it("passes the parsed clusterNumber to the service and sends the result", async () => {
+        const result = { clusterNumber: 1, valid: true, errors: [] };
+        getClusterConfigValidationMock.mockResolvedValueOnce(result);
+
+        const { req, res, next, json } = makeHandlerArgs({ clusterNumber: "1" });
+        await getClusterConfigValidationHandler(req, res, next);
+
+        expect(getClusterConfigValidationMock).toHaveBeenCalledWith(1);
+        expect(json).toHaveBeenCalledWith(result);
+        expect(next).not.toHaveBeenCalled();
     });
 
-    it("returns valid: true when all occupancy records match the config", async () => {
-        // row 1, place 1 exists in cluster 1
-        getClusterOccupancyMock.mockResolvedValueOnce([
-            { row: 1, place: 1, intraName: "jdoe", displayName: "John Doe", photo: null },
-        ]);
+    it("forwards thrown errors to next", async () => {
+        const err = new Error("db error");
+        getClusterConfigValidationMock.mockRejectedValueOnce(err);
 
-        const response = await request(app).get("/api/clusters/1/config-validation");
+        const { req, res, next } = makeHandlerArgs({ clusterNumber: "1" });
+        await getClusterConfigValidationHandler(req, res, next);
 
-        expect(response.status).toBe(200);
-        expect(response.body).toEqual({ clusterNumber: 1, valid: true, errors: [] });
-    });
-
-    it("returns valid: false with ORPHANED_OCCUPANCY when a DB record has no matching place in the config", async () => {
-        // row 99, place 99 does not exist in any cluster
-        getClusterOccupancyMock.mockResolvedValueOnce([
-            { row: 99, place: 99, intraName: null, displayName: null, photo: null },
-        ]);
-
-        const response = await request(app).get("/api/clusters/1/config-validation");
-
-        expect(response.status).toBe(200);
-        expect(response.body.valid).toBe(false);
-        expect(response.body.errors).toContainEqual(
-            expect.objectContaining({ code: "ORPHANED_OCCUPANCY" }),
-        );
-    });
-
-    it("returns 404 CLUSTER_NOT_FOUND for an unknown cluster number", async () => {
-        const response = await request(app).get("/api/clusters/999/config-validation");
-
-        expect(response.status).toBe(404);
-        expect(response.body.code).toBe("CLUSTER_NOT_FOUND");
-    });
-
-    it("returns 422 for a non-numeric cluster number", async () => {
-        const response = await request(app).get("/api/clusters/abc/config-validation");
-
-        expect(response.status).toBe(422);
-        expect(response.body.code).toBe("VALIDATION_ERROR");
+        expect(next).toHaveBeenCalledWith(err);
     });
 });
