@@ -53,11 +53,11 @@ Example validation error:
 
 Status codes currently in use:
 
-| Condition                                          | HTTP status | Code                    |
-| --------------------------------------------------- | ----------: | ----------------------- |
-| Malformed JSON request body                          |         400 | `BAD_REQUEST`           |
-| Path parameter fails Zod validation                  |         422 | `VALIDATION_ERROR`      |
-| Cluster number has no matching cluster in the config |         404 | `CLUSTER_NOT_FOUND`     |
+| Condition                                             | HTTP status | Code                    |
+| ----------------------------------------------------- | ----------: | ----------------------- |
+| Malformed JSON request body                           |         400 | `BAD_REQUEST`           |
+| Path parameter fails Zod validation                   |         422 | `VALIDATION_ERROR`      |
+| Cluster number has no matching cluster in the config  |         404 | `CLUSTER_NOT_FOUND`     |
 | Unexpected server error (e.g. occupancy source fails) |         500 | `INTERNAL_SERVER_ERROR` |
 
 `status` is `"fail"` for 4xx codes and `"error"` for 5xx codes.
@@ -71,7 +71,7 @@ Unknown routes are an exception to this envelope: there is no catch-all JSON not
 Path parameters are validated with the shared `validateRequest` Zod middleware, which replaces `req.params` with the parsed value on success or forwards a `ZodError` to the error middleware (surfaced as `422 VALIDATION_ERROR`) on failure. Both `:clusterNumber` routes below use it with:
 
 ```ts
-z.object({ clusterNumber: z.coerce.number().int().positive() })
+z.object({ clusterNumber: z.coerce.number().int().positive() });
 ```
 
 A non-numeric, non-integer, or non-positive `clusterNumber` (e.g. `abc`, `1.5`, `0`, `-1`) fails this schema.
@@ -123,11 +123,11 @@ Status: `200 OK`
 }
 ```
 
-| Field    | Meaning                                                  |
-| -------- | --------------------------------------------------------- |
-| `id`     | Stable machine identifier for the cluster, from the config. |
+| Field    | Meaning                                                                         |
+| -------- | ------------------------------------------------------------------------------- |
+| `id`     | Stable machine identifier for the cluster, from the config.                     |
 | `number` | User-facing cluster number; also the `:clusterNumber` used in the other routes. |
-| `label`  | UI caption for the cluster.                              |
+| `label`  | UI caption for the cluster.                                                     |
 
 This list comes from the layout config file, not from any occupancy source, so it cannot fail with a 404 or reflect stale occupancy data. A malformed or unreadable config file returns `500 INTERNAL_SERVER_ERROR`.
 
@@ -137,9 +137,9 @@ Returns the cluster's physical layout merged with current occupancy.
 
 ### Request
 
-| Parameter        | Location | Validation                                    |
-| ----------------- | -------- | ---------------------------------------------- |
-| `clusterNumber`   | Path     | `z.coerce.number().int().positive()` — see [Request validation](#request-validation). |
+| Parameter       | Location | Validation                                                                            |
+| --------------- | -------- | ------------------------------------------------------------------------------------- |
+| `clusterNumber` | Path     | `z.coerce.number().int().positive()` — see [Request validation](#request-validation). |
 
 No query parameters or request body.
 
@@ -206,11 +206,11 @@ Occupancy is currently read from an in-memory fixture (`getClusterOccupancy` in 
 
 ### Error responses
 
-| Case                                          | Status | Code                 |
-| ----------------------------------------------- | -----: | --------------------- |
-| `clusterNumber` fails validation (e.g. `abc`)   |    422 | `VALIDATION_ERROR`   |
-| No cluster with that number in the config       |    404 | `CLUSTER_NOT_FOUND`  |
-| Occupancy source or config read fails           |    500 | `INTERNAL_SERVER_ERROR` |
+| Case                                          | Status | Code                    |
+| --------------------------------------------- | -----: | ----------------------- |
+| `clusterNumber` fails validation (e.g. `abc`) |    422 | `VALIDATION_ERROR`      |
+| No cluster with that number in the config     |    404 | `CLUSTER_NOT_FOUND`     |
+| Occupancy source or config read fails         |    500 | `INTERNAL_SERVER_ERROR` |
 
 ## `GET /api/clusters/:clusterNumber/config-validation`
 
@@ -218,9 +218,9 @@ Runs cross-cutting checks against the selected cluster's layout config — the k
 
 ### Request
 
-| Parameter        | Location | Validation                                    |
-| ----------------- | -------- | ---------------------------------------------- |
-| `clusterNumber`   | Path     | `z.coerce.number().int().positive()` — see [Request validation](#request-validation). |
+| Parameter       | Location | Validation                                                                            |
+| --------------- | -------- | ------------------------------------------------------------------------------------- |
+| `clusterNumber` | Path     | `z.coerce.number().int().positive()` — see [Request validation](#request-validation). |
 
 No query parameters or request body.
 
@@ -242,27 +242,25 @@ Against a config with a duplicate place id in the second cluster:
 {
     "clusterNumber": 2,
     "valid": false,
-    "errors": [
-        { "code": "DUPLICATE_PLACE_ID", "message": "Place id c2r1p1 is not unique", "path": "clusters[1].rows[0].cells[1].id" }
-    ]
+    "errors": [{ "code": "DUPLICATE_PLACE_ID", "message": "Place id c2r1p1 is not unique", "path": "clusters[1].rows[0].cells[1].id" }]
 }
 ```
 
 Checks implemented:
 
-| Code                    | Scope           | Triggered by                                                    |
-| ------------------------ | ---------------- | ------------------------------------------------------------------ |
-| `DUPLICATE_ROW_ID`      | Cluster-wide     | Two rows in the same cluster share an `id`.                       |
-| `DUPLICATE_ROW_NUMBER`  | Cluster-wide     | Two rows in the same cluster share a `number`.                    |
-| `DUPLICATE_PLACE_ID`    | Cluster-wide     | Two place cells in the same cluster share an `id`.                 |
-| `DUPLICATE_PLACE_NUMBER`| Per-row          | Two place cells in the same row share a `number`.                  |
+| Code                     | Scope        | Triggered by                                       |
+| ------------------------ | ------------ | -------------------------------------------------- |
+| `DUPLICATE_ROW_ID`       | Cluster-wide | Two rows in the same cluster share an `id`.        |
+| `DUPLICATE_ROW_NUMBER`   | Cluster-wide | Two rows in the same cluster share a `number`.     |
+| `DUPLICATE_PLACE_ID`     | Cluster-wide | Two place cells in the same cluster share an `id`. |
+| `DUPLICATE_PLACE_NUMBER` | Per-row      | Two place cells in the same row share a `number`.  |
 
 `path` indexes into the full config file's `clusters` array — the `N` in `clusters[N]` is that cluster's position in `apps/api/src/config/clusters.json`, which is only guaranteed to equal `clusterNumber - 1` if clusters are listed in number order.
 
 ### Error responses
 
-| Case                                        | Status | Code                 |
-| --------------------------------------------- | -----: | --------------------- |
-| `clusterNumber` fails validation (e.g. `abc`) |    422 | `VALIDATION_ERROR`   |
-| No cluster with that number in the config     |    404 | `CLUSTER_NOT_FOUND`  |
+| Case                                          | Status | Code                    |
+| --------------------------------------------- | -----: | ----------------------- |
+| `clusterNumber` fails validation (e.g. `abc`) |    422 | `VALIDATION_ERROR`      |
+| No cluster with that number in the config     |    404 | `CLUSTER_NOT_FOUND`     |
 | Config file is unreadable or fails its schema |    500 | `INTERNAL_SERVER_ERROR` |

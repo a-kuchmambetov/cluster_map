@@ -1,15 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { AppError } from "@repo/errors";
-import type {
-    ClusterMapResponse,
-    ClusterRow,
-    ConfigValidationError,
-    ConfigValidationResponse,
-    MapCell,
-    MapWarning,
-    Peer,
-} from "@repo/types";
+import type { ClusterMapResponse, ClusterRow, ConfigValidationError, ConfigValidationResponse, MapCell, MapWarning, Peer } from "@repo/types";
 import { getClusterOccupancy } from "./clusters.repository";
 import { clustersConfigFileSchema } from "./clusters.schema";
 import type { ClusterConfig, OccupancyRow } from "./clusters.types";

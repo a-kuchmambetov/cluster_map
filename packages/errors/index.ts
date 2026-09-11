@@ -1,4 +1,12 @@
-export type AppErrorCode = "BAD_REQUEST" | "UNAUTHORIZED" | "FORBIDDEN" | "NOT_FOUND" | "CLUSTER_NOT_FOUND" | "CONFLICT" | "VALIDATION_ERROR" | "INTERNAL_SERVER_ERROR";
+export type AppErrorCode =
+    | "BAD_REQUEST"
+    | "UNAUTHORIZED"
+    | "FORBIDDEN"
+    | "NOT_FOUND"
+    | "CLUSTER_NOT_FOUND"
+    | "CONFLICT"
+    | "VALIDATION_ERROR"
+    | "INTERNAL_SERVER_ERROR";
 
 type AppErrorOptions = {
     message: string;
