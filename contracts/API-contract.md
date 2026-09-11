@@ -1,90 +1,79 @@
-
 /
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 Api contract · MD
+
 # API Contract — Cluster Map
- 
+
 Deliverable for the Trello card **"Define API contracts"**. Written per the requested structure: for every route — the route, its input values (body / query / params), and the response structure.
- 
+
 Finalized per Maxim's review (2026-08-05), Artem's confirmation (2026-08-05), and the call with Valentine (2026-08-06). Based on the project docs (`reference/api`, `reference/map-configuration`, `architecture/domain-model-and-data-flow`, `product/*`).
- 
+
 **Legend:** 🟢 fixed in code · 🟡 proposal (needs sign-off).
- 
+
 Base prefix for all paths: **`/api`**. All responses are JSON.
  
 > **Route naming — resolved.** `GET /api/map/:id` in the Trello card was just a general example of route structure (`METHOD /api/route/:param`), not a specific requirement (confirmed by Artem, 2026-08-05). The merged `/map` endpoint has been replaced with separate `/layout` and `/occupancy` endpoints per the 2026-08-27 call (Artem, issue #8).
  
 ---
- 
+
 ## 1. Error format 🟢 (already in code)
- 
+
 Every error uses one shape:
+
 ```json
 {
-  "ok": false,
-  "status": "fail",
-  "code": "VALIDATION_ERROR",
-  "error": "Human-readable message",
-  "details": [
-    { "path": "clusterNumber", "message": "Expected positive integer", "code": "too_small" }
-  ]
+    "ok": false,
+    "status": "fail",
+    "code": "VALIDATION_ERROR",
+    "error": "Human-readable message",
+    "details": [{ "path": "clusterNumber", "message": "Expected positive integer", "code": "too_small" }]
 }
 ```
+
 - `details` is not always present (an array for validation errors, otherwise may be omitted).
 - With `NODE_ENV=production`, 5xx messages are masked ("Internal server error") and `details` is dropped.
-Status codes:
- 
-| Case | HTTP | `code` |
-|---|---|---|
-| Malformed JSON body | `400` | `BAD_REQUEST` |
-| Request failed Zod validation | `422` | `VALIDATION_ERROR` |
-| Cluster/resource not found | `404` | `CLUSTER_NOT_FOUND` |
-| Unexpected server/DB error | `500` | `INTERNAL_SERVER_ERROR` |
- 
+  Status codes:
+
+| Case                          | HTTP  | `code`                  |
+| ----------------------------- | ----- | ----------------------- |
+| Malformed JSON body           | `400` | `BAD_REQUEST`           |
+| Request failed Zod validation | `422` | `VALIDATION_ERROR`      |
+| Cluster/resource not found    | `404` | `CLUSTER_NOT_FOUND`     |
+| Unexpected server/DB error    | `500` | `INTERNAL_SERVER_ERROR` |
+
 ---
- 
+
 ## 2. `GET /api/health` 🟢 (done)
- 
+
 **Input:** none (no params, no query, no body).
- 
+
 **Response** `200`:
+
 ```json
 { "status": "ok" }
 ```
+
 Does not touch the DB; only confirms the process is alive.
- 
+
 ---
- 
+
 ## 3. `GET /api/clusters` 🟢 — list of clusters
- 
+
 Returned from the layout config (not the production DB). Lets the frontend render the cluster picker.
- 
+
 **Input:** none.
- 
+
 **Response** `200`:
+
 ```json
 {
-  "clusters": [
-    { "id": "c1", "number": 1, "label": "Cluster 1" },
-    { "id": "c2", "number": 2, "label": "Cluster 2" }
-  ]
+    "clusters": [
+        { "id": "c1", "number": 1, "label": "Cluster 1" },
+        { "id": "c2", "number": 2, "label": "Cluster 2" }
+    ]
 }
 ```
+
 - `id` — stable machine id from the config.
 - `number` — user-facing number, also used in the map URL.
 - `label` — UI caption.
@@ -97,6 +86,7 @@ No free-place count needed here — the cluster picker doesn't need vacancy stat
 Returns the cluster's physical layout from the config file. No DB query; responds instantly.
  
 **Input:**
+
 - Path params: `clusterNumber` — positive integer (e.g. `1`). Validated with Zod; invalid → `422`.
 - Query: none.
 - Body: none.
@@ -119,8 +109,9 @@ Returns the cluster's physical layout from the config file. No DB query; respond
   ]
 }
 ```
- 
+
 Field meanings:
+
 - `cluster` — `{ id, number, label }`.
 - `rows[]` — rows in top-to-bottom physical order (highest row number first). The frontend can render them in array order without sorting. In the HIVE layout R6 is the topmost row, so `rows[0]` is always R6 and `rows[rows.length - 1]` is always R1. Each row: `{ id, number, label, cells[] }`.
 - `cells[]` — positions in a row, **in order**. A cell is one of two kinds:
@@ -192,6 +183,7 @@ Checks whether the layout config is consistent with what the database currently 
 The config file is always structurally valid — Zod catches schema problems at load time. This endpoint checks for a semantic mismatch: if the database returns occupancy for a place that doesn't exist in the config (wrong row number or place number), the config is likely out of date. The site should surface a message asking someone to review it.
  
 **Input:**
+
 - Path params: `clusterNumber` — positive integer.
 - Query: none.
 - Body: none.

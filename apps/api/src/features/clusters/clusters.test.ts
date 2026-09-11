@@ -121,11 +121,7 @@ describe("validateClusterConfig", () => {
                     id: "c1r1",
                     number: 1,
                     label: "Row 1",
-                    cells: [
-                        { kind: "place", id: "c1r1p1", number: 1 },
-                        { kind: "gap" },
-                        { kind: "place", id: "c1r1p2", number: 2 },
-                    ],
+                    cells: [{ kind: "place", id: "c1r1p1", number: 1 }, { kind: "gap" }, { kind: "place", id: "c1r1p2", number: 2 }],
                 },
             ],
         };
