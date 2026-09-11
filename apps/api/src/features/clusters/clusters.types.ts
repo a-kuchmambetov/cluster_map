@@ -28,3 +28,21 @@ export type OccupancyRow = {
     displayName: string | null;
     photo: string | null;
 };
+
+// Response types for /layout
+export type ClusterLayoutResponse = {
+    cluster: { id: string; number: number; label: string };
+    rows: ClusterRowConfig[];
+};
+
+// Response types for /occupancy
+export type OccupiedEntry = {
+    row: number;
+    place: number;
+    peer: { intraName: string | null; displayName: string | null; photo: string | null };
+};
+
+export type ClusterOccupancyResponse = {
+    occupied: OccupiedEntry[];
+    lastUpdated: string | null;
+};

@@ -2,9 +2,16 @@ import request from "supertest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { app } from "../app";
 
+const getClusterOccupancyMock = vi.fn();
+
+vi.mock("../features/clusters/clusters.repository", () => ({
+    getClusterOccupancy: (...args: unknown[]) => getClusterOccupancyMock(...args),
+}));
+
 describe("requestLogger", () => {
     afterEach(() => {
         vi.restoreAllMocks();
+        getClusterOccupancyMock.mockReset();
     });
 
     it("logs timestamp, method, path, status and response time on a successful request", async () => {
@@ -26,7 +33,7 @@ describe("requestLogger", () => {
         const spy = vi.spyOn(console, "log").mockImplementation(() => {});
         vi.spyOn(console, "error").mockImplementation(() => {}); // suppress error middleware output
 
-        await request(app).get("/api/clusters/999/map");
+        await request(app).get("/api/clusters/999/layout");
 
         expect(spy).toHaveBeenCalledOnce();
         const line = spy.mock.calls[0][0] as string;
@@ -36,10 +43,13 @@ describe("requestLogger", () => {
 
     it("does not log any peer data from an occupancy response", async () => {
         const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+        getClusterOccupancyMock.mockResolvedValueOnce([
+            { row: 1, place: 2, intraName: "jdoe", displayName: "John Doe", photo: null },
+        ]);
 
-        // This endpoint returns a response containing intraName, displayName and photo
-        // from the occupancy fixture. None of it should appear in the log.
-        await request(app).get("/api/clusters/1/map");
+        // This endpoint returns a response containing intraName, displayName and photo.
+        // None of it should appear in the log.
+        await request(app).get("/api/clusters/1/occupancy");
 
         const allOutput = spy.mock.calls.map((call) => String(call[0])).join("\n");
         expect(allOutput).not.toContain("jdoe");

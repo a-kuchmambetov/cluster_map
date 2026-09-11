@@ -1,7 +1,8 @@
 import request from "supertest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { app } from "../../app";
-import { listClusterConfigs, resolveRowPositions, validateClusterConfig } from "./clusters.service";
+import { clustersConfigFileSchema } from "./clusters.schema";
+import { listClusterConfigs, resolveRowPositions } from "./clusters.service";
 import type { CellConfig, ClusterConfig, OccupancyRow, ResolvedPlaceCellConfig } from "./clusters.types";
 
 // Cluster 1, row 1 layout: places 1–8, a gap, then places 9–11.
@@ -35,49 +36,104 @@ describe("GET /api/clusters", () => {
     });
 });
 
-describe("GET /api/clusters/:clusterNumber/map", () => {
-    afterEach(() => {
-        getClusterOccupancyMock.mockReset();
-    });
-
-    it("returns occupied cells (full and guest peer), free cells, and a gap for cluster 1 R1", async () => {
-        getClusterOccupancyMock.mockResolvedValueOnce(C1_R1_OCCUPANCY);
-
-        const response = await request(app).get("/api/clusters/1/map");
+describe("GET /api/clusters/:clusterNumber/layout", () => {
+    it("returns cluster info, rows sorted top to bottom (highest number first), cells with no status or peer", async () => {
+        const response = await request(app).get("/api/clusters/1/layout");
 
         expect(response.status).toBe(200);
+        expect(response.body.cluster).toEqual({ id: "c1", number: 1, label: "Cluster 1" });
 
-        const r1 = response.body.rows.find((r: { number: number }) => r.number === 1);
+        const { rows } = response.body;
+        expect(rows.length).toBeGreaterThan(0);
+        // rows are sorted descending by number: first is the topmost physical row
+        expect(rows[0].number).toBeGreaterThan(rows[rows.length - 1].number);
+
+        // spot-check row 1 (last in the sorted array for cluster 1)
+        const r1 = rows.find((r: { number: number }) => r.number === 1);
         expect(r1).toBeDefined();
-        // full peer: intraName and displayName both present
-        expect(r1.cells).toContainEqual(
-            expect.objectContaining({
-                kind: "place",
-                status: "occupied",
-                peer: { intraName: "jdoe", displayName: "John Doe", photo: null },
-            }),
-        );
-        // guest peer: intraName is null
-        expect(r1.cells).toContainEqual(
-            expect.objectContaining({
-                kind: "place",
-                status: "occupied",
-                peer: { intraName: null, displayName: "Guest User", photo: null },
-            }),
-        );
-        expect(r1.cells).toContainEqual(expect.objectContaining({ kind: "place", status: "free", peer: null }));
         expect(r1.cells).toContainEqual({ kind: "gap" });
+        expect(r1.cells).toContainEqual(expect.objectContaining({ kind: "place", id: expect.any(String), number: expect.any(Number) }));
+        // cells carry no occupancy data
+        for (const cell of r1.cells) {
+            expect(cell).not.toHaveProperty("status");
+            expect(cell).not.toHaveProperty("peer");
+        }
     });
 
     it("returns 404 CLUSTER_NOT_FOUND for an unknown cluster number", async () => {
-        const response = await request(app).get("/api/clusters/999/map");
+        const response = await request(app).get("/api/clusters/999/layout");
 
         expect(response.status).toBe(404);
         expect(response.body.code).toBe("CLUSTER_NOT_FOUND");
     });
 
     it("returns 422 for a non-numeric cluster number", async () => {
-        const response = await request(app).get("/api/clusters/abc/map");
+        const response = await request(app).get("/api/clusters/abc/layout");
+
+        expect(response.status).toBe(422);
+        expect(response.body.code).toBe("VALIDATION_ERROR");
+    });
+});
+
+describe("GET /api/clusters/:clusterNumber/occupancy", () => {
+    afterEach(() => {
+        getClusterOccupancyMock.mockReset();
+    });
+
+    it("returns occupied entries with full and guest peer shapes, and a lastUpdated timestamp", async () => {
+        getClusterOccupancyMock.mockResolvedValueOnce(C1_R1_OCCUPANCY);
+
+        const response = await request(app).get("/api/clusters/1/occupancy");
+
+        expect(response.status).toBe(200);
+        // full peer: both name fields present
+        expect(response.body.occupied).toContainEqual({
+            row: 1,
+            place: 2,
+            peer: { intraName: "jdoe", displayName: "John Doe", photo: null },
+        });
+        // guest peer: intraName is null
+        expect(response.body.occupied).toContainEqual({
+            row: 1,
+            place: 5,
+            peer: { intraName: null, displayName: "Guest User", photo: null },
+        });
+        expect(typeof response.body.lastUpdated).toBe("string");
+    });
+
+    it("returns an empty occupied array when no places are occupied", async () => {
+        getClusterOccupancyMock.mockResolvedValueOnce([]);
+
+        const response = await request(app).get("/api/clusters/1/occupancy");
+
+        expect(response.status).toBe(200);
+        expect(response.body.occupied).toEqual([]);
+    });
+
+    it("returns a record with all-null peer fields when the DB marks a place occupied with no holder", async () => {
+        getClusterOccupancyMock.mockResolvedValueOnce([
+            { row: 1, place: 3, intraName: null, displayName: null, photo: null },
+        ]);
+
+        const response = await request(app).get("/api/clusters/1/occupancy");
+
+        expect(response.status).toBe(200);
+        expect(response.body.occupied).toContainEqual({
+            row: 1,
+            place: 3,
+            peer: { intraName: null, displayName: null, photo: null },
+        });
+    });
+
+    it("returns 404 CLUSTER_NOT_FOUND for an unknown cluster number", async () => {
+        const response = await request(app).get("/api/clusters/999/occupancy");
+
+        expect(response.status).toBe(404);
+        expect(response.body.code).toBe("CLUSTER_NOT_FOUND");
+    });
+
+    it("returns 422 for a non-numeric cluster number", async () => {
+        const response = await request(app).get("/api/clusters/abc/occupancy");
 
         expect(response.status).toBe(422);
         expect(response.body.code).toBe("VALIDATION_ERROR");
@@ -86,27 +142,90 @@ describe("GET /api/clusters/:clusterNumber/map", () => {
     it("returns 500 when the database is unavailable", async () => {
         getClusterOccupancyMock.mockRejectedValueOnce(new Error("connection refused"));
 
-        const response = await request(app).get("/api/clusters/1/map");
+        const response = await request(app).get("/api/clusters/1/occupancy");
 
         expect(response.status).toBe(500);
     });
 });
 
 describe("GET /api/clusters/:clusterNumber/config-validation", () => {
-    it("returns valid: true with no errors for the real config", async () => {
+    afterEach(() => {
+        getClusterOccupancyMock.mockReset();
+    });
+
+    it("returns valid: true when all occupancy records match the config", async () => {
+        // row 1, place 1 exists in cluster 1
+        getClusterOccupancyMock.mockResolvedValueOnce([
+            { row: 1, place: 1, intraName: "jdoe", displayName: "John Doe", photo: null },
+        ]);
+
         const response = await request(app).get("/api/clusters/1/config-validation");
 
         expect(response.status).toBe(200);
         expect(response.body).toEqual({ clusterNumber: 1, valid: true, errors: [] });
     });
+
+    it("returns valid: false with ORPHANED_OCCUPANCY when a DB record has no matching place in the config", async () => {
+        // row 99, place 99 does not exist in any cluster
+        getClusterOccupancyMock.mockResolvedValueOnce([
+            { row: 99, place: 99, intraName: null, displayName: null, photo: null },
+        ]);
+
+        const response = await request(app).get("/api/clusters/1/config-validation");
+
+        expect(response.status).toBe(200);
+        expect(response.body.valid).toBe(false);
+        expect(response.body.errors).toContainEqual(
+            expect.objectContaining({ code: "ORPHANED_OCCUPANCY" }),
+        );
+    });
+
+    it("returns 404 CLUSTER_NOT_FOUND for an unknown cluster number", async () => {
+        const response = await request(app).get("/api/clusters/999/config-validation");
+
+        expect(response.status).toBe(404);
+        expect(response.body.code).toBe("CLUSTER_NOT_FOUND");
+    });
+
+    it("returns 422 for a non-numeric cluster number", async () => {
+        const response = await request(app).get("/api/clusters/abc/config-validation");
+
+        expect(response.status).toBe(422);
+        expect(response.body.code).toBe("VALIDATION_ERROR");
+    });
 });
 
-describe("validateClusterConfig", () => {
-    it("reports duplicate row ids/numbers and duplicate place ids/numbers", () => {
-        const brokenConfig: ClusterConfig = {
-            id: "c1",
-            number: 1,
-            label: "Cluster 1",
+describe("clustersConfigFileSchema — uniqueness validation", () => {
+    function minimal(overrides: object) {
+        return clustersConfigFileSchema.safeParse({
+            clusters: [
+                {
+                    id: "c1",
+                    number: 1,
+                    label: "Cluster 1",
+                    rows: [
+                        {
+                            id: "c1r1",
+                            number: 1,
+                            label: "Row 1",
+                            cells: [
+                                { kind: "place", id: "c1r1p1", number: 1 },
+                                { kind: "place", id: "c1r1p2", number: 2 },
+                            ],
+                        },
+                    ],
+                    ...overrides,
+                },
+            ],
+        });
+    }
+
+    it("accepts a structurally valid config", () => {
+        expect(minimal({}).success).toBe(true);
+    });
+
+    it("rejects duplicate place ids within a row and names the id", () => {
+        const result = minimal({
             rows: [
                 {
                     id: "c1r1",
@@ -114,58 +233,99 @@ describe("validateClusterConfig", () => {
                     label: "Row 1",
                     cells: [
                         { kind: "place", id: "c1r1p1", number: 1 },
-                        { kind: "place", id: "c1r1p1", number: 1 },
+                        { kind: "place", id: "c1r1p1", number: 2 }, // duplicate id
                     ],
                 },
-                {
-                    id: "c1r1",
-                    number: 1,
-                    label: "Row 1 (duplicate)",
-                    cells: [{ kind: "place", id: "c1r2p1", number: 1 }],
-                },
             ],
-        };
+        });
 
-        const errors = validateClusterConfig(brokenConfig, 0);
-
-        expect(errors).toContainEqual({
-            code: "DUPLICATE_ROW_ID",
-            message: "Row id c1r1 is not unique",
-            path: "clusters[0].rows[1].id",
-        });
-        expect(errors).toContainEqual({
-            code: "DUPLICATE_ROW_NUMBER",
-            message: "Row number 1 is not unique",
-            path: "clusters[0].rows[1].number",
-        });
-        expect(errors).toContainEqual({
-            code: "DUPLICATE_PLACE_ID",
-            message: "Place id c1r1p1 is not unique",
-            path: "clusters[0].rows[0].cells[1].id",
-        });
-        expect(errors).toContainEqual({
-            code: "DUPLICATE_PLACE_NUMBER",
-            message: "Place number 1 is not unique within row 1",
-            path: "clusters[0].rows[0].cells[1].number",
-        });
+        expect(result.success).toBe(false);
+        if (!result.success) {
+            const messages = result.error.issues.map((i) => i.message);
+            expect(messages.some((m) => m.includes("c1r1p1"))).toBe(true);
+        }
     });
 
-    it("returns no errors for a clean config", () => {
-        const cleanConfig: ClusterConfig = {
-            id: "c1",
-            number: 1,
-            label: "Cluster 1",
+    it("rejects duplicate place numbers within a row and names the row", () => {
+        const result = minimal({
             rows: [
                 {
                     id: "c1r1",
                     number: 1,
                     label: "Row 1",
-                    cells: [{ kind: "place", id: "c1r1p1", number: 1 }, { kind: "gap" }, { kind: "place", id: "c1r1p2", number: 2 }],
+                    cells: [
+                        { kind: "place", id: "c1r1p1", number: 1 },
+                        { kind: "place", id: "c1r1p2", number: 1 }, // duplicate number
+                    ],
                 },
             ],
-        };
+        });
 
-        expect(validateClusterConfig(cleanConfig, 0)).toEqual([]);
+        expect(result.success).toBe(false);
+        if (!result.success) {
+            const messages = result.error.issues.map((i) => i.message);
+            expect(messages.some((m) => m.includes("c1r1"))).toBe(true);
+        }
+    });
+
+    it("rejects duplicate row ids within a cluster and names the id", () => {
+        const result = minimal({
+            rows: [
+                { id: "c1r1", number: 1, label: "Row 1", cells: [] },
+                { id: "c1r1", number: 2, label: "Row 2", cells: [] }, // duplicate id
+            ],
+        });
+
+        expect(result.success).toBe(false);
+        if (!result.success) {
+            const messages = result.error.issues.map((i) => i.message);
+            expect(messages.some((m) => m.includes("c1r1"))).toBe(true);
+        }
+    });
+
+    it("rejects duplicate row numbers within a cluster and names the cluster", () => {
+        const result = minimal({
+            rows: [
+                { id: "c1r1", number: 1, label: "Row 1", cells: [] },
+                { id: "c1r2", number: 1, label: "Row 2", cells: [] }, // duplicate number
+            ],
+        });
+
+        expect(result.success).toBe(false);
+        if (!result.success) {
+            const messages = result.error.issues.map((i) => i.message);
+            expect(messages.some((m) => m.includes("c1"))).toBe(true);
+        }
+    });
+
+    it("rejects duplicate cluster ids across the file and names the id", () => {
+        const result = clustersConfigFileSchema.safeParse({
+            clusters: [
+                { id: "c1", number: 1, label: "Cluster 1", rows: [] },
+                { id: "c1", number: 2, label: "Cluster 2", rows: [] }, // duplicate id
+            ],
+        });
+
+        expect(result.success).toBe(false);
+        if (!result.success) {
+            const messages = result.error.issues.map((i) => i.message);
+            expect(messages.some((m) => m.includes("c1"))).toBe(true);
+        }
+    });
+
+    it("rejects duplicate cluster numbers across the file and names the number", () => {
+        const result = clustersConfigFileSchema.safeParse({
+            clusters: [
+                { id: "c1", number: 1, label: "Cluster 1", rows: [] },
+                { id: "c2", number: 1, label: "Cluster 2", rows: [] }, // duplicate number
+            ],
+        });
+
+        expect(result.success).toBe(false);
+        if (!result.success) {
+            const messages = result.error.issues.map((i) => i.message);
+            expect(messages.some((m) => m.includes("1"))).toBe(true);
+        }
     });
 });
 
