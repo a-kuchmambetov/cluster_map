@@ -127,6 +127,24 @@ The seam between us is **a single function**, `getClusterOccupancy`. Everything 
  
 ---
 
-## 9. Out of scope for this contract
+## 9. Consumer notes (operational, from first real run)
 
-User account creation/approval/blocking and authentication (subject requirement: public API with API key, rate limiting, 5+ write endpoints, via Better-Auth) is **entirely Artem's responsibility**, tracked separately, and does not touch this read-only occupancy contract or Valentine's `@repo/db` function.
+### Testing code that calls `getClusterOccupancy`
+
+`packages/db/src/client.ts` builds its Drizzle client at module scope, and `env.ts` gives every `PG_*` variable a default, so `DATABASE_URL` is always a non-empty string and the guard in `client.ts` never fires. Importing `@repo/db` therefore succeeds even with no database configured; the failure happens on the first query instead.
+
+**Consequence for tests:** any test that exercises a code path reaching `getClusterOccupancy` talks to a real Postgres. That makes the test depend on whatever happens to be in the database — non-reproducible, broken in CI, and broken for anyone who hasn't run the migrations. **Mock `@repo/db` in every test that reaches this function.** Don't remove the mock thinking it's redundant — without it the test silently becomes a live DB call.
+
+Concrete example from 2026-09-11: with a live Postgres and migrations applied but no rows, `GET /map` returned 200 with every place free. The endpoint worked end to end; the test failed only because it expected a specific occupied seat.
+
+### Rebuilding `packages/db` after schema file-layout changes
+
+`apps/api` resolves `@repo/db` through `dist/`, so `packages/db` must be built before downstream code sees a schema change. `tsc` does not remove stale output: the schema recently moved from a flat `schema.ts` to a `schema/` directory, and the old `dist/schema.js` survived the rebuild and shadowed `dist/schema/index.js` (Node prefers a file over a directory of the same name). Every table came back `undefined` at runtime while typecheck stayed clean.
+
+**When the schema's file layout changes** (not just its contents), run `rm -rf packages/db/dist` before rebuilding.
+
+---
+
+## 10. Out of scope for this contract
+
+User account creation/approval/blocking and authentication (subject requirement: public API with API key, rate limiting, 5+ write endpoints, via Better-Auth) is tracked separately and does not touch this read-only occupancy contract or Valentine's `@repo/db` function. Artem owns the architectural decisions; backend implementation is Vitalii's area (confirmed on 2026-08-06 call, issue #6).

@@ -1,6 +1,6 @@
 import request from "supertest";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { app } from "../app";
+import { app } from "../../app";
 
 const executeMock = vi.fn();
 
