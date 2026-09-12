@@ -6,11 +6,12 @@ sidebar_position: 1
 
 ## Current status
 
-The Express application exposes four endpoints:
+The Express application exposes five endpoints:
 
 - `GET /api/health`
 - `GET /api/clusters`
-- `GET /api/clusters/:clusterNumber/map`
+- `GET /api/clusters/:clusterNumber/layout`
+- `GET /api/clusters/:clusterNumber/occupancy`
 - `GET /api/clusters/:clusterNumber/config-validation`
 
 The API mounts its router at `/api`. It enables JSON request parsing and credentialed CORS; allowed origins are described in [Configuration](../getting-started/configuration#cors-and-environment-mode).
@@ -68,7 +69,7 @@ Unknown routes are an exception to this envelope: there is no catch-all JSON not
 
 ## Request validation
 
-Path parameters are validated with the shared `validateRequest` Zod middleware, which replaces `req.params` with the parsed value on success or forwards a `ZodError` to the error middleware (surfaced as `422 VALIDATION_ERROR`) on failure. Both `:clusterNumber` routes below use it with:
+Path parameters are validated with the shared `validateRequest` Zod middleware, which replaces `req.params` with the parsed value on success or forwards a `ZodError` to the error middleware (surfaced as `422 VALIDATION_ERROR`) on failure. All `:clusterNumber` routes below use it with:
 
 ```ts
 z.object({ clusterNumber: z.coerce.number().int().positive() });
@@ -131,9 +132,9 @@ Status: `200 OK`
 
 This list comes from the layout config file, not from any occupancy source, so it cannot fail with a 404 or reflect stale occupancy data. A malformed or unreadable config file returns `500 INTERNAL_SERVER_ERROR`.
 
-## `GET /api/clusters/:clusterNumber/map`
+## `GET /api/clusters/:clusterNumber/layout`
 
-Returns the cluster's physical layout merged with current occupancy.
+Returns the cluster's physical layout from the config file. No DB query.
 
 ### Request
 
@@ -144,7 +145,7 @@ Returns the cluster's physical layout merged with current occupancy.
 No query parameters or request body.
 
 ```bash
-curl http://localhost:5000/api/clusters/1/map
+curl http://localhost:5000/api/clusters/1/layout
 ```
 
 ### Success response
@@ -156,53 +157,39 @@ Status: `200 OK`
     "cluster": { "id": "c1", "number": 1, "label": "Cluster 1" },
     "rows": [
         {
+            "id": "c1r6",
+            "number": 6,
+            "label": "R6",
+            "cells": [
+                { "kind": "place", "id": "c1r6p1", "number": 1, "position": "bottom" },
+                { "kind": "place", "id": "c1r6p2", "number": 2 },
+                { "kind": "gap" }
+            ]
+        },
+        {
             "id": "c1r1",
             "number": 1,
-            "label": "Row 1",
+            "label": "R1",
             "cells": [
-                { "kind": "place", "id": "c1r1p1", "number": 1, "status": "free", "peer": null },
+                { "kind": "place", "id": "c1r1p1", "number": 1 },
                 { "kind": "gap" },
-                {
-                    "kind": "place",
-                    "id": "c1r1p2",
-                    "number": 2,
-                    "status": "occupied",
-                    "peer": { "intraName": "jdoe", "displayName": "John Doe", "photo": null }
-                },
-                { "kind": "place", "id": "c1r1p3", "number": 3, "status": "free", "peer": null }
+                { "kind": "place", "id": "c1r1p2", "number": 2 }
             ]
         }
-    ],
-    "summary": { "free": 2, "occupied": 1, "total": 3 },
-    "lastUpdated": "2026-08-23T10:00:00.000Z",
-    "warnings": []
+    ]
 }
 ```
-
-This example is the actual shape returned for cluster 1 against the checked-in fixture data (see [Occupancy data source](#occupancy-data-source) below) — it is not a hypothetical.
 
 Field meanings:
 
 - `cluster` — `{ id, number, label }`, same shape as an entry from `GET /api/clusters`.
-- `rows[]` — rows in config order; each is `{ id, number, label, cells[] }`.
+- `rows[]` — rows in top-to-bottom physical order: highest row number first. In the HIVE layout R6 is the topmost row, so `rows[0]` is always R6. The frontend can render in array order without sorting.
 - `cells[]` — positions in a row, in order. Each cell is one of:
-    - `{ "kind": "place", "id", "number", "status", "peer" }`
-    - `{ "kind": "gap" }` — a visual spacer; no `id`, `number`, `status`, or `peer`.
-- `status` — `"free"` or `"occupied"`. A place with no matching occupancy record is `"free"`.
-- `peer` — `null` when the place is free. When occupied:
-    - `intraName` — `string | null`. `null` for accounts without a Hive/intra login (e.g. guest accounts).
-    - `displayName` — `string | null`, resolved as `intraName ?? displayName ?? null` (the raw occupancy record's own `displayName` is only used when there is no `intraName`).
-    - `photo` — `string | null`.
-    - There is no `email` field.
-- `summary` — `{ free, occupied, total }`. `total` excludes gaps.
-- `lastUpdated` — ISO 8601 timestamp of the occupancy read used to build this response. The current occupancy source always resolves successfully, so in practice this is always the current time on every request, never `null`.
-- `warnings[]` — layout/occupancy mismatches; the rest of the map is still returned. Shape: `{ code, message }`. Codes currently produced:
-    - `ORPHANED_OCCUPANCY` — an occupancy record's `row`/`place` doesn't match any configured place.
-    - `DUPLICATE_OCCUPANCY` — more than one occupancy record matches the same `row`/`place`; the cell is reported `"occupied"` using the first matching record.
+    - `{ "kind": "place", "id", "number", "position"? }` — a real, numbered seat.
+    - `{ "kind": "gap" }` — visual spacer; no `id`, `number`, or `position`.
+- `position` — `"top"` | `"bottom"`, optional. If absent, the rendering layer takes the opposite of the nearest preceding non-gap place in the same row. The first place in every row carries an explicit value in the config; interior places that continue the alternating pattern do not.
 
-### Occupancy data source
-
-Occupancy is currently read from an in-memory fixture (`getClusterOccupancy` in `apps/api/src/features/clusters/clusters.repository.ts`), not from `@repo/db` or any production database — that integration is pending. Treat the values above as fixture data, not live occupancy.
+No `status`, no `peer` — occupancy belongs to `/occupancy`.
 
 ### Error responses
 
@@ -210,11 +197,71 @@ Occupancy is currently read from an in-memory fixture (`getClusterOccupancy` in 
 | --------------------------------------------- | -----: | ----------------------- |
 | `clusterNumber` fails validation (e.g. `abc`) |    422 | `VALIDATION_ERROR`      |
 | No cluster with that number in the config     |    404 | `CLUSTER_NOT_FOUND`     |
-| Occupancy source or config read fails         |    500 | `INTERNAL_SERVER_ERROR` |
+| Config file is unreadable or fails its schema |    500 | `INTERNAL_SERVER_ERROR` |
+
+## `GET /api/clusters/:clusterNumber/occupancy`
+
+Returns the currently occupied places. Every place not listed is free by implication. Requires a DB query.
+
+### Request
+
+| Parameter       | Location | Validation                                                                            |
+| --------------- | -------- | ------------------------------------------------------------------------------------- |
+| `clusterNumber` | Path     | `z.coerce.number().int().positive()` — see [Request validation](#request-validation). |
+
+No query parameters or request body.
+
+```bash
+curl http://localhost:5000/api/clusters/1/occupancy
+```
+
+### Success response
+
+Status: `200 OK`
+
+```json
+{
+    "occupied": [
+        {
+            "row": 1,
+            "place": 2,
+            "peer": { "intraName": "jdoe", "displayName": "John Doe", "photo": null }
+        }
+    ],
+    "lastUpdated": "2026-08-27T10:00:00.000Z"
+}
+```
+
+Field meanings:
+
+- `occupied[]` — one entry per occupied place. Places absent from this array are free.
+    - `row` — row number within the cluster; matches `rows[].number` from `/layout`.
+    - `place` — place number within that row; matches `cells[].number` from `/layout`.
+    - `peer` — `{ intraName, displayName, photo }`, all fields `string | null`. Both name fields are passed through raw from the DB; no fallback or priority logic is applied server-side. Presentation is the frontend's decision.
+        - `intraName` — Hive/intra login, or `null` for guest accounts without one.
+        - `displayName` — real name, or `null` if absent.
+        - `photo` — avatar URL, or `null`; frontend uses a default photo when null.
+        - **All three fields may be `null` simultaneously.** The DB schema tracks `occupied` (boolean) and `holderId` (nullable FK) separately; the query filters on `occupied = true` and left-joins the holder. A seat marked occupied with no holder produces a valid record with a null peer. The frontend should render it as occupied (seat taken) but without a name or photo.
+    - No `email` — explicitly excluded per privacy rules.
+- `lastUpdated` — ISO 8601 timestamp of the last successful DB read. `null` if the occupancy has never been successfully read.
+
+### Occupancy data source
+
+Occupancy is read from `@repo/db`'s `getClusterOccupancy` function, which queries the production DB directly over a read-only connection. The real `@repo/db` integration is in place; the production DB credentials and cluster identifier mapping are tracked in `contracts/DB-contract.md` §4.
+
+### Error responses
+
+| Case                                          | Status | Code                    |
+| --------------------------------------------- | -----: | ----------------------- |
+| `clusterNumber` fails validation (e.g. `abc`) |    422 | `VALIDATION_ERROR`      |
+| No cluster with that number in the config     |    404 | `CLUSTER_NOT_FOUND`     |
+| Production DB unavailable                     |    500 | `INTERNAL_SERVER_ERROR` |
 
 ## `GET /api/clusters/:clusterNumber/config-validation`
 
-Runs cross-cutting checks against the selected cluster's layout config — the kind of consistency check Zod's schema validation alone can't express, such as duplicate ids within the cluster.
+Checks whether the layout config is consistent with what the database currently reports.
+
+The config file is structurally valid by construction — Zod catches schema problems at load time. This endpoint detects semantic mismatches: if the database returns occupancy for a `(row, place)` pair that doesn't exist in the config, the config is probably out of date. The site should surface a message asking someone to review it.
 
 ### Request
 
@@ -232,30 +279,32 @@ curl http://localhost:5000/api/clusters/1/config-validation
 
 Status: `200 OK`
 
+When the config and DB agree:
+
 ```json
 { "clusterNumber": 1, "valid": true, "errors": [] }
 ```
 
-Against a config with a duplicate place id in the second cluster:
+When the DB returns occupancy for a place the config doesn't know about:
 
 ```json
 {
-    "clusterNumber": 2,
+    "clusterNumber": 1,
     "valid": false,
-    "errors": [{ "code": "DUPLICATE_PLACE_ID", "message": "Place id c2r1p1 is not unique", "path": "clusters[1].rows[0].cells[1].id" }]
+    "errors": [
+        {
+            "code": "ORPHANED_OCCUPANCY",
+            "message": "DB record for row 2, place 5 has no matching place in the layout",
+            "path": "clusters[0]"
+        }
+    ]
 }
 ```
 
-Checks implemented:
-
-| Code                     | Scope        | Triggered by                                       |
-| ------------------------ | ------------ | -------------------------------------------------- |
-| `DUPLICATE_ROW_ID`       | Cluster-wide | Two rows in the same cluster share an `id`.        |
-| `DUPLICATE_ROW_NUMBER`   | Cluster-wide | Two rows in the same cluster share a `number`.     |
-| `DUPLICATE_PLACE_ID`     | Cluster-wide | Two place cells in the same cluster share an `id`. |
-| `DUPLICATE_PLACE_NUMBER` | Per-row      | Two place cells in the same row share a `number`.  |
-
-`path` indexes into the full config file's `clusters` array — the `N` in `clusters[N]` is that cluster's position in `apps/api/src/config/clusters.json`, which is only guaranteed to equal `clusterNumber - 1` if clusters are listed in number order.
+- `valid: false` means the DB returned occupancy the config cannot account for. The database is the source of truth; the config is what's likely wrong.
+- `errors[].code` — `ORPHANED_OCCUPANCY` is the only code currently produced.
+- `errors[].message` — human-readable description of the mismatch.
+- `errors[].path` — the cluster's position in the config file's `clusters` array.
 
 ### Error responses
 
@@ -263,4 +312,4 @@ Checks implemented:
 | --------------------------------------------- | -----: | ----------------------- |
 | `clusterNumber` fails validation (e.g. `abc`) |    422 | `VALIDATION_ERROR`      |
 | No cluster with that number in the config     |    404 | `CLUSTER_NOT_FOUND`     |
-| Config file is unreadable or fails its schema |    500 | `INTERNAL_SERVER_ERROR` |
+| Production DB unavailable                     |    500 | `INTERNAL_SERVER_ERROR` |

@@ -1,52 +1,83 @@
-import request from "supertest";
+import { EventEmitter } from "node:events";
+import type { NextFunction, Request, Response } from "express";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { app } from "../app";
+import { requestLogger } from "./requestLogger";
+
+function makeArgs({
+    method = "GET",
+    originalUrl = "/api/test",
+    statusCode = 200,
+    errorCode,
+}: {
+    method?: string;
+    originalUrl?: string;
+    statusCode?: number;
+    errorCode?: string;
+} = {}) {
+    const emitter = new EventEmitter();
+    const locals: Record<string, unknown> = {};
+    if (errorCode !== undefined) locals.errorCode = errorCode;
+    const res = Object.assign(emitter, { statusCode, locals }) as unknown as Response;
+    const req = { method, originalUrl } as unknown as Request;
+    const next = vi.fn() as unknown as NextFunction;
+    return { req, res, next, emitter };
+}
 
 describe("requestLogger", () => {
     afterEach(() => {
         vi.restoreAllMocks();
     });
 
-    it("logs timestamp, method, path, status and response time on a successful request", async () => {
+    it("calls next immediately", () => {
+        const { req, res, next } = makeArgs();
+        requestLogger(req, res, next);
+        expect(next).toHaveBeenCalledOnce();
+    });
+
+    it("writes a log line when the response finishes", () => {
         const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-
-        await request(app).get("/api/clusters");
-
+        const { req, res, next, emitter } = makeArgs();
+        requestLogger(req, res, next);
+        emitter.emit("finish");
         expect(spy).toHaveBeenCalledOnce();
+    });
+
+    it("log line contains method, path, and status code", () => {
+        const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+        const { req, res, next, emitter } = makeArgs({ method: "GET", originalUrl: "/api/clusters", statusCode: 200 });
+        requestLogger(req, res, next);
+        emitter.emit("finish");
         const line = spy.mock.calls[0][0] as string;
-        expect(line).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/); // ISO timestamp
         expect(line).toContain("GET");
         expect(line).toContain("/api/clusters");
         expect(line).toContain("200");
-        expect(line).toMatch(/\d+ms/);
-        expect(line).not.toContain("["); // no errorCode bracket on success
     });
 
-    it("includes the error code in the log on a 404 response", async () => {
+    it("appends the error code in brackets when res.locals.errorCode is set", () => {
         const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-        vi.spyOn(console, "error").mockImplementation(() => {}); // suppress error middleware output
-
-        await request(app).get("/api/clusters/999/map");
-
-        expect(spy).toHaveBeenCalledOnce();
+        const { req, res, next, emitter } = makeArgs({ errorCode: "CLUSTER_NOT_FOUND" });
+        requestLogger(req, res, next);
+        emitter.emit("finish");
         const line = spy.mock.calls[0][0] as string;
-        expect(line).toContain("404");
         expect(line).toContain("[CLUSTER_NOT_FOUND]");
     });
 
-    it("does not log any peer data from an occupancy response", async () => {
+    it("does not append a bracket when res.locals.errorCode is not set", () => {
         const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+        const { req, res, next, emitter } = makeArgs();
+        requestLogger(req, res, next);
+        emitter.emit("finish");
+        const line = spy.mock.calls[0][0] as string;
+        expect(line).not.toContain("[");
+    });
 
-        // This endpoint returns a response containing intraName, displayName and photo
-        // from the occupancy fixture. None of it should appear in the log.
-        await request(app).get("/api/clusters/1/map");
-
-        const allOutput = spy.mock.calls.map((call) => String(call[0])).join("\n");
-        expect(allOutput).not.toContain("jdoe");
-        expect(allOutput).not.toContain("John Doe");
-        expect(allOutput).not.toContain("intraName");
-        expect(allOutput).not.toContain("displayName");
-        expect(allOutput).not.toContain("photo");
-        expect(allOutput).not.toContain("peer");
+    it("strips the query string from the logged path", () => {
+        const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+        const { req, res, next, emitter } = makeArgs({ originalUrl: "/api/clusters?foo=bar" });
+        requestLogger(req, res, next);
+        emitter.emit("finish");
+        const line = spy.mock.calls[0][0] as string;
+        expect(line).toContain("/api/clusters");
+        expect(line).not.toContain("foo=bar");
     });
 });

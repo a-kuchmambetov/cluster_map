@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import type { ClusterListResponse } from "@repo/types";
 import { clusterNumberParamSchema } from "./clusters.schema";
-import { getClusterConfigValidation, getClusterMap, listClusterConfigs } from "./clusters.service";
+import { getClusterConfigValidation, getClusterLayout, getClusterOccupancyData, listClusterConfigs } from "./clusters.service";
 
 export async function listClusters(_req: Request, res: Response, next: NextFunction) {
     try {
@@ -19,23 +19,28 @@ export async function listClusters(_req: Request, res: Response, next: NextFunct
     }
 }
 
-export async function getClusterMapHandler(req: Request, res: Response, next: NextFunction) {
+export async function getClusterLayoutHandler(req: Request, res: Response, next: NextFunction) {
     try {
         const { clusterNumber } = clusterNumberParamSchema.parse(req.params);
-        const map = await getClusterMap(clusterNumber);
-
-        res.json(map);
+        res.json(getClusterLayout(clusterNumber));
     } catch (error) {
         next(error);
     }
 }
 
-export function getClusterConfigValidationHandler(req: Request, res: Response, next: NextFunction) {
+export async function getClusterOccupancyHandler(req: Request, res: Response, next: NextFunction) {
     try {
         const { clusterNumber } = clusterNumberParamSchema.parse(req.params);
-        const result = getClusterConfigValidation(clusterNumber);
+        res.json(await getClusterOccupancyData(clusterNumber));
+    } catch (error) {
+        next(error);
+    }
+}
 
-        res.json(result);
+export async function getClusterConfigValidationHandler(req: Request, res: Response, next: NextFunction) {
+    try {
+        const { clusterNumber } = clusterNumberParamSchema.parse(req.params);
+        res.json(await getClusterConfigValidation(clusterNumber));
     } catch (error) {
         next(error);
     }

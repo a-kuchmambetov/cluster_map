@@ -1,10 +1,10 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { AppError } from "@repo/errors";
-import type { ClusterMapResponse, ClusterRow, ConfigValidationError, ConfigValidationResponse, MapCell, MapWarning, Peer } from "@repo/types";
+import type { ConfigValidationError, ConfigValidationResponse } from "@repo/types";
 import { getClusterOccupancy } from "./clusters.repository";
 import { clustersConfigFileSchema } from "./clusters.schema";
-import type { CellConfig, ClusterConfig, OccupancyRow, Position, ResolvedCellConfig } from "./clusters.types";
+import type { CellConfig, ClusterConfig, ClusterLayoutResponse, ClusterOccupancyResponse, Position, ResolvedCellConfig } from "./clusters.types";
 
 const DEFAULT_POSITION: Position = "top";
 
@@ -77,165 +77,40 @@ export function loadClusterConfig(clusterNumber: number): ClusterConfig {
     return cluster;
 }
 
-export function resolveDisplayPeer(row: OccupancyRow): Peer {
-    return {
-        intraName: row.intraName,
-        displayName: row.displayName,
-        photo: row.photo,
-    };
-}
-
-export function mergeConfigWithOccupancy(config: ClusterConfig, occupancyRows: OccupancyRow[]): ClusterMapResponse {
-    const occupancyByPlaceKey = new Map<string, OccupancyRow[]>();
-    for (const occupancyRow of occupancyRows) {
-        const key = `${occupancyRow.row}:${occupancyRow.place}`;
-        const matches = occupancyByPlaceKey.get(key) ?? [];
-        matches.push(occupancyRow);
-        occupancyByPlaceKey.set(key, matches);
-    }
-
-    const configuredPlaceKeys = new Set<string>();
-    for (const rowConfig of config.rows) {
-        for (const cellConfig of rowConfig.cells) {
-            if (cellConfig.kind === "place") {
-                configuredPlaceKeys.add(`${rowConfig.number}:${cellConfig.number}`);
-            }
-        }
-    }
-
-    const warnings: MapWarning[] = [];
-    for (const [key, matches] of occupancyByPlaceKey) {
-        const [row, place] = key.split(":");
-
-        if (!configuredPlaceKeys.has(key)) {
-            warnings.push({
-                code: "ORPHANED_OCCUPANCY",
-                message: `Occupancy record for row ${row}, place ${place} has no matching place in the layout config`,
-            });
-        } else if (matches.length > 1) {
-            warnings.push({
-                code: "DUPLICATE_OCCUPANCY",
-                message: `Found ${matches.length} occupancy records for row ${row}, place ${place}`,
-            });
-        }
-    }
-
-    let free = 0;
-    let occupied = 0;
-
-    const rows: ClusterRow[] = config.rows.map((rowConfig) => {
-        const cells: MapCell[] = rowConfig.cells.map((cellConfig) => {
-            if (cellConfig.kind === "gap") {
-                return { kind: "gap" };
-            }
-
-            const matches = occupancyByPlaceKey.get(`${rowConfig.number}:${cellConfig.number}`) ?? [];
-
-            if (matches.length > 0) {
-                occupied += 1;
-                return {
-                    kind: "place",
-                    id: cellConfig.id,
-                    number: cellConfig.number,
-                    status: "occupied",
-                    peer: resolveDisplayPeer(matches[0]),
-                };
-            }
-
-            free += 1;
-            return {
-                kind: "place",
-                id: cellConfig.id,
-                number: cellConfig.number,
-                status: "free",
-                peer: null,
-            };
-        });
-
-        return {
-            id: rowConfig.id,
-            number: rowConfig.number,
-            label: rowConfig.label,
-            cells,
-        };
-    });
-
+// Returns the cluster's static layout from the config. No DB query.
+// Rows are sorted highest number first (top to bottom physical order).
+// Cells are returned as-is from the config: position is present only where
+// the config sets it explicitly; the frontend resolves the alternation.
+export function getClusterLayout(clusterNumber: number): ClusterLayoutResponse {
+    const config = loadClusterConfig(clusterNumber);
     return {
         cluster: { id: config.id, number: config.number, label: config.label },
-        rows,
-        summary: { free, occupied, total: free + occupied },
-        lastUpdated: new Date().toISOString(),
-        warnings,
+        rows: [...config.rows].sort((a, b) => b.number - a.number),
     };
 }
 
-export async function getClusterMap(clusterNumber: number): Promise<ClusterMapResponse> {
+// Returns only the currently occupied places for a cluster.
+// Every place not listed is free by implication.
+// DB errors propagate uncaught; the error middleware surfaces them as 500.
+export async function getClusterOccupancyData(clusterNumber: number): Promise<ClusterOccupancyResponse> {
     const config = loadClusterConfig(clusterNumber);
-    const occupancyRows = await getClusterOccupancy(config.id);
-
-    return mergeConfigWithOccupancy(config, occupancyRows);
+    const rows = await getClusterOccupancy(config.id);
+    return {
+        occupied: rows.map((r) => ({
+            row: r.row,
+            place: r.place,
+            peer: { intraName: r.intraName, displayName: r.displayName, photo: r.photo },
+        })),
+        lastUpdated: new Date().toISOString(),
+    };
 }
 
-export function validateClusterConfig(config: ClusterConfig, clusterIndex: number): ConfigValidationError[] {
-    const errors: ConfigValidationError[] = [];
-    const seenRowIds = new Set<string>();
-    const seenRowNumbers = new Set<number>();
-    const seenPlaceIds = new Set<string>();
-
-    config.rows.forEach((row, rowIndex) => {
-        if (seenRowIds.has(row.id)) {
-            errors.push({
-                code: "DUPLICATE_ROW_ID",
-                message: `Row id ${row.id} is not unique`,
-                path: `clusters[${clusterIndex}].rows[${rowIndex}].id`,
-            });
-        } else {
-            seenRowIds.add(row.id);
-        }
-
-        if (seenRowNumbers.has(row.number)) {
-            errors.push({
-                code: "DUPLICATE_ROW_NUMBER",
-                message: `Row number ${row.number} is not unique`,
-                path: `clusters[${clusterIndex}].rows[${rowIndex}].number`,
-            });
-        } else {
-            seenRowNumbers.add(row.number);
-        }
-
-        const seenPlaceNumbersInRow = new Set<number>();
-
-        row.cells.forEach((cell, cellIndex) => {
-            if (cell.kind !== "place") {
-                return;
-            }
-
-            if (seenPlaceIds.has(cell.id)) {
-                errors.push({
-                    code: "DUPLICATE_PLACE_ID",
-                    message: `Place id ${cell.id} is not unique`,
-                    path: `clusters[${clusterIndex}].rows[${rowIndex}].cells[${cellIndex}].id`,
-                });
-            } else {
-                seenPlaceIds.add(cell.id);
-            }
-
-            if (seenPlaceNumbersInRow.has(cell.number)) {
-                errors.push({
-                    code: "DUPLICATE_PLACE_NUMBER",
-                    message: `Place number ${cell.number} is not unique within row ${row.number}`,
-                    path: `clusters[${clusterIndex}].rows[${rowIndex}].cells[${cellIndex}].number`,
-                });
-            } else {
-                seenPlaceNumbersInRow.add(cell.number);
-            }
-        });
-    });
-
-    return errors;
-}
-
-export function getClusterConfigValidation(clusterNumber: number): ConfigValidationResponse {
+// Checks whether current DB occupancy is consistent with the layout config.
+// The config is structurally valid by construction (Zod catches problems at
+// load time). This detects semantic mismatches: a DB record pointing at a
+// (row, place) pair that doesn't exist in the config means the config is
+// probably out of date.
+export async function getClusterConfigValidation(clusterNumber: number): Promise<ConfigValidationResponse> {
     const configs = listClusterConfigs();
     const clusterIndex = configs.findIndex((config) => config.number === clusterNumber);
 
@@ -243,11 +118,30 @@ export function getClusterConfigValidation(clusterNumber: number): ConfigValidat
         throw AppError.clusterNotFound(`Cluster ${clusterNumber} not found`);
     }
 
-    const errors = validateClusterConfig(configs[clusterIndex], clusterIndex);
+    const config = configs[clusterIndex];
 
-    return {
-        clusterNumber,
-        valid: errors.length === 0,
-        errors,
-    };
+    const validPlaceKeys = new Set<string>();
+    for (const row of config.rows) {
+        for (const cell of row.cells) {
+            if (cell.kind === "place") {
+                validPlaceKeys.add(`${row.number}:${cell.number}`);
+            }
+        }
+    }
+
+    const occupancyRows = await getClusterOccupancy(config.id);
+
+    const errors: ConfigValidationError[] = [];
+    for (const occupancyRow of occupancyRows) {
+        const key = `${occupancyRow.row}:${occupancyRow.place}`;
+        if (!validPlaceKeys.has(key)) {
+            errors.push({
+                code: "ORPHANED_OCCUPANCY",
+                message: `DB record for row ${occupancyRow.row}, place ${occupancyRow.place} has no matching place in the layout`,
+                path: `clusters[${clusterIndex}]`,
+            });
+        }
+    }
+
+    return { clusterNumber, valid: errors.length === 0, errors };
 }
