@@ -10,7 +10,7 @@ const DB_PING_TIMEOUT_MS = 2000;
 // all (e.g. before it's ever built). Keeping it dynamic + try/caught means a
 // missing/broken DB dependency degrades this endpoint instead of crashing
 // the process.
-async function isDatabaseReachable(): Promise<boolean> {
+export async function isDatabaseReachable(): Promise<boolean> {
     try {
         const { db } = await import("@repo/db");
 
@@ -30,13 +30,25 @@ async function isDatabaseReachable(): Promise<boolean> {
     }
 }
 
-healthRouter.get("/", async (_req: Request, res: Response) => {
-    const dbReachable = await isDatabaseReachable();
+// healthHandler is a factory, not a plain Express handler. Express calls
+// handlers with (req, res, next); if this were registered directly, `next`
+// would land in `checkDb`, await next() would return undefined (falsy), and
+// health would always respond 503 — silently, and only in production, since
+// unit tests call the returned handler directly. The factory keeps `checkDb`
+// out of the Express signature entirely so that bug can't happen.
+export function healthHandler(
+    checkDb: () => Promise<boolean>,
+): (req: Request, res: Response) => Promise<void> {
+    return async (_req, res) => {
+        const dbReachable = await checkDb();
 
-    if (!dbReachable) {
-        res.status(503).json({ status: "degraded", db: "unreachable" });
-        return;
-    }
+        if (!dbReachable) {
+            res.status(503).json({ status: "degraded", db: "unreachable" });
+            return;
+        }
 
-    res.json({ status: "ok", db: "ok" });
-});
+        res.json({ status: "ok", db: "ok" });
+    };
+}
+
+healthRouter.get("/", healthHandler(isDatabaseReachable));
