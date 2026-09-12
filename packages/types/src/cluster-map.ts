@@ -157,3 +157,72 @@ export type ConfigValidationResponse = {
     valid: boolean;
     errors: ConfigValidationError[];
 };
+
+// new shared types for /layout and /occupancy
+
+
+/**
+ * Vertical position of a place inside a staggered cluster row.
+ */
+export type Position = "top" | "bottom";
+
+/**
+ * A real place returned by GET /layout.
+ *
+ * `position` is optional. If absent, the frontend continues the
+ * alternating top/bottom pattern from the preceding place.
+ */
+export type LayoutPlaceCell = {
+    kind: "place";
+    id: string;
+    number: number;
+    position?: Position;
+};
+
+/**
+ * A visual spacer returned by GET /layout.
+ */
+export type LayoutGapCell = {
+    kind: "gap";
+};
+
+export type LayoutCell = LayoutPlaceCell | LayoutGapCell;
+
+/**
+ * One physical row returned by GET /layout.
+ */
+export type ClusterLayoutRow = {
+    id: string;
+    number: number;
+    label: string;
+    cells: LayoutCell[];
+};
+
+/**
+ * Response returned by:
+ *
+ * GET /api/clusters/:clusterNumber/layout
+ */
+export type ClusterLayoutResponse = {
+    cluster: Cluster;
+    rows: ClusterLayoutRow[];
+};
+
+/**
+ * One occupied place returned by GET /occupancy.
+ */
+export type OccupiedEntry = {
+    row: number;
+    place: number;
+    peer: Peer;
+};
+
+/**
+ * Response returned by:
+ *
+ * GET /api/clusters/:clusterNumber/occupancy
+ */
+export type ClusterOccupancyResponse = {
+    occupied: OccupiedEntry[];
+    lastUpdated: string | null;
+};
