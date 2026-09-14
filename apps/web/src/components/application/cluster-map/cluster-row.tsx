@@ -1,11 +1,8 @@
 import type { ClusterMapRow } from "@/types/cluster-map-view";
-import { getPlacePosition } from "@/config/cluster-layout";
 import { ClusterPlace } from "./cluster-place";
 
 type ClusterRowViewProps = {
     row: ClusterMapRow;
-    clusterNumber: number;
-    rowIndex: number;
     selectedPlaceId: string | null;
     onSelectPlace: (placeId: string) => void;
     onClosePlace: () => void;
@@ -13,12 +10,12 @@ type ClusterRowViewProps = {
 
 export const ClusterRowView = ({
     row,
-    clusterNumber,
-    rowIndex,
     selectedPlaceId,
     onSelectPlace,
     onClosePlace,
 }: ClusterRowViewProps) => {
+    let previousPosition: "top" | "bottom" | null = null;
+
     return (
         <div>
             <h3 className="text-sm font-medium text-tertiary">
@@ -28,44 +25,35 @@ export const ClusterRowView = ({
             <div className="relative mt-1.5 h-32">
                 {row.cells.map((cell, index) => {
                     if (cell.kind === "gap") {
-                        return (
-                            <div
-                                key={`${row.id}-gap-${index}`}
-                            />
-                        );
+                        return null;
                     }
 
-                    const position = getPlacePosition(
-                        clusterNumber,
-                        rowIndex,
-                        cell.number,
-                    );
+                    const position =
+                        cell.position ??
+                        (previousPosition === "top"
+                            ? "bottom"
+                            : "top");
 
-                    if (!position) {
-                        return (
-                            <ClusterPlace
-                                key={cell.id}
-                                place={cell}
-                                selected={selectedPlaceId === cell.id}
-                                onSelect={() => onSelectPlace(cell.id)}
-                                onClose={onClosePlace}
-                            />
-                        );
-                    }
+                    previousPosition = position;
 
                     return (
                         <div
                             key={cell.id}
                             className="absolute"
                             style={{
-                                left: `${position.column * 5}rem`,
-                                top: `${position.row * 2.5}rem`,
+                                left: `${index * 5}rem`,
+                                top:
+                                    position === "top"
+                                        ? "0"
+                                        : "2.5rem",
                             }}
                         >
                             <ClusterPlace
                                 place={cell}
                                 selected={selectedPlaceId === cell.id}
-                                onSelect={() => onSelectPlace(cell.id)}
+                                onSelect={() =>
+                                    onSelectPlace(cell.id)
+                                }
                                 onClose={onClosePlace}
                             />
                         </div>

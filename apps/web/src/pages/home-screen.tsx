@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useClusters } from "@/hooks/use-clusters";
-import { useClusterMap } from "@/hooks/use-cluster-map";
+import { useClusterLayout } from "@/hooks/use-cluster-layout";
+import { useClusterOccupancy } from "@/hooks/use-cluster-occupancy";
+import { buildClusterMapView } from "@/utils/build-cluster-map-view";
 import { ClusterSelector } from "@/components/application/cluster-map/cluster-selector";
 import { ClusterMap } from "@/components/application/cluster-map/cluster-map";
 
@@ -14,11 +16,27 @@ export const HomeScreen = () => {
     const [selectedCluster, setSelectedCluster] = useState(1);
 
     const {
-        data: mapData,
-        loading: mapLoading,
-        error: mapError,
-        refetch: refetchMap,
-    } = useClusterMap(selectedCluster);
+        data: layoutData,
+        loading: layoutLoading,
+        error: layoutError,
+        refetch: refetchLayout,
+    } = useClusterLayout(selectedCluster);
+
+    const {
+        data: occupancyData,
+        loading: occupancyLoading,
+        error: occupancyError,
+        refetch: refetchOccupancy,
+    } = useClusterOccupancy(selectedCluster);
+
+    const mapData =
+        layoutData && occupancyData
+            ? buildClusterMapView(layoutData, occupancyData)
+            : null;
+
+    const mapLoading = layoutLoading || occupancyLoading;
+
+    const mapError = layoutError ?? occupancyError;
 
     if (clustersLoading) {
         return (
@@ -115,7 +133,10 @@ export const HomeScreen = () => {
 
                         <button
                             type="button"
-                            onClick={() => void refetchMap()}
+                            onClick={() => {
+                                void refetchLayout();
+                                void refetchOccupancy();
+                            }}
                             className="
                                 mt-4 rounded-lg bg-[#c47820] px-4 py-2
                                 text-sm font-medium text-white
@@ -130,7 +151,7 @@ export const HomeScreen = () => {
                     </div>
                 )}
 
-                {mapData && !mapLoading && (
+                {mapData && !mapLoading && !mapError && (
                     <ClusterMap map={mapData} />
                 )}
             </div>

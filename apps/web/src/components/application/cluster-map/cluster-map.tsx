@@ -125,12 +125,10 @@ export const ClusterMap = ({
             {/*Scrollable */}
             <div className="mt-3 overflow-x-auto overscroll-x-contain pb-3 sm:mt-8">
                 <div className="space-y-3">
-                    {map.rows.map((row, index) => (
+                    {map.rows.map((row) => (
                         <ClusterRowView
                             key={row.id}
                             row={row}
-                            clusterNumber={map.cluster.number}
-                            rowIndex={index}
                             selectedPlaceId={selectedPlaceId}
                             onSelectPlace={handleSelectPlace}
                             onClosePlace={handleClosePlace}
