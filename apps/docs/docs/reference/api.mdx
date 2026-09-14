@@ -6,17 +6,18 @@ sidebar_position: 1
 
 ## Current status
 
-The Express application exposes five endpoints:
+The Express application exposes six endpoints:
 
 - `GET /api/health`
 - `GET /api/clusters`
 - `GET /api/clusters/:clusterNumber/layout`
 - `GET /api/clusters/:clusterNumber/occupancy`
 - `GET /api/clusters/:clusterNumber/config-validation`
+- `GET /api/clusters/:clusterNumber/events` — SSE stream
 
 The API mounts its router at `/api`. It enables JSON request parsing and credentialed CORS; allowed origins are described in [Configuration](../getting-started/configuration#cors-and-environment-mode).
 
-There is no authentication, no realtime/SSE push, and no write endpoint against any resource. All routes are read-only `GET` requests.
+There is no authentication and no write endpoint against any resource. All routes are read-only `GET` requests.
 
 ## Error envelope
 
@@ -313,3 +314,102 @@ When the DB returns occupancy for a place the config doesn't know about:
 | `clusterNumber` fails validation (e.g. `abc`) |    422 | `VALIDATION_ERROR`      |
 | No cluster with that number in the config     |    404 | `CLUSTER_NOT_FOUND`     |
 | Production DB unavailable                     |    500 | `INTERNAL_SERVER_ERROR` |
+
+## `GET /api/clusters/:clusterNumber/events`
+
+A [Server-Sent Events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events) stream that pushes occupancy changes to the client as they occur. One connection per cluster per client; one-directional (server → client only).
+
+### Load sequence
+
+Always fetch `/layout` and `/occupancy` before opening this connection. The stream carries only changes from the point of connect — it does not replay current state.
+
+```
+GET /api/clusters/:clusterNumber/layout    → render the grid
+GET /api/clusters/:clusterNumber/occupancy → mark initially occupied seats
+GET /api/clusters/:clusterNumber/events    → open stream; receive deltas
+```
+
+### Request
+
+| Parameter       | Location | Validation                                                                            |
+| --------------- | -------- | ------------------------------------------------------------------------------------- |
+| `clusterNumber` | Path     | `z.coerce.number().int().positive()` — see [Request validation](#request-validation). |
+
+No query parameters or request body. The browser's `EventSource` API sets `Accept: text/event-stream` automatically.
+
+```bash
+# curl example — streams indefinitely
+curl -N -H "Accept: text/event-stream" http://localhost:5000/api/clusters/1/events
+```
+
+### Response — stream open
+
+Status: `200 OK`  
+Headers: `Content-Type: text/event-stream`, `Cache-Control: no-cache`, `Connection: keep-alive`
+
+All events are named so the client can use `addEventListener` rather than `onmessage`:
+
+```js
+const source = new EventSource("/api/clusters/1/events");
+source.addEventListener("occupancy-delta", (e) => { /* ... */ });
+source.addEventListener("error", (e) => { /* ... */ });
+```
+
+#### `occupancy-delta`
+
+Sent when occupancy changed since the last poll. Not sent when nothing changed.
+
+The stream carries deltas rather than the full occupied list because a list-based feed cannot express "this place is now free": if a place drops out of a full-state list it is ambiguous between "became free" and "missed event". An explicit `freed` array removes that ambiguity without requiring the client to handle separate event types.
+
+```
+event: occupancy-delta
+data: {"occupied":[{"row":1,"place":2,"peer":{"intraName":"jdoe","displayName":"John Doe","photo":null}}],"freed":[{"row":1,"place":5}]}
+
+```
+
+| Field        | Meaning                                                                                                                    |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| `occupied[]` | Places that became occupied, or places already occupied whose peer data changed. Same shape as entries from `/occupancy`.  |
+| `freed[]`    | Places that were occupied and are now free. Identified by `{ row, place }` only — no peer data because the seat is empty. |
+
+Apply a delta by upserting every entry in `occupied` into local state and removing every entry in `freed`. An event where both arrays are empty is never sent.
+
+#### `error`
+
+Sent when the database is unreachable during a poll cycle. The connection stays open.
+
+```
+event: error
+data: {"code":"DB_UNAVAILABLE","message":"Occupancy data temporarily unavailable"}
+
+```
+
+On repeated `DB_UNAVAILABLE` events: keep the last successful occupancy rendered and mark it stale, showing the last successful update time. Do not clear occupancy and do not treat missing data as free. The stale marking clears when the next successful `occupancy-delta` arrives.
+
+#### Keepalive comments
+
+A comment line is sent every 20 seconds of inactivity to prevent proxies from closing idle connections. Comments are invisible to `EventSource` handlers and require no client-side handling.
+
+```
+: keep-alive
+
+```
+
+### Reconnect
+
+`EventSource` reconnects automatically after a disconnect, but the server keeps no event history, so the client may have missed changes during the gap. The required reconnect sequence is:
+
+1. On `EventSource` `error` or `close`, wait for the browser's built-in backoff.
+2. **Re-fetch `/occupancy`** to resync local state before reopening the stream.
+3. Open a new `EventSource` connection.
+
+The `Last-Event-ID` header sent by `EventSource` on reconnect is ignored — no event IDs are assigned.
+
+### Error responses (before the stream opens)
+
+| Case                                          | Status | Code                |
+| --------------------------------------------- | -----: | ------------------- |
+| `clusterNumber` fails validation (e.g. `abc`) |    422 | `VALIDATION_ERROR`  |
+| No cluster with that number in the config     |    404 | `CLUSTER_NOT_FOUND` |
+
+Once the stream is open, database failures are delivered as `error` events rather than HTTP status codes.
