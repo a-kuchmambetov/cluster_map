@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { AppError } from "@repo/errors";
 import type { ConfigValidationError, ConfigValidationResponse } from "@repo/types";
+import { writeSharedSnapshot } from "./clusters.pool";
 import { getClusterOccupancy } from "./clusters.repository";
 import { clustersConfigFileSchema } from "./clusters.schema";
 import type { CellConfig, ClusterConfig, ClusterLayoutResponse, ClusterOccupancyResponse, Position, ResolvedCellConfig } from "./clusters.types";
@@ -95,14 +96,17 @@ export function getClusterLayout(clusterNumber: number): ClusterLayoutResponse {
 export async function getClusterOccupancyData(clusterNumber: number): Promise<ClusterOccupancyResponse> {
     const config = loadClusterConfig(clusterNumber);
     const rows = await getClusterOccupancy(config.id);
-    return {
-        occupied: rows.map((r) => ({
-            row: r.row,
-            place: r.place,
-            peer: { intraName: r.intraName, displayName: r.displayName, photo: r.photo },
-        })),
-        lastUpdated: new Date().toISOString(),
-    };
+    const occupied = rows.map((r) => ({
+        row: r.row,
+        place: r.place,
+        peer: { intraName: r.intraName, displayName: r.displayName, photo: r.photo },
+    }));
+
+    // Keep the shared SSE snapshot in sync so the first poll after a new
+    // SSE connection has a baseline to diff against (cold-start window fix).
+    writeSharedSnapshot(config.id, occupied);
+
+    return { occupied, lastUpdated: new Date().toISOString() };
 }
 
 // Checks whether current DB occupancy is consistent with the layout config.
