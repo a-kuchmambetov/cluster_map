@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import type { ClusterMapResponse } from "@repo/types";
+import type { ClusterMapView } from "@/types/cluster-map-view";
 import { ClusterRowView } from "./cluster-row";
 import { hexPts } from "@/utils/hex";
 
 type ClusterMapProps = {
-    map: ClusterMapResponse;
+    map: ClusterMapView;
     refreshing?: boolean;
     stale?: boolean;
 };

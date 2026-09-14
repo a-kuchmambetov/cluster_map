@@ -1,9 +1,9 @@
-import type { ClusterRow } from "@repo/types";
+import type { ClusterMapRow } from "@/types/cluster-map-view";
 import { getPlacePosition } from "@/config/cluster-layout";
 import { ClusterPlace } from "./cluster-place";
 
 type ClusterRowViewProps = {
-    row: ClusterRow;
+    row: ClusterMapRow;
     clusterNumber: number;
     rowIndex: number;
     selectedPlaceId: string | null;

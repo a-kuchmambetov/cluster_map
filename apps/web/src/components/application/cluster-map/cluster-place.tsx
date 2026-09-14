@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import type { PlaceCell } from "@repo/types";
+import type { ClusterMapPlaceCell } from "@/types/cluster-map-view";
 import { hexPts } from "@/utils/hex";
 import { clusterPlaceStyles } from "@/utils/cluster-place-styles";
 
 type ClusterPlaceProps = {
-    place: PlaceCell;
+    place: ClusterMapPlaceCell;
     selected: boolean;
     onSelect: () => void;
     onClose: () => void;
