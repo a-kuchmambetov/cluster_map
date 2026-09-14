@@ -1,6 +1,9 @@
+import http from "node:http";
+import type { AddressInfo } from "node:net";
 import request from "supertest";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { app } from "../../app";
+import { resetPool, writeSharedSnapshot } from "../../features/clusters/clusters.pool";
 import type { OccupancyRow } from "../../features/clusters/clusters.types";
 
 // Cluster 1, row 1 layout: places 1–8, a gap, then places 9–11.
@@ -190,5 +193,210 @@ describe("GET /api/clusters/:clusterNumber/config-validation", () => {
 
         expect(response.status).toBe(422);
         expect(response.body.code).toBe("VALIDATION_ERROR");
+    });
+});
+
+// ---------------------------------------------------------------------------
+// SSE helper
+// ---------------------------------------------------------------------------
+
+// Opens an SSE connection and waits for the response headers before resolving.
+// This guarantees the subscriber is registered in the pool before the caller
+// advances any fake timers to trigger a poll.
+//
+// Only setInterval/clearInterval are faked in SSE tests (see beforeEach).
+// setTimeout stays on the real clock so the 5 s event-timeout guard and the
+// server.listen callback fire normally.
+function openSSE(
+    port: number,
+    path: string,
+): Promise<{ nextEvent: () => Promise<{ type: string; data: unknown }>; close: () => void }> {
+    return new Promise((connected, connectErr) => {
+        let eventResolve: ((v: { type: string; data: unknown }) => void) | null = null;
+        let buffer = "";
+
+        const req = http.get(`http://localhost:${port}${path}`, (res) => {
+            res.setEncoding("utf-8");
+            res.on("data", (chunk: string) => {
+                buffer += chunk;
+                // SSE events are separated by a blank line.
+                const parts = buffer.split("\n\n");
+                buffer = parts.pop() ?? "";
+                for (const part of parts) {
+                    if (!part.startsWith("event:")) continue;
+                    const lines = part.split("\n");
+                    const type = lines[0].replace("event: ", "").trim();
+                    const raw = lines[1]?.replace("data: ", "").trim() ?? "{}";
+                    const data: unknown = JSON.parse(raw);
+                    if (eventResolve) {
+                        const r = eventResolve;
+                        eventResolve = null;
+                        r({ type, data });
+                    }
+                }
+            });
+
+            // Headers received — the stream is open and the subscriber is registered.
+            connected({
+                nextEvent: () =>
+                    new Promise((res, rej) => {
+                        eventResolve = res;
+                        // Real setTimeout (not faked) so advancing fake timers
+                        // doesn't accidentally fire this guard.
+                        setTimeout(() => rej(new Error("SSE event timeout")), 5_000);
+                    }),
+                close: () => req.destroy(),
+            });
+        });
+
+        req.on("error", connectErr);
+    });
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/clusters/:clusterNumber/events
+// ---------------------------------------------------------------------------
+
+describe("GET /api/clusters/:clusterNumber/events — pre-stream errors", () => {
+    it("returns 422 for a non-numeric cluster number", async () => {
+        const response = await request(app)
+            .get("/api/clusters/abc/events")
+            .set("Accept", "text/event-stream");
+
+        expect(response.status).toBe(422);
+        expect(response.body.code).toBe("VALIDATION_ERROR");
+    });
+
+    it("returns 404 CLUSTER_NOT_FOUND for an unknown cluster number", async () => {
+        const response = await request(app)
+            .get("/api/clusters/999/events")
+            .set("Accept", "text/event-stream");
+
+        expect(response.status).toBe(404);
+        expect(response.body.code).toBe("CLUSTER_NOT_FOUND");
+    });
+});
+
+describe("GET /api/clusters/:clusterNumber/events — stream", () => {
+    let server: http.Server;
+    let port: number;
+
+    beforeEach(async () => {
+        // Only fake setInterval/clearInterval — what the pool uses for polling.
+        // setTimeout stays real so the openSSE timeout guard and server.listen
+        // callback are not affected by vi.advanceTimersByTimeAsync.
+        vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+        resetPool();
+        getClusterOccupancyMock.mockReset();
+
+        server = http.createServer(app);
+        await new Promise<void>((res) => server.listen(0, res));
+        port = (server.address() as AddressInfo).port;
+    });
+
+    afterEach(async () => {
+        resetPool();
+        vi.useRealTimers();
+        await new Promise<void>((res) => server.close(() => res()));
+        getClusterOccupancyMock.mockReset();
+    });
+
+    it("sends occupancy-delta when a place becomes occupied", async () => {
+        getClusterOccupancyMock.mockResolvedValue([
+            { row: 1, place: 2, intraName: "jdoe", displayName: "John Doe", photo: null },
+        ]);
+
+        const { nextEvent, close } = await openSSE(port, "/api/clusters/1/events");
+        const eventPromise = nextEvent();
+        await vi.advanceTimersByTimeAsync(30_000);
+        const event = await eventPromise;
+        close();
+
+        expect(event.type).toBe("occupancy-delta");
+        const delta = event.data as { occupied: unknown[]; freed: unknown[] };
+        expect(delta.occupied).toHaveLength(1);
+        expect(delta.occupied[0]).toMatchObject({ row: 1, place: 2 });
+        expect(delta.freed).toHaveLength(0);
+    });
+
+    it("sends occupancy-delta when a place becomes free", async () => {
+        // Seed: place 3 is occupied.
+        writeSharedSnapshot("c1", [
+            { row: 1, place: 3, peer: { intraName: null, displayName: null, photo: null } },
+        ]);
+        // Poll: place 3 is now gone.
+        getClusterOccupancyMock.mockResolvedValue([]);
+
+        const { nextEvent, close } = await openSSE(port, "/api/clusters/1/events");
+        const eventPromise = nextEvent();
+        await vi.advanceTimersByTimeAsync(30_000);
+        const event = await eventPromise;
+        close();
+
+        expect(event.type).toBe("occupancy-delta");
+        const delta = event.data as { occupied: unknown[]; freed: unknown[] };
+        expect(delta.freed).toContainEqual({ row: 1, place: 3 });
+        expect(delta.occupied).toHaveLength(0);
+    });
+
+    it("sends occupancy-delta when peer data changes on an already-occupied place", async () => {
+        writeSharedSnapshot("c1", [
+            { row: 1, place: 2, peer: { intraName: "alice", displayName: "Alice", photo: null } },
+        ]);
+        getClusterOccupancyMock.mockResolvedValue([
+            { row: 1, place: 2, intraName: "bob", displayName: "Bob", photo: null },
+        ]);
+
+        const { nextEvent, close } = await openSSE(port, "/api/clusters/1/events");
+        const eventPromise = nextEvent();
+        await vi.advanceTimersByTimeAsync(30_000);
+        const event = await eventPromise;
+        close();
+
+        expect(event.type).toBe("occupancy-delta");
+        const delta = event.data as { occupied: { peer: { intraName: string } }[]; freed: unknown[] };
+        expect(delta.occupied[0].peer.intraName).toBe("bob");
+        expect(delta.freed).toHaveLength(0);
+    });
+
+    it("sends no event when nothing changed", async () => {
+        writeSharedSnapshot("c1", [
+            { row: 1, place: 2, peer: { intraName: "jdoe", displayName: "John Doe", photo: null } },
+        ]);
+        getClusterOccupancyMock.mockResolvedValue([
+            { row: 1, place: 2, intraName: "jdoe", displayName: "John Doe", photo: null },
+        ]);
+
+        const { nextEvent, close } = await openSSE(port, "/api/clusters/1/events");
+
+        // Register the event handler BEFORE triggering the poll. If nextEvent()
+        // were called after advanceTimersByTimeAsync, the delta would land while
+        // eventResolve is still null and be silently dropped — the race would
+        // always time out regardless of what the mock returns.
+        const eventPromise = nextEvent();
+        await vi.advanceTimersByTimeAsync(30_000);
+        const result = await Promise.race([
+            eventPromise.then(() => "got-event" as const),
+            new Promise<"timeout">((res) => setTimeout(() => res("timeout"), 200)),
+        ]);
+        close();
+
+        expect(result).toBe("timeout");
+    });
+
+    it("sends an error event when the DB is unavailable", async () => {
+        getClusterOccupancyMock.mockRejectedValue(new Error("connection refused"));
+
+        const { nextEvent, close } = await openSSE(port, "/api/clusters/1/events");
+        const eventPromise = nextEvent();
+        await vi.advanceTimersByTimeAsync(30_000);
+        const event = await eventPromise;
+        close();
+
+        expect(event.type).toBe("error");
+        expect(event.data).toEqual({
+            code: "DB_UNAVAILABLE",
+            message: "Occupancy data temporarily unavailable",
+        });
     });
 });
