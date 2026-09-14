@@ -1,6 +1,5 @@
 import type {
     ClusterListResponse,
-    ClusterMapResponse,
     ClusterLayoutResponse,
     ClusterOccupancyResponse,
 } from "@repo/types";
@@ -14,21 +13,6 @@ export const getClusters = async (): Promise<ClusterListResponse> => {
 
     if (!response.ok) {
         throw new Error(`Failed to fetch clusters: ${response.status}`);
-    }
-
-    return response.json();
-};
-
-// Fetches the map and current occupancy for one cluster.
-export const getClusterMap = async (
-    clusterNumber: number,
-): Promise<ClusterMapResponse> => {
-    const response = await fetch(
-        `${API_BASE_URL}/clusters/${clusterNumber}/map`,
-    );
-
-    if (!response.ok) {
-        throw new Error(`Failed to fetch cluster map: ${response.status}`);
     }
 
     return response.json();
