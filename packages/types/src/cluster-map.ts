@@ -1,165 +1,33 @@
 /**
- * Shared data structs for the cluster map api
+ * Shared data structures for the Cluster Map API.
  */
 
 /**
- * Represents the current state of a real place in a cluster.
- *
- * "free"     -> nobody is currently occupying the place
- * "occupied" -> a peer is associated with the place
- *
- * This comes directly from the API contract.
- * The frontend does not need to infer the status from whether `peer` exists.
- */
-export type PlaceStatus = "free" | "occupied";
-
-/**
- * Minimal information about a peer displayed on an occupied place.
- *
- * The API exposes only the fields approved for the Cluster Map:
- * intra name, display name, and optional photo.
+ * Minimal peer information exposed by the API.
  */
 export interface Peer {
     intraName: string | null;
     displayName: string | null;
     photo: string | null;
 }
-/**
- * A real, numbered place in the cluster layout.
- *
- * `kind: "place"` allows TypeScript to distinguish this from a gap
- * when working with the MapCell union below.
- *
- * `peer` is null when the place is free.
- */
-export type PlaceCell = {
-    kind: "place";
-    id: string;
-    number: number;
-    status: PlaceStatus;
-    peer: Peer | null;
-};
-/**
- * A visual gap in the physical layout.
- *
- * A gap is not a real place, so it has no number and cannot be occupied.
- * The frontend should render it as empty space without interaction.
- */
-export type GapCell = {
-    kind: "gap";
-};
-/**
- * A cell in a row can be either a real place or a layout gap.
- *
- * This is a discriminated union: `kind` tells TypeScript which
- * type of cell we are dealing with.
- *
- * Example:
- *
- * if (cell.kind === "place") {
- *     // cell is PlaceCell
- * } else {
- *     // cell is GapCell
- * }
- */
-export type MapCell = PlaceCell | GapCell;
 
 /**
  * Basic information identifying a cluster.
- *
- * Used both by the cluster picker and by the map response.
  */
 export type Cluster = {
     id: string;
     number: number;
     label: string;
 };
-/**
- * A row inside a cluster.
- *
- * `cells` contains places and gaps in their physical order.
- * The frontend should render the cells in this order.
- */
 
-export type ClusterRow = {
-    id: string;
-    number: number;
-    label: string;
-    cells: MapCell[];
-};
-/**
- * Pre-calculated availability information returned by the API.
- *
- * The API calculates these values so the frontend does not need
- * to count free/occupied places itself.
- *
- * `total` does not include layout gaps.
- */
-export type ClusterMapSummary = {
-    free: number;
-    occupied: number;
-    total: number;
-};
-/**
- * A non-fatal problem encountered while building the map.
- *
- * For example, occupancy data may reference a place that does not
- * exist in the layout configuration.
- *
- * The API keeps the valid map data and reports the problem here.
- */
-export type MapWarning = {
-    code: string;
-    message: string;
-};
-/**
- * Complete response returned by:
- *
- * GET /api/clusters/:clusterNumber/map
- *
- * This is the main data structure the frontend will use to render
- * the Cluster Map.
- */
-export type ClusterMapResponse = {
-    cluster: Cluster;
-    rows: ClusterRow[];
-    summary: ClusterMapSummary;
-    lastUpdated: string | null;
-    warnings: MapWarning[];
-};
 /**
  * Response returned by:
  *
  * GET /api/clusters
- *
- * Used by the frontend to populate the cluster selector.
  */
 export type ClusterListResponse = {
     clusters: Cluster[];
 };
-
-/**
- * Describes one validation problem in a cluster layout configuration.
- */
-export type ConfigValidationError = {
-    code: string;
-    message: string;
-    path: string;
-};
-
-/**
- * Response returned by:
- *
- * GET /api/clusters/:clusterNumber/config-validation
- */
-export type ConfigValidationResponse = {
-    clusterNumber: number;
-    valid: boolean;
-    errors: ConfigValidationError[];
-};
-
-// new shared types for /layout and /occupancy
-
 
 /**
  * Vertical position of a place inside a staggered cluster row.
@@ -167,10 +35,12 @@ export type ConfigValidationResponse = {
 export type Position = "top" | "bottom";
 
 /**
- * A real place returned by GET /layout.
+ * A real place returned by:
  *
- * `position` is optional. If absent, the frontend continues the
- * alternating top/bottom pattern from the preceding place.
+ * GET /api/clusters/:clusterNumber/layout
+ *
+ * `position` is optional. If it is omitted, the frontend continues
+ * the alternating top/bottom pattern from the preceding place.
  */
 export type LayoutPlaceCell = {
     kind: "place";
@@ -180,16 +50,21 @@ export type LayoutPlaceCell = {
 };
 
 /**
- * A visual spacer returned by GET /layout.
+ * A visual spacer in the physical layout.
  */
 export type LayoutGapCell = {
     kind: "gap";
 };
 
+/**
+ * A cell in a layout row can be either a real place or a gap.
+ */
 export type LayoutCell = LayoutPlaceCell | LayoutGapCell;
 
 /**
  * One physical row returned by GET /layout.
+ *
+ * Cells are returned in their physical order.
  */
 export type ClusterLayoutRow = {
     id: string;
@@ -209,7 +84,10 @@ export type ClusterLayoutResponse = {
 };
 
 /**
- * One occupied place returned by GET /occupancy.
+ * One currently occupied place returned by GET /occupancy.
+ *
+ * Layout and occupancy are joined by:
+ * row number + place number.
  */
 export type OccupiedEntry = {
     row: number;
@@ -221,8 +99,30 @@ export type OccupiedEntry = {
  * Response returned by:
  *
  * GET /api/clusters/:clusterNumber/occupancy
+ *
+ * Places missing from `occupied` are considered free.
  */
 export type ClusterOccupancyResponse = {
     occupied: OccupiedEntry[];
     lastUpdated: string | null;
+};
+
+/**
+ * One validation problem found in a cluster configuration.
+ */
+export type ConfigValidationError = {
+    code: string;
+    message: string;
+    path: string;
+};
+
+/**
+ * Response returned by:
+ *
+ * GET /api/clusters/:clusterNumber/config-validation
+ */
+export type ConfigValidationResponse = {
+    clusterNumber: number;
+    valid: boolean;
+    errors: ConfigValidationError[];
 };
