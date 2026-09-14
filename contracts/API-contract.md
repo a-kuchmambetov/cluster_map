@@ -266,7 +266,7 @@ event: error
 data: {"code":"DB_UNAVAILABLE","message":"Occupancy data temporarily unavailable"}
 ```
 
-> **Decision — DB unavailable.** Dropping all connections on a transient DB failure causes a reconnect storm and loses the client's rendered state. Silence is worse: the client cannot distinguish "nothing changed" from "we don't know". An `error` event lets the client show a staleness indicator while keeping the connection open. What the client should do after repeated errors (e.g. fall back to polling `/occupancy`, close the connection, or surface a degraded-mode UI) is a frontend decision — open item for Maxim.
+> **Decision — DB unavailable.** Dropping all connections on a transient DB failure causes a reconnect storm and loses the client's rendered state. Silence is worse: the client cannot distinguish "nothing changed" from "we don't know". An `error` event lets the client show a staleness indicator while keeping the connection open. For client behaviour on repeated errors, see Maxim's answer in §8.
 
 #### Keepalive comments
 
@@ -328,7 +328,7 @@ Once the stream is open, errors are delivered as `error` events (see above), not
 - [x] "Stale" computed by frontend from `lastUpdated` — confirmed by Maxim (2026-08-05).
 - [x] `warnings` shape (`code` + `message`) — confirmed sufficient by Maxim.
 - [x] Config-validation checks DB-config mismatch, not structural validity — decided on the 2026-08-27 call.
-- [ ] **SSE — client behaviour on repeated `DB_UNAVAILABLE` errors.** The server keeps the connection open; what the client does (fall back to polling `/occupancy`, show a degraded-mode indicator, close and reconnect, etc.) is a frontend decision. Maxim to weigh in.
+- [x] **SSE — client behaviour on repeated `DB_UNAVAILABLE` errors** — confirmed by Maxim (2026-09-14, #16). The frontend keeps the last successful occupancy state rendered and marks it stale, showing the last successful update time. It does not clear occupancy and does not treat missing data as free. The stale marking clears when a successful `occupancy-delta` arrives. The reconnect sequence (re-fetch `/occupancy`, then reopen SSE) is unchanged — Maxim's answer is consistent with what is already specified in the Reconnect section.
  
 ---
  
