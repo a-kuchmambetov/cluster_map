@@ -126,3 +126,44 @@ export type ConfigValidationResponse = {
     valid: boolean;
     errors: ConfigValidationError[];
 };
+
+
+/**
+ * Identifies a place that became free.
+ *
+ * SSE sends these entries in `OccupancyDelta.freed`.
+ * The frontend should remove the matching occupied place
+ * using the row number + place number pair.
+ */
+export type FreedEntry = {
+    row: number;
+    place: number;
+};
+
+/**
+ * Incremental occupancy update sent by the SSE stream.
+ *
+ * `occupied` contains places that became occupied or whose peer
+ * information changed.
+ *
+ * `freed` contains places that were occupied before and are now free.
+ *
+ * The frontend applies this delta to the current occupancy state
+ * instead of replacing the whole occupancy snapshot.
+ */
+export type OccupancyDelta = {
+    occupied: OccupiedEntry[];
+    freed: FreedEntry[];
+};
+
+/**
+ * Error event sent through the SSE stream when the API cannot
+ * read the current occupancy from the database.
+ *
+ * The SSE connection stays open. The frontend should keep the
+ * last successful occupancy state visible and mark it as stale.
+ */
+export type OccupancyStreamError = {
+    code: "DB_UNAVAILABLE";
+    message: string;
+};
