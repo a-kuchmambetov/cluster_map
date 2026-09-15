@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import type { ClusterMapView } from "@/types/cluster-map-view";
-import { ClusterRowView } from "./cluster-row";
+import {
+    ClusterRowView,
+    getClusterRowWidth,
+} from "./cluster-row";
 import { hexPts } from "@/utils/hex";
 import { clusterPlaceStyles } from "@/utils/cluster-place-styles";
 
@@ -30,10 +33,13 @@ export const ClusterMap = ({
             current === placeId ? null : placeId,
         );
     };
+    const clusterWidth = Math.max(
+        ...map.rows.map(getClusterRowWidth),
+    );
     return (
-        <div className="rounded-2xl border border-secondary bg-primary p-4 shadow-sm sm:p-6">
+        <div className="rounded-2xl border border-secondary/70 bg-primary p-4 shadow-xs sm:p-5">
             {/* Cluster title + summary */}
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center justify-between gap-4 pb-1">
                 <h2 className="text-lg font-semibold">
                     {map.cluster.label}
                 </h2>
@@ -111,25 +117,26 @@ export const ClusterMap = ({
                 </div>
             )}
             {/*Scrollable on mobile*/}
-            <div className="mt-6 flex items-center justify-between sm:hidden">
+            <div className="mt-4 flex items-center justify-between sm:hidden">
                 <span className="text-xs text-tertiary">
-                    Swipe horizontally to view all places
+                    Swipe to explore the cluster
                 </span>
 
-                <span
-                    className="text-sm text-tertiary"
-                    aria-hidden="true"
-                >
+                <span className="text-xs text-tertiary" aria-hidden="true">
                     ↔
                 </span>
             </div>
             {/*Scrollable */}
-            <div className="mt-3 overflow-x-auto overscroll-x-contain pb-3 sm:mt-6">
-                <div className="mx-auto w-max space-y-3">
+            <div className="mt-2 overflow-x-auto overscroll-x-contain pb-2 sm:mt-5">
+                <div
+                    className="mx-auto px-2 sm:px-0"
+                    style={{ width: `${clusterWidth + 3}rem` }}
+                >
                     {map.rows.map((row) => (
                         <ClusterRowView
                             key={row.id}
                             row={row}
+                            clusterWidth={clusterWidth}
                             selectedPlaceId={selectedPlaceId}
                             onSelectPlace={handleSelectPlace}
                             onClosePlace={handleClosePlace}
@@ -138,51 +145,55 @@ export const ClusterMap = ({
                 </div>
             </div>
             {/* Map legend, free/occupied */}
-            <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-secondary pt-4 text-sm text-tertiary">
-                <div className="flex items-center gap-2">
-                    <svg
-                        viewBox="0 0 100 100"
-                        className="h-5 w-5"
-                        aria-hidden="true"
-                    >
-                        <polygon
-                            points={hexPts(50, 50, 45)}
-                            fill={clusterPlaceStyles.free.idle.fill}
-                            stroke={clusterPlaceStyles.free.idle.stroke}
-                            strokeWidth="4"
-                        />
-                    </svg>
+            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-secondary/70 pt-3 text-sm text-tertiary">
+                <div className="flex items-center gap-5">
+                    <div className="flex items-center gap-2">
+                        {/* Free icon */}
+                        <svg
+                            viewBox="0 0 100 100"
+                            className="h-4 w-4"
+                            aria-hidden="true"
+                        >
+                            <polygon
+                                points={hexPts(50, 50, 45)}
+                                fill={clusterPlaceStyles.free.idle.fill}
+                                stroke={clusterPlaceStyles.free.idle.stroke}
+                                strokeWidth="4"
+                            />
+                        </svg>
 
-                    <span>Free</span>
-                </div>
+                        <span>Free</span>
+                    </div>
 
-                <div className="flex items-center gap-2">
-                    <svg
-                        viewBox="0 0 100 100"
-                        className="h-5 w-5"
-                        aria-hidden="true"
-                    >
-                        <polygon
-                            points={hexPts(50, 50, 45)}
-                            fill={clusterPlaceStyles.occupied.idle.fill}
-                            stroke={clusterPlaceStyles.occupied.idle.stroke}
-                            strokeWidth="4"
-                        />
+                    <div className="flex items-center gap-2">
+                        {/* Occupied icon */}
+                        <svg
+                            viewBox="0 0 100 100"
+                            className="h-4 w-4"
+                            aria-hidden="true"
+                        >
+                            <polygon
+                                points={hexPts(50, 50, 45)}
+                                fill={clusterPlaceStyles.occupied.idle.fill}
+                                stroke={clusterPlaceStyles.occupied.idle.stroke}
+                                strokeWidth="4"
+                            />
 
-                        <polygon
-                            points={hexPts(50, 50, 28)}
-                            fill={clusterPlaceStyles.occupied.idle.stroke}
-                            opacity="0.5"
-                            stroke="none"
-                        />
-                    </svg>
+                            <polygon
+                                points={hexPts(50, 50, 28)}
+                                fill={clusterPlaceStyles.occupied.idle.stroke}
+                                opacity="0.5"
+                                stroke="none"
+                            />
+                        </svg>
 
-                    <span>Occupied</span>
+                        <span>Occupied</span>
+                    </div>
                 </div>
 
                 {/* Last update stamp */}
                 <div
-                    className="w-full text-xs sm:ml-auto sm:w-auto"
+                    className="w-full text-xs sm:ml-auto sm:w-auto sm:text-right"
                     role="status"
                     aria-live="polite"
                 >
@@ -218,11 +229,9 @@ export const ClusterMap = ({
                         </div>
                     ) : (
                         <div className="text-tertiary">
-                            Updated{" "}
+                            Last updated{" "}
                             {map.lastUpdated
-                                ? new Date(
-                                    map.lastUpdated,
-                                ).toLocaleTimeString([], {
+                                ? new Date(map.lastUpdated).toLocaleTimeString([], {
                                     hour: "2-digit",
                                     minute: "2-digit",
                                 })
@@ -235,20 +244,3 @@ export const ClusterMap = ({
     );
 };
 
-
-
-
-
-// initial load
-// → skeleton
-
-// loaded
-// → normal map + Updated 12:45
-
-// refreshing
-// → same map stays visible + Refreshing...
-
-// refresh fails / data becomes stale
-// → same map stays visible
-// → warning
-// → last successful timestamp

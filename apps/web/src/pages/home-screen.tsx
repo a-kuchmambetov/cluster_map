@@ -57,7 +57,7 @@ export const HomeScreen = () => {
 
     if (clustersLoading) {
         return (
-            <div className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8">
+            <div className="mx-auto w-full max-w-[1280px] px-4 py-6 sm:px-6 lg:px-8">
                 <h1 className="text-2xl font-semibold">
                     Cluster Map
                 </h1>
@@ -73,7 +73,7 @@ export const HomeScreen = () => {
 
     if (clustersError) {
         return (
-            <div className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8">
+            <div className="mx-auto w-full max-w-[1280px] px-4 py-6 sm:px-6 lg:px-8">
                 <h1 className="text-2xl font-semibold">
                     Cluster Map
                 </h1>
@@ -92,17 +92,19 @@ export const HomeScreen = () => {
     }
 
     return (
-        <div className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8">
-            <h1 className="text-2xl font-semibold">
+        <div className="mx-auto w-full max-w-[1280px] px-4 py-6 sm:px-6 lg:px-8">
+            <h1 className="text-3xl font-semibold tracking-tight">
                 Cluster Map
             </h1>
 
-            <div className="mt-5 space-y-5">
-                <ClusterSelector
-                    clusters={clustersData?.clusters ?? []}
-                    selectedCluster={selectedCluster}
-                    onSelect={setSelectedCluster}
-                />
+            <div className="mt-4 space-y-4">
+                <div className="px-1">
+                    <ClusterSelector
+                        clusters={clustersData?.clusters ?? []}
+                        selectedCluster={selectedCluster}
+                        onSelect={setSelectedCluster}
+                    />
+                </div>
 
                 {mapLoading && (
                     <div className="rounded-2xl border border-secondary bg-primary p-4 shadow-sm sm:p-6">
