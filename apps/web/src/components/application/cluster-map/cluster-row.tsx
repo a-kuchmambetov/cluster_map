@@ -15,6 +15,11 @@ export const ClusterRowView = ({
     onClosePlace,
 }: ClusterRowViewProps) => {
     let previousPosition: "top" | "bottom" | null = null;
+    let columnOffset = 0;
+
+    const PLACE_STEP_REM = 3.5;
+    const GAP_STEP_REM = 1.25;
+    const BOTTOM_OFFSET_REM = 2.2;
 
     return (
         <div>
@@ -22,9 +27,10 @@ export const ClusterRowView = ({
                 {row.label}
             </h3>
 
-            <div className="relative mt-1.5 h-32">
-                {row.cells.map((cell, index) => {
+            <div className="relative mt-1.5 h-28">
+                {row.cells.map((cell) => {
                     if (cell.kind === "gap") {
+                        columnOffset += GAP_STEP_REM;
                         return null;
                     }
 
@@ -36,16 +42,19 @@ export const ClusterRowView = ({
 
                     previousPosition = position;
 
+                    const left = columnOffset;
+                    columnOffset += PLACE_STEP_REM;
+
                     return (
                         <div
                             key={cell.id}
                             className="absolute"
                             style={{
-                                left: `${index * 5}rem`,
+                                left: `${left}rem`,
                                 top:
                                     position === "top"
                                         ? "0"
-                                        : "2.5rem",
+                                        : `${BOTTOM_OFFSET_REM}rem`,
                             }}
                         >
                             <ClusterPlace
