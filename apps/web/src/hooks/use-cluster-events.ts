@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import type {
     OccupancyDelta,
     OccupancyStreamError,
@@ -23,9 +23,6 @@ export const useClusterEvents = ({
     onDbUnavailable,
     refetchOccupancy,
 }: UseClusterEventsOptions) => {
-    // Prevents multiple native EventSource error events from starting
-    // overlapping reconnect attempts.
-    const reconnectingRef = useRef(false);
 
     useEffect(() => {
         // The stream is opened only after the initial occupancy snapshot
@@ -178,7 +175,7 @@ export const useClusterEvents = ({
                 },
             );
 
-            source.addEventListener("error", async (event) => {
+            source.addEventListener("error", (event) => {
                 /*
                  * There are two different "error" cases here:
                  *
@@ -210,36 +207,15 @@ export const useClusterEvents = ({
                 }
 
                 // Native EventSource connection failure.
-                if (reconnectingRef.current) {
-                    return;
-                }
-
-                reconnectingRef.current = true;
-
-                // A connection failure makes any pending DB-recovery
-                // timer irrelevant because we now need a full reconnect.
+                //
+                // Close the browser's automatic reconnect behavior and use our own
+                // reconnect flow. Before reopening the stream, scheduleReconnect()
+                // fetches a fresh /occupancy snapshot so missed events cannot leave
+                // the frontend out of sync.
                 clearRecoveryTimer();
-
-                // EventSource reconnects automatically by default.
-                // We close it manually because our contract requires
-                // re-fetching /occupancy before reopening the stream.
                 source?.close();
 
-                const refreshed = await refetchOccupancy();
-
-                reconnectingRef.current = false;
-
-                if (cancelled) {
-                    return;
-                }
-
-                if (refreshed) {
-                    // Full occupancy snapshot is trustworthy again.
-                    openStream();
-                } else {
-                    // Keep retrying until a fresh snapshot succeeds.
-                    scheduleReconnect();
-                }
+                scheduleReconnect();
             });
         };
 
@@ -249,7 +225,6 @@ export const useClusterEvents = ({
             // Stops timers and async callbacks from reopening a stream
             // after unmount or cluster change.
             cancelled = true;
-            reconnectingRef.current = false;
 
             clearRecoveryTimer();
             clearReconnectTimer();

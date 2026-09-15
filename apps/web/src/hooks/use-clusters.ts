@@ -16,7 +16,6 @@ export const useClusters = () => {
                 setLoading(true);
                 setError(null);
 
-                console.log("MOCK API:", import.meta.env.VITE_USE_MOCK_API);
                 // Use fake data during frontend development,
                 // otherwise request data from the real API.
                 const result =
