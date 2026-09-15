@@ -97,7 +97,7 @@ export const HomeScreen = () => {
                 Cluster Map
             </h1>
 
-            <div className="mt-6 space-y-6">
+            <div className="mt-5 space-y-5">
                 <ClusterSelector
                     clusters={clustersData?.clusters ?? []}
                     selectedCluster={selectedCluster}

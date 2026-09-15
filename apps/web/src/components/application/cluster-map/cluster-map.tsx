@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { ClusterMapView } from "@/types/cluster-map-view";
 import { ClusterRowView } from "./cluster-row";
 import { hexPts } from "@/utils/hex";
+import { clusterPlaceStyles } from "@/utils/cluster-place-styles";
 
 type ClusterMapProps = {
     map: ClusterMapView;
@@ -33,14 +34,14 @@ export const ClusterMap = ({
         <div className="rounded-2xl border border-secondary bg-primary p-4 shadow-sm sm:p-6">
             {/* Cluster title + summary */}
             <div className="flex items-center justify-between gap-4">
-                <h2 className="text-xl font-semibold">
+                <h2 className="text-lg font-semibold">
                     {map.cluster.label}
                 </h2>
 
-                <div className="flex items-center gap-5 sm:gap-8">
+                <div className="flex items-center gap-4 rounded-xl bg-secondary/30 px-4 py-2 sm:gap-6">
                     {/* Free */}
                     <div className="min-w-14 text-center">
-                        <div className="text-2xl font-semibold text-success-primary">
+                        <div className="text-xl font-semibold text-success-primary">
                             {map.summary.free}
                         </div>
                         <div className="mt-0.5 text-xs text-tertiary">
@@ -51,7 +52,7 @@ export const ClusterMap = ({
                     {/* Occupied */}
                     <div className="min-w-14 text-center">
                         <div
-                            className="text-2xl font-semibold"
+                            className="text-xl font-semibold"
                             style={{ color: "#c07020" }}
                         >
                             {map.summary.occupied}
@@ -63,7 +64,7 @@ export const ClusterMap = ({
 
                     {/* Total */}
                     <div className="min-w-14 text-center">
-                        <div className="text-2xl font-semibold text-primary">
+                        <div className="text-xl font-semibold text-primary">
                             {map.summary.total}
                         </div>
                         <div className="mt-0.5 text-xs text-tertiary">
@@ -123,8 +124,8 @@ export const ClusterMap = ({
                 </span>
             </div>
             {/*Scrollable */}
-            <div className="mt-3 overflow-x-auto overscroll-x-contain pb-3 sm:mt-8">
-                <div className="space-y-3">
+            <div className="mt-3 overflow-x-auto overscroll-x-contain pb-3 sm:mt-6">
+                <div className="mx-auto w-max space-y-3">
                     {map.rows.map((row) => (
                         <ClusterRowView
                             key={row.id}
@@ -146,8 +147,8 @@ export const ClusterMap = ({
                     >
                         <polygon
                             points={hexPts(50, 50, 45)}
-                            fill="#eaf5ec"
-                            stroke="#2a8840"
+                            fill={clusterPlaceStyles.free.idle.fill}
+                            stroke={clusterPlaceStyles.free.idle.stroke}
                             strokeWidth="4"
                         />
                     </svg>
@@ -163,14 +164,14 @@ export const ClusterMap = ({
                     >
                         <polygon
                             points={hexPts(50, 50, 45)}
-                            fill="#fff2e0"
-                            stroke="#c07020"
+                            fill={clusterPlaceStyles.occupied.idle.fill}
+                            stroke={clusterPlaceStyles.occupied.idle.stroke}
                             strokeWidth="4"
                         />
 
                         <polygon
                             points={hexPts(50, 50, 28)}
-                            fill="#c07020"
+                            fill={clusterPlaceStyles.occupied.idle.stroke}
                             opacity="0.5"
                             stroke="none"
                         />

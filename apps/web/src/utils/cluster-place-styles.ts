@@ -1,35 +1,35 @@
 export const clusterPlaceStyles = {
     free: {
         idle: {
-            fill: "#eaf5ec",
-            stroke: "#2a8840",
-            text: "#196a28",
+            fill: "#eef7f0",
+            stroke: "#4f8f5d",
+            text: "#2f6f3d",
         },
 
         hover: {
-            fill: "#d4efda",
-            stroke: "#1ea040",
-            text: "#148032",
+            fill: "#dfeee2",
+            stroke: "#3f7f4f",
+            text: "#245d32",
         },
     },
 
     occupied: {
         idle: {
-            fill: "#fff2e0",
-            stroke: "#c07020",
-            text: "#8a5010",
+            fill: "#fff4e8",
+            stroke: "#c47a2c",
+            text: "#8f5418",
         },
 
         hover: {
-            fill: "#ffe6c0",
-            stroke: "#d88030",
-            text: "#a06018",
+            fill: "#ffe7cc",
+            stroke: "#b9681f",
+            text: "#7f4713",
         },
     },
 
     selected: {
-        fill: "#ffe0a0",
-        stroke: "#e09000",
-        text: "#806000",
+        fill: "#ffe3ad",
+        stroke: "#d88a16",
+        text: "#765000",
     },
 } as const;
