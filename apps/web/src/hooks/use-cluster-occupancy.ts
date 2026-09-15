@@ -4,6 +4,7 @@ import { getClusterOccupancy } from "../api/cluster-map";
 import { applyOccupancyDelta } from "@/utils/apply-occupancy-delta";
 import { mockClusterOccupancies } from "../api/mock-cluster-map";
 
+
 // Loads and refreshes the current occupancy for the selected cluster.
 export const useClusterOccupancy = (clusterNumber: number) => {
     const [data, setData] = useState<ClusterOccupancyResponse | null>(null);
@@ -26,7 +27,6 @@ export const useClusterOccupancy = (clusterNumber: number) => {
         setError(null);
 
         try {
-
             const result =
                 import.meta.env.VITE_USE_MOCK_API === "true"
                     ? mockClusterOccupancies[clusterNumber]
