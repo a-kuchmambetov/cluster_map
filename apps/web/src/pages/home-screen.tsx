@@ -25,6 +25,8 @@ export const HomeScreen = () => {
     const {
         data: occupancyData,
         loading: occupancyLoading,
+        refreshing: occupancyRefreshing,
+        stale: occupancyStale,
         error: occupancyError,
         refetch: refetchOccupancy,
     } = useClusterOccupancy(selectedCluster);
@@ -34,9 +36,13 @@ export const HomeScreen = () => {
             ? buildClusterMapView(layoutData, occupancyData)
             : null;
 
-    const mapLoading = layoutLoading || occupancyLoading;
+    const mapLoading =
+        (!layoutData && layoutLoading) ||
+        (!occupancyData && occupancyLoading);
 
-    const mapError = layoutError ?? occupancyError;
+    const mapError =
+        (!layoutData ? layoutError : null) ??
+        (!occupancyData ? occupancyError : null);
 
     if (clustersLoading) {
         return (
@@ -152,8 +158,13 @@ export const HomeScreen = () => {
                 )}
 
                 {mapData && !mapLoading && !mapError && (
-                    <ClusterMap map={mapData} />
+                    <ClusterMap
+                        map={mapData}
+                        refreshing={occupancyRefreshing}
+                        stale={occupancyStale}
+                    />
                 )}
+
             </div>
         </div>
     );

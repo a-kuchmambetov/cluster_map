@@ -25,6 +25,7 @@ export const useClusterOccupancy = (clusterNumber: number) => {
         setError(null);
 
         try {
+
             const result =
                 import.meta.env.VITE_USE_MOCK_API === "true"
                     ? mockClusterOccupancies[clusterNumber]
@@ -54,6 +55,7 @@ export const useClusterOccupancy = (clusterNumber: number) => {
             setLoading(false);
             setRefreshing(false);
         }
+
     }, [clusterNumber]);
 
     useEffect(() => {
