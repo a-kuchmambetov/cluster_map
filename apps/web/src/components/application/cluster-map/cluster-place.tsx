@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ClusterMapPlaceCell } from "@/types/cluster-map-view";
 import { hexPts } from "@/utils/hex";
 import { clusterPlaceStyles } from "@/utils/cluster-place-styles";
+import { clusterMapTheme } from "@/utils/cluster-map-theme";
 
 type ClusterPlaceProps = {
     place: ClusterMapPlaceCell;
@@ -112,7 +113,7 @@ export const ClusterPlace = ({
                     <polygon
                         points={hexPts(50, 50, 46)}
                         fill="none"
-                        stroke="#b9830f"
+                        stroke={clusterMapTheme.accent.base}
                         strokeWidth="1.5"
                         strokeDasharray="5 2"
                         className="opacity-0 transition-opacity group-focus-visible:opacity-100"
@@ -159,7 +160,7 @@ export const ClusterPlace = ({
                         />
                     )}
                 </svg>
-                
+
                 <div
                     className="absolute inset-0 flex items-center justify-center"
                     style={{ color: styles.text }}

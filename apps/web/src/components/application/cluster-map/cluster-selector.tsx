@@ -1,4 +1,5 @@
 import type { Cluster } from "@repo/types";
+import { clusterMapTheme } from "@/utils/cluster-map-theme";
 
 type ClusterSelectorProps = {
     clusters: Cluster[];
@@ -34,11 +35,18 @@ export const ClusterSelector = ({
                             focus-visible:ring-[#c47820]/30
                             focus-visible:ring-offset-2
 
-                            ${isActive
-                                ? "bg-[#c47820] text-white shadow-sm"
+                        ${isActive
+                                ? "text-white shadow-sm"
                                 : "border border-secondary bg-primary text-secondary hover:bg-secondary/40 hover:text-primary"
                             }
-                        `}
+`}
+                        style={
+                            isActive
+                                ? {
+                                    backgroundColor: clusterMapTheme.accent.base,
+                                }
+                                : undefined
+                        }
                     >
                         C{cluster.number}
                     </button>

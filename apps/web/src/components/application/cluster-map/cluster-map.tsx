@@ -6,6 +6,7 @@ import {
 } from "./cluster-row";
 import { hexPts } from "@/utils/hex";
 import { clusterPlaceStyles } from "@/utils/cluster-place-styles";
+import { clusterMapTheme } from "@/utils/cluster-map-theme";
 
 type ClusterMapProps = {
     map: ClusterMapView;
@@ -59,7 +60,7 @@ export const ClusterMap = ({
                     <div className="min-w-14 text-center">
                         <div
                             className="text-xl font-semibold"
-                            style={{ color: "#c07020" }}
+                            style={{ color: clusterMapTheme.accent.base }}
                         >
                             {map.summary.occupied}
                         </div>
@@ -104,7 +105,7 @@ export const ClusterMap = ({
                         >
                             <div
                                 className="text-sm font-medium"
-                                style={{ color: "#8a5010" }}
+                                style={{ color: clusterMapTheme.warning.text }}
                             >
                                 Map configuration warning
                             </div>
@@ -209,7 +210,7 @@ export const ClusterMap = ({
                     ) : stale ? (
                         <div
                             className="flex items-center gap-1.5"
-                            style={{ color: "#c07020" }}
+                            style={{ color: clusterMapTheme.accent.base }}
                         >
                             <span aria-hidden="true">!</span>
 
