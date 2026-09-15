@@ -5,6 +5,7 @@ import { useClusterOccupancy } from "@/hooks/use-cluster-occupancy";
 import { buildClusterMapView } from "@/utils/build-cluster-map-view";
 import { ClusterSelector } from "@/components/application/cluster-map/cluster-selector";
 import { ClusterMap } from "@/components/application/cluster-map/cluster-map";
+import { useClusterEvents } from "@/hooks/use-cluster-events";
 
 export const HomeScreen = () => {
     const {
@@ -29,7 +30,17 @@ export const HomeScreen = () => {
         stale: occupancyStale,
         error: occupancyError,
         refetch: refetchOccupancy,
+        applyDelta,
+        markStale,
     } = useClusterOccupancy(selectedCluster);
+
+    useClusterEvents({
+        clusterNumber: selectedCluster,
+        enabled: occupancyData !== null,
+        onDelta: applyDelta,
+        onDbUnavailable: markStale,
+        refetchOccupancy,
+    });
 
     const mapData =
         layoutData && occupancyData

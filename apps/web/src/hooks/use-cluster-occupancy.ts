@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ClusterOccupancyResponse } from "@repo/types";
+import type { ClusterOccupancyResponse, OccupancyDelta, } from "@repo/types";
 import { getClusterOccupancy } from "../api/cluster-map";
+import { applyOccupancyDelta } from "@/utils/apply-occupancy-delta";
 import { mockClusterOccupancies } from "../api/mock-cluster-map";
 
 // Loads and refreshes the current occupancy for the selected cluster.
@@ -40,6 +41,8 @@ export const useClusterOccupancy = (clusterNumber: number) => {
             dataRef.current = result;
             setData(result);
             setStale(false);
+
+            return true;
         } catch (err) {
             const nextError =
                 err instanceof Error
@@ -51,12 +54,42 @@ export const useClusterOccupancy = (clusterNumber: number) => {
             if (dataRef.current !== null) {
                 setStale(true);
             }
+
+            return false;
         } finally {
             setLoading(false);
             setRefreshing(false);
         }
 
     }, [clusterNumber]);
+
+    const applyDelta = useCallback((delta: OccupancyDelta) => {
+        const current = dataRef.current;
+
+        if (!current) {
+            return;
+        }
+
+        const next: ClusterOccupancyResponse = {
+            ...current,
+            occupied: applyOccupancyDelta(
+                current.occupied,
+                delta,
+            ),
+            lastUpdated: new Date().toISOString(),
+        };
+
+        dataRef.current = next;
+        setData(next);
+        setError(null);
+        setStale(false);
+    }, []);
+
+    const markStale = useCallback(() => {
+        if (dataRef.current !== null) {
+            setStale(true);
+        }
+    }, []);
 
     useEffect(() => {
         dataRef.current = null;
@@ -75,5 +108,7 @@ export const useClusterOccupancy = (clusterNumber: number) => {
         stale,
         error,
         refetch: loadOccupancy,
+        applyDelta,
+        markStale,
     };
 };
