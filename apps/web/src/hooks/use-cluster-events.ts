@@ -34,7 +34,8 @@ export const useClusterEvents = ({
         // In mock mode there is no real SSE endpoint, so the hook is disabled.
         if (
             !enabled ||
-            import.meta.env.VITE_USE_MOCK_API === "true"
+            import.meta.env.VITE_USE_MOCK_API === "true" ||
+            import.meta.env.VITE_ENABLE_SSE !== "true"
         ) {
             return;
         }
