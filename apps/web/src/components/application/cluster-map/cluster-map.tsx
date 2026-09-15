@@ -40,7 +40,7 @@ export const ClusterMap = ({
         <div className="rounded-2xl border border-secondary/70 bg-primary p-4 shadow-xs sm:p-5">
             {/* Cluster title + summary */}
             <div className="flex items-center justify-between gap-4 pb-1">
-                <h2 className="text-lg font-semibold">
+                <h2 className="text-lg font-semibold tracking-tight">
                     {map.cluster.label}
                 </h2>
 
@@ -50,7 +50,7 @@ export const ClusterMap = ({
                         <div className="text-xl font-semibold text-success-primary">
                             {map.summary.free}
                         </div>
-                        <div className="mt-0.5 text-xs text-tertiary">
+                        <div className="mt-0.5 text-xs font-medium text-tertiary">
                             Free
                         </div>
                     </div>
@@ -63,7 +63,7 @@ export const ClusterMap = ({
                         >
                             {map.summary.occupied}
                         </div>
-                        <div className="mt-0.5 text-xs text-tertiary">
+                        <div className="mt-0.5 text-xs font-medium text-tertiary">
                             Occupied
                         </div>
                     </div>
@@ -73,7 +73,7 @@ export const ClusterMap = ({
                         <div className="text-xl font-semibold text-primary">
                             {map.summary.total}
                         </div>
-                        <div className="mt-0.5 text-xs text-tertiary">
+                        <div className="mt-0.5 text-xs font-medium text-tertiary">
                             Total
                         </div>
                     </div>
@@ -145,7 +145,7 @@ export const ClusterMap = ({
                 </div>
             </div>
             {/* Map legend, free/occupied */}
-            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-secondary/70 pt-3 text-sm text-tertiary">
+            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-secondary/70 pt-3 text-xs font-medium text-tertiary">
                 <div className="flex items-center gap-5">
                     <div className="flex items-center gap-2">
                         {/* Free icon */}

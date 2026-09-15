@@ -192,7 +192,7 @@ export const ClusterPlace = ({
                     </button>
 
                     <div className="mb-3 pr-8">
-                        <div className="text-sm font-medium">
+                        <div className="text-sm font-semibold">
                             Place {place.number}
                         </div>
 
@@ -230,14 +230,14 @@ export const ClusterPlace = ({
                             )}
 
                             {place.peer.intraName && (
-                                <div className="truncate text-sm text-tertiary">
+                                <div className="truncate text-xs text-tertiary">
                                     @{place.peer.intraName}
                                 </div>
                             )}
 
                             {!place.peer.displayName &&
                                 !place.peer.intraName && (
-                                    <div className="text-sm text-tertiary">
+                                    <div className="text-xs text-tertiary">
                                         Peer information unavailable
                                     </div>
                                 )}

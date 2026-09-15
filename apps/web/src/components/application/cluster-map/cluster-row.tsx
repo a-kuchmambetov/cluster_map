@@ -86,7 +86,7 @@ export const ClusterRowView = ({
 
     return (
         <div className="flex items-center gap-4">
-            <h3 className="w-8 shrink-0 text-right text-base font-semibold text-tertiary/70 sm:text-lg">
+            <h3 className="w-8 shrink-0 text-right text-base font-semibold text-tertiary/90">
                 {row.label}
             </h3>
 
