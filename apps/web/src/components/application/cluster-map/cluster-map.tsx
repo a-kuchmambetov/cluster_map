@@ -43,7 +43,7 @@ export const ClusterMap = ({
                 border border-cluster-border
                 bg-cluster-surface
                 p-4
-                shadow-sm
+                shadow-xs
                 sm:p-5
             "
         >
