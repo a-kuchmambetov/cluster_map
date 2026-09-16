@@ -95,16 +95,19 @@
         0% {
             transform: translateX(0);
         }
+
         100% {
             transform: translateX(-100%);
         }
     }
 
     @keyframes caret-blink {
+
         0%,
         50% {
             opacity: 1;
         }
+
         51%,
         100% {
             opacity: 0;
@@ -116,6 +119,23 @@
 
     --color-white: rgb(255 255 255);
     --color-black: rgb(0 0 0);
+
+    /* CLUSTER MAP */
+    --color-cluster-accent: #f3e3cd;
+    --color-cluster-accent-hover: #ead2b2;
+    --color-cluster-accent-text: #8a5a22;
+    --color-cluster-accent-soft: #fff3e6;
+
+    --color-cluster-warning: #c07020;
+    --color-cluster-warning-soft: #fff2e0;
+    --color-cluster-warning-text: #8a5010;
+
+    --color-cluster-free: #5d86a8;
+    --color-cluster-occupied: #c88435;
+    /* --color-cluster-free: #578980;
+    --color-cluster-occupied: #c97864; */
+    /* --color-cluster-free: #6b7d96;
+    --color-cluster-occupied: #bf737d; */
 
     /* These will be inverted in dark mode. */
     --color-alpha-white: rgb(255 255 255);

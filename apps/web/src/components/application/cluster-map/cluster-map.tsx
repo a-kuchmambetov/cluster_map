@@ -6,7 +6,7 @@ import {
 } from "./cluster-row";
 import { hexPts } from "@/utils/hex";
 import { clusterPlaceStyles } from "@/utils/cluster-place-styles";
-import { clusterMapTheme } from "@/utils/cluster-map-theme";
+
 
 type ClusterMapProps = {
     map: ClusterMapView;
@@ -48,7 +48,7 @@ export const ClusterMap = ({
                 <div className="flex items-center gap-4 rounded-xl bg-secondary/30 px-4 py-2 sm:gap-6">
                     {/* Free */}
                     <div className="min-w-14 text-center">
-                        <div className="text-xl font-semibold text-success-primary">
+                        <div className="text-xl font-semibold text-cluster-free">
                             {map.summary.free}
                         </div>
                         <div className="mt-0.5 text-xs font-medium text-tertiary">
@@ -58,10 +58,7 @@ export const ClusterMap = ({
 
                     {/* Occupied */}
                     <div className="min-w-14 text-center">
-                        <div
-                            className="text-xl font-semibold"
-                            style={{ color: clusterMapTheme.accent.base }}
-                        >
+                        <div className="text-xl font-semibold text-cluster-occupied">
                             {map.summary.occupied}
                         </div>
                         <div className="mt-0.5 text-xs font-medium text-tertiary">
@@ -100,13 +97,13 @@ export const ClusterMap = ({
                     {map.warnings.map((warning) => (
                         <div
                             key={`${warning.code}-${warning.message}`}
-                            className="rounded-xl border border-[#c07020]/30 bg-[#fff2e0] px-4 py-3"
+                            className="
+                                rounded-xl border border-cluster-warning/30
+                                bg-cluster-warning-soft px-4 py-3
+                            "
                             role="status"
                         >
-                            <div
-                                className="text-sm font-medium"
-                                style={{ color: clusterMapTheme.warning.text }}
-                            >
+                            <div className="text-sm font-medium text-cluster-warning-text">
                                 Map configuration warning
                             </div>
 
@@ -208,10 +205,7 @@ export const ClusterMap = ({
                             <span>Refreshing...</span>
                         </div>
                     ) : stale ? (
-                        <div
-                            className="flex items-center gap-1.5"
-                            style={{ color: clusterMapTheme.accent.base }}
-                        >
+                        <div className="flex items-center gap-1.5 text-cluster-accent">
                             <span aria-hidden="true">!</span>
 
                             <span>Data may be outdated</span>

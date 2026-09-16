@@ -6,7 +6,6 @@ import { buildClusterMapView } from "@/utils/build-cluster-map-view";
 import { ClusterSelector } from "@/components/application/cluster-map/cluster-selector";
 import { ClusterMap } from "@/components/application/cluster-map/cluster-map";
 import { useClusterEvents } from "@/hooks/use-cluster-events";
-import { clusterMapTheme } from "@/utils/cluster-map-theme";
 
 export const HomeScreen = () => {
     const {
@@ -158,17 +157,15 @@ export const HomeScreen = () => {
                                 void refetchOccupancy();
                             }}
                             className="
-                                mt-4 rounded-lg px-4 py-2
+                                mt-4 rounded-lg bg-cluster-accent px-4 py-2
                                 text-sm font-medium text-white
-                                transition-opacity hover:opacity-90
+                                transition-colors
+                                hover:bg-cluster-accent-hover
                                 focus-visible:outline-none
                                 focus-visible:ring-2
-                                focus-visible:ring-[#c47820]/30
+                                focus-visible:ring-cluster-accent/30
                                 focus-visible:ring-offset-2
                             "
-                            style={{
-                                backgroundColor: clusterMapTheme.accent.base,
-                            }}
                         >
                             Try again
                         </button>
