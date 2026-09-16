@@ -107,42 +107,80 @@ export const HomeScreen = () => {
                 </div>
 
                 {mapLoading && (
-                    <div className="rounded-2xl border border-secondary bg-primary p-4 shadow-sm sm:p-6">
+                    <div className="
+                            rounded-2xl
+                            border border-cluster-border
+                            bg-cluster-surface
+                            p-4
+                            shadow-xs
+                            sm:p-5
+                    ">
                         <div className="animate-pulse">
-                            {/* Header skeleton */}
+                            {/* Header */}
                             <div className="flex items-center justify-between gap-4">
-                                <div className="h-6 w-28 rounded-md bg-secondary" />
+                                <div className="h-5 w-24 rounded-md bg-cluster-surface-soft" />
 
-                                <div className="flex gap-4">
-                                    <div className="h-10 w-12 rounded-md bg-secondary" />
-                                    <div className="h-10 w-12 rounded-md bg-secondary" />
-                                    <div className="h-10 w-12 rounded-md bg-secondary" />
+                                <div className="
+                                        flex items-center gap-4
+                                        rounded-xl
+                                        bg-cluster-surface-soft
+                                        px-4 py-2
+                                        sm:gap-6
+                                ">
+                                    <div className="h-10 w-12 rounded-md bg-secondary/60" />
+                                    <div className="h-10 w-12 rounded-md bg-secondary/60" />
+                                    <div className="h-10 w-12 rounded-md bg-secondary/60" />
                                 </div>
                             </div>
 
-                            {/* Fake map rows */}
-                            <div className="mt-8 space-y-4">
-                                <div className="h-4 w-16 rounded bg-secondary" />
-                                <div className="h-20 w-3/4 rounded-xl bg-secondary" />
+                            {/* Map */}
+                            <div className="mt-8 space-y-5">
+                                <div className="flex items-center gap-4">
+                                    <div className="h-4 w-8 rounded bg-secondary/60" />
+                                    <div className="h-16 w-3/4 rounded-xl bg-cluster-surface-soft" />
+                                </div>
 
-                                <div className="h-4 w-16 rounded bg-secondary" />
-                                <div className="h-20 w-2/3 rounded-xl bg-secondary" />
+                                <div className="flex items-center gap-4">
+                                    <div className="h-4 w-8 rounded bg-secondary/60" />
+                                    <div className="h-16 w-2/3 rounded-xl bg-cluster-surface-soft" />
+                                </div>
 
-                                <div className="h-4 w-16 rounded bg-secondary" />
-                                <div className="h-20 w-4/5 rounded-xl bg-secondary" />
+                                <div className="flex items-center gap-4">
+                                    <div className="h-4 w-8 rounded bg-secondary/60" />
+                                    <div className="h-16 w-4/5 rounded-xl bg-cluster-surface-soft" />
+                                </div>
+
+                                <div className="flex items-center gap-4">
+                                    <div className="h-4 w-8 rounded bg-secondary/60" />
+                                    <div className="h-16 w-1/2 rounded-xl bg-cluster-surface-soft" />
+                                </div>
                             </div>
 
-                            {/* Footer skeleton */}
-                            <div className="mt-6 border-t border-secondary pt-4">
-                                <div className="h-4 w-40 rounded bg-secondary" />
+                            {/* Footer */}
+                            <div className="
+                                    mt-6 flex items-center justify-between
+                                    border-t border-cluster-border
+                                    pt-3
+                            ">
+                                <div className="h-4 w-32 rounded bg-secondary/60" />
+                                <div className="h-3 w-28 rounded bg-secondary/60" />
                             </div>
                         </div>
                     </div>
                 )}
 
                 {mapError && (
-                    <div className="rounded-2xl border border-secondary bg-primary p-6 shadow-sm">
-                        <div className="font-medium">
+                    <div
+                        className="
+                            rounded-2xl
+                            border border-cluster-border
+                            bg-cluster-surface
+                            p-5
+                            shadow-xs
+                            sm:p-6
+                        "
+                    >
+                        <div className="text-sm font-semibold text-primary">
                             Unable to load this cluster
                         </div>
 
@@ -157,13 +195,15 @@ export const HomeScreen = () => {
                                 void refetchOccupancy();
                             }}
                             className="
-                                mt-4 rounded-lg bg-cluster-accent px-4 py-2
-                                text-sm font-medium text-white
-                                transition-colors
+                                mt-4 rounded-lg
+                                bg-cluster-accent px-4 py-2
+                                text-sm font-medium
+                                text-cluster-accent-text
+                                transition-colors duration-150
                                 hover:bg-cluster-accent-hover
                                 focus-visible:outline-none
                                 focus-visible:ring-2
-                                focus-visible:ring-cluster-accent/30
+                                focus-visible:ring-cluster-accent/40
                                 focus-visible:ring-offset-2
                             "
                         >
@@ -179,9 +219,6 @@ export const HomeScreen = () => {
                         stale={occupancyStale}
                     />
                 )}
-
-
-
             </div>
         </div>
     );

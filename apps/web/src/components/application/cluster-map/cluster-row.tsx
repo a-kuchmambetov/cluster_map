@@ -4,15 +4,25 @@ import { ClusterPlace } from "./cluster-place";
 type ClusterRowViewProps = {
     row: ClusterMapRow;
     clusterWidth: number;
+    compact: boolean;
     selectedPlaceId: string | null;
     onSelectPlace: (placeId: string) => void;
     onClosePlace: () => void;
 };
 
-const PLACE_SIZE_REM = 4;
-const PLACE_STEP_REM = 3;
-const GAP_STEP_REM = 4;
+const DESKTOP_GEOMETRY = {
+    placeSize: 4,
+    placeStep: 3,
+    gapStep: 4,
+    bottomOffset: 2.2,
+};
 
+const MOBILE_GEOMETRY = {
+    placeSize: 1.35,     // ~22px visible hex
+    placeStep: 0.8,      // ~13px horizontal advance
+    gapStep: 1.15,       // ~18px physical group gap
+    bottomOffset: 0.65,  // ~10px stagger
+};
 
 type ResolvedPlace = {
     cell: Extract<ClusterMapRow["cells"][number], { kind: "place" }>;
@@ -22,7 +32,12 @@ type ResolvedPlace = {
 
 const resolveRowPlaces = (
     row: ClusterMapRow,
+    compact: boolean,
 ): ResolvedPlace[] => {
+    const geometry = compact
+        ? MOBILE_GEOMETRY
+        : DESKTOP_GEOMETRY;
+
     let previousPosition: "top" | "bottom" | null = null;
     let columnOffset = 0;
 
@@ -30,7 +45,7 @@ const resolveRowPlaces = (
 
     for (const cell of row.cells) {
         if (cell.kind === "gap") {
-            columnOffset += GAP_STEP_REM;
+            columnOffset += geometry.gapStep;
             continue;
         }
 
@@ -47,31 +62,46 @@ const resolveRowPlaces = (
         });
 
         previousPosition = position;
-        columnOffset += PLACE_STEP_REM;
+        columnOffset += geometry.placeStep;
     }
 
     return places;
 };
 
-export const getClusterRowWidth = (row: ClusterMapRow) =>
-    row.cells.reduce((width, cell) => {
-        return (
-            width +
-            (cell.kind === "gap"
-                ? GAP_STEP_REM
-                : PLACE_STEP_REM)
-        );
-    }, 0) +
-    (PLACE_SIZE_REM - PLACE_STEP_REM);
+export const getClusterRowWidth = (
+    row: ClusterMapRow,
+    compact = false,
+) => {
+    const geometry = compact
+        ? MOBILE_GEOMETRY
+        : DESKTOP_GEOMETRY;
+
+    return (
+        row.cells.reduce((width, cell) => {
+            return (
+                width +
+                (cell.kind === "gap"
+                    ? geometry.gapStep
+                    : geometry.placeStep)
+            );
+        }, 0) +
+        (geometry.placeSize - geometry.placeStep)
+    );
+};
 
 export const ClusterRowView = ({
     row,
     clusterWidth,
+    compact,
     selectedPlaceId,
     onSelectPlace,
     onClosePlace,
 }: ClusterRowViewProps) => {
-    const resolvedPlaces = resolveRowPlaces(row);
+    const geometry = compact
+        ? MOBILE_GEOMETRY
+        : DESKTOP_GEOMETRY;
+
+    const resolvedPlaces = resolveRowPlaces(row, compact);
 
     const usesBothLevels =
         resolvedPlaces.some(
@@ -81,37 +111,55 @@ export const ClusterRowView = ({
             ({ position }) => position === "bottom",
         );
 
-    const rowWidth = getClusterRowWidth(row);
+    const rowWidth = getClusterRowWidth(row, compact);
     const rowOffset = (clusterWidth - rowWidth) / 2;
 
     return (
-        <div className="flex items-center gap-4">
-            <h3 className="w-8 shrink-0 text-right text-base font-semibold text-tertiary/90">
+        <div
+            className={
+                compact
+                    ? "flex items-center gap-2"
+                    : "flex items-center gap-4"
+            }
+        >
+            <h3
+                className={
+                    compact
+                        ? "w-6 shrink-0 text-right text-xs font-medium text-tertiary"
+                        : "w-8 shrink-0 text-right text-base font-medium text-tertiary"
+                }
+            >
                 {row.label}
             </h3>
 
             <div
                 className={
-                    usesBothLevels
-                        ? "relative h-[5.75rem] shrink-0 sm:h-28"
-                        : "relative h-16 shrink-0 sm:h-20"
+                    compact
+                        ? usesBothLevels
+                            ? "relative h-[2.25rem] shrink-0"
+                            : "relative h-[1.5rem] shrink-0"
+                        : usesBothLevels
+                            ? "relative h-28 shrink-0"
+                            : "relative h-20 shrink-0"
                 }
                 style={{ width: `${clusterWidth}rem` }}
             >
                 {resolvedPlaces.map(({ cell, position, left }) => (
+
                     <div
                         key={cell.id}
-                        className={
-                            position === "top"
-                                ? "absolute top-0"
-                                : "absolute top-[1.75rem] sm:top-[2.2rem]"
-                        }
+                        className="absolute"
                         style={{
                             left: `${rowOffset + left}rem`,
+                            top:
+                                position === "top"
+                                    ? "0"
+                                    : `${geometry.bottomOffset}rem`,
                         }}
                     >
                         <ClusterPlace
                             place={cell}
+                            compact={compact}
                             selected={selectedPlaceId === cell.id}
                             onSelect={() =>
                                 onSelectPlace(cell.id)

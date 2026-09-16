@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { ClusterMapPlaceCell } from "@/types/cluster-map-view";
 import { hexPts } from "@/utils/hex";
 import { clusterPlaceStyles } from "@/utils/cluster-place-styles";
@@ -7,6 +8,7 @@ import { clusterPlaceStyles } from "@/utils/cluster-place-styles";
 type ClusterPlaceProps = {
     place: ClusterMapPlaceCell;
     selected: boolean;
+    compact: boolean;
     onSelect: () => void;
     onClose: () => void;
 };
@@ -14,12 +16,20 @@ type ClusterPlaceProps = {
 export const ClusterPlace = ({
     place,
     selected,
+    compact,
     onSelect,
     onClose,
 }: ClusterPlaceProps) => {
     const [isHovered, setIsHovered] = useState(false);
 
     const containerRef = useRef<HTMLDivElement>(null);
+    const buttonRef = useRef<HTMLButtonElement>(null);
+    const popupRef = useRef<HTMLDivElement>(null);
+
+    const [popupPosition, setPopupPosition] = useState<{
+        top: number;
+        left: number;
+    } | null>(null);
 
     const isOccupied = place.status === "occupied";
 
@@ -47,12 +57,16 @@ export const ClusterPlace = ({
         }
 
         const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target as Node;
+
             if (
-                containerRef.current &&
-                !containerRef.current.contains(event.target as Node)
+                containerRef.current?.contains(target) ||
+                popupRef.current?.contains(target)
             ) {
-                onClose();
+                return;
             }
+
+            onClose();
         };
 
         document.addEventListener("click", handleClickOutside);
@@ -64,6 +78,75 @@ export const ClusterPlace = ({
             );
         };
     }, [selected, onClose]);
+
+    useEffect(() => {
+        if (!selected || !buttonRef.current) {
+            return;
+        }
+
+        const updatePopupPosition = () => {
+            const button = buttonRef.current;
+
+            if (!button) {
+                return;
+            }
+
+            const isDesktop = window.matchMedia(
+                "(min-width: 640px)",
+            ).matches;
+
+            if (!isDesktop) {
+                setPopupPosition(null);
+                return;
+            }
+
+            const rect = button.getBoundingClientRect();
+
+            const popupWidth = 224; // w-56
+            const gap = 16;
+            const viewportPadding = 16;
+
+            let left = rect.right + gap;
+
+            // If there isn't enough room on the right,
+            // open the popup on the left side of the seat.
+            if (
+                left + popupWidth >
+                window.innerWidth - viewportPadding
+            ) {
+                left = Math.max(
+                    viewportPadding,
+                    rect.left - gap - popupWidth,
+                );
+            }
+
+            setPopupPosition({
+                top: rect.top + rect.height / 2,
+                left,
+            });
+        };
+
+        updatePopupPosition();
+
+        window.addEventListener("resize", updatePopupPosition);
+        window.addEventListener(
+            "scroll",
+            updatePopupPosition,
+            true,
+        );
+
+        return () => {
+            window.removeEventListener(
+                "resize",
+                updatePopupPosition,
+            );
+            window.removeEventListener(
+                "scroll",
+                updatePopupPosition,
+                true,
+            );
+        };
+    }, [selected]);
 
     // added for closing popup with ESC button
     useEffect(() => {
@@ -90,6 +173,7 @@ export const ClusterPlace = ({
             className="relative"
         >
             <button
+                ref={buttonRef}
                 type="button"
                 onClick={handleClick}
                 onMouseEnter={() => setIsHovered(true)}
@@ -104,10 +188,11 @@ export const ClusterPlace = ({
                 aria-label={`Place ${place.number}, ${isOccupied ? "occupied" : "free"
                     }`}
                 className={`
-                    group relative h-16 w-16
+                    group relative
+                    ${compact ? "h-[1.35rem] w-[1.35rem]" : "h-16 w-16"}
                     transition-transform duration-150
                     focus:outline-none
-                    ${isOccupied ? "hover:-translate-y-0.5" : ""}
+                    ${isOccupied && !compact ? "hover:-translate-y-0.5" : ""}
                 `}
             >
                 <svg
@@ -119,9 +204,13 @@ export const ClusterPlace = ({
                         points={hexPts(50, 50, 46)}
                         fill="none"
                         stroke="var(--color-cluster-accent)"
-                        strokeWidth="1.5"
+                        strokeWidth="2"
                         strokeDasharray="5 2"
-                        className="opacity-0 transition-opacity group-focus-visible:opacity-100"
+                        className="
+                            opacity-0
+                            transition-opacity duration-150
+                            group-focus-visible:opacity-100
+                        "
                     />
                     {/* hover / selected glow */}
                     {(isHovered || selected) && (
@@ -170,87 +259,111 @@ export const ClusterPlace = ({
                     className="absolute inset-0 flex items-center justify-center"
                     style={{ color: styles.text }}
                 >
-                    <span className="font-mono text-xs font-medium">
+                    <span
+                        className={
+                            compact
+                                ? "font-mono text-[7px] font-medium"
+                                : "font-mono text-xs font-medium"
+                        }
+                    >
                         {place.number}
                     </span>
                 </div>
             </button>
             {/* New popup for the occupide. Photo support, handles missing displayname intraname. Both missing, still show occupied. Truncates name and intraname in case too long.*/}
-            {selected && place.peer && (
-                <div
-                    id={`peer-${place.id}`}
-                    className="
-                        fixed inset-x-4 bottom-4 z-50
-                        rounded-xl border border-secondary bg-primary p-4 shadow-lg
+            {selected &&
+                place.peer &&
+                createPortal(
+                    <div
+                        ref={popupRef}
+                        id={`peer-${place.id}`}
+                        className="
+                            fixed inset-x-4 bottom-4 z-50
+                            rounded-xl
+                            border border-cluster-border
+                            bg-cluster-surface
+                            p-4 shadow-lg
 
-                        sm:absolute sm:inset-x-auto sm:bottom-auto
-                        sm:left-full sm:top-1/2 sm:ml-4 sm:w-56
-                        sm:-translate-y-1/2
-                    "
-                >
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        aria-label="Close peer details"
-                        className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full text-tertiary hover:bg-secondary"
+                            animate-in fade-in zoom-in-95 duration-150
+
+                            sm:inset-x-auto
+                            sm:bottom-auto
+                            sm:w-56
+                            sm:-translate-y-1/2
+                        "
+                        style={
+                            popupPosition
+                                ? {
+                                    top: popupPosition.top,
+                                    left: popupPosition.left,
+                                }
+                                : undefined
+                        }
                     >
-                        ×
-                    </button>
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            aria-label="Close peer details"
+                            className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full text-tertiary hover:bg-secondary"
+                        >
+                            ×
+                        </button>
 
-                    <div className="mb-3 pr-8">
-                        <div className="text-sm font-semibold">
-                            Place {place.number}
+                        <div className="mb-3 pr-8">
+                            <div className="text-sm font-semibold text-primary">
+                                Place {place.number}
+                            </div>
+
+                            <div className="mt-0.5 text-xs text-tertiary">
+                                Occupied
+                            </div>
                         </div>
 
-                        <div className="mt-0.5 text-xs text-tertiary">
-                            Occupied
-                        </div>
-                    </div>
+                        <div className="mb-4 border-t border-secondary" />
 
-                    <div className="mb-4 border-t border-secondary" />
+                        <div className="flex items-center gap-3">
+                            {/* Avatar */}
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary text-sm font-medium text-tertiary">
+                                {place.peer.photo ? (
+                                    <img
+                                        src={place.peer.photo}
+                                        alt=""
+                                        className="h-full w-full object-cover"
+                                    />
+                                ) : (
+                                    <span>
+                                        {place.peer.displayName?.charAt(0).toUpperCase()
+                                            ?? place.peer.intraName?.charAt(0).toUpperCase()
+                                            ?? "?"}
+                                    </span>
+                                )}
+                            </div>
 
-                    <div className="flex items-center gap-3">
-                        {/* Avatar */}
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary text-sm font-medium text-tertiary">
-                            {place.peer.photo ? (
-                                <img
-                                    src={place.peer.photo}
-                                    alt=""
-                                    className="h-full w-full object-cover"
-                                />
-                            ) : (
-                                <span>
-                                    {place.peer.displayName?.charAt(0).toUpperCase()
-                                        ?? place.peer.intraName?.charAt(0).toUpperCase()
-                                        ?? "?"}
-                                </span>
-                            )}
-                        </div>
-
-                        {/* Peer details */}
-                        <div className="min-w-0">
-                            {place.peer.displayName && (
-                                <div className="truncate text-sm font-semibold">
-                                    {place.peer.displayName}
-                                </div>
-                            )}
-
-                            {place.peer.intraName && (
-                                <div className="truncate text-xs text-tertiary">
-                                    @{place.peer.intraName}
-                                </div>
-                            )}
-
-                            {!place.peer.displayName &&
-                                !place.peer.intraName && (
-                                    <div className="text-xs text-tertiary">
-                                        Peer information unavailable
+                            {/* Peer details */}
+                            <div className="min-w-0">
+                                {place.peer.displayName && (
+                                    <div className="truncate text-sm font-semibold text-primary">
+                                        {place.peer.displayName}
                                     </div>
                                 )}
+
+                                {place.peer.intraName && (
+                                    <div className="truncate text-xs text-tertiary">
+                                        @{place.peer.intraName}
+                                    </div>
+                                )}
+
+                                {!place.peer.displayName &&
+                                    !place.peer.intraName && (
+                                        <div className="text-xs text-tertiary">
+                                            Peer information unavailable
+                                        </div>
+                                    )}
+                            </div>
                         </div>
-                    </div>
-                </div>
-            )}
+                    </div>,
+                    document.body,
+                )}
         </div>
     );
 };

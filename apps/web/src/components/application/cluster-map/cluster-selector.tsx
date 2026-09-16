@@ -35,7 +35,7 @@ export const ClusterSelector = ({
                             focus-visible:ring-offset-2
 
                             ${isActive
-                                ? "bg-cluster-accent text-white shadow-sm hover:bg-cluster-accent-hover"
+                                ? "bg-cluster-accent text-cluster-accent-text shadow-xs hover:bg-cluster-accent-hover"
                                 : "border border-secondary bg-primary text-secondary hover:bg-secondary/40 hover:text-primary"
                             }
                         `}

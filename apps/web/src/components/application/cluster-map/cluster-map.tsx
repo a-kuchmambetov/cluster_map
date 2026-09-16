@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import type { ClusterMapView } from "@/types/cluster-map-view";
 import {
     ClusterRowView,
@@ -22,6 +22,27 @@ export const ClusterMap = ({
     const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(
         null,
     );
+    const [compactMobile, setCompactMobile] = useState(false);
+
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+    const [canScrollHorizontally, setCanScrollHorizontally] =
+        useState(false);
+    useEffect(() => {
+        const media = window.matchMedia("(max-width: 639px)");
+
+        const update = () => {
+            setCompactMobile(media.matches);
+        };
+
+        update();
+        media.addEventListener("change", update);
+
+        return () => {
+            media.removeEventListener("change", update);
+        };
+    }, []);
+
     const handleClosePlace = () => {
         setSelectedPlaceId(null);
     };
@@ -35,8 +56,43 @@ export const ClusterMap = ({
         );
     };
     const clusterWidth = Math.max(
-        ...map.rows.map(getClusterRowWidth),
+        ...map.rows.map((row) =>
+            getClusterRowWidth(row, compactMobile),
+        ),
     );
+    useEffect(() => {
+        const container = scrollContainerRef.current;
+
+        if (!container) {
+            return;
+        }
+
+        const updateScrollState = () => {
+            setCanScrollHorizontally(
+                container.scrollWidth > container.clientWidth + 1,
+            );
+        };
+
+        updateScrollState();
+
+        const observer = new ResizeObserver(updateScrollState);
+
+        observer.observe(container);
+
+        if (container.firstElementChild) {
+            observer.observe(container.firstElementChild);
+        }
+
+        return () => {
+            observer.disconnect();
+        };
+    }, [clusterWidth, map.cluster.number]);
+
+
+
+
+
+
     return (
         <div className="
                 rounded-2xl
@@ -95,8 +151,13 @@ export const ClusterMap = ({
 
             {/* No free places banner */}
             {map.summary.free === 0 && (
-                <div className="mt-5 rounded-xl border border-secondary bg-secondary/30 px-4 py-3">
-                    <div className="text-sm font-medium">
+                <div className="
+                        mt-5 rounded-xl
+                        border border-cluster-border
+                        bg-cluster-surface-soft
+                        px-4 py-3
+                ">
+                    <div className="text-sm font-semibold text-primary">
                         No free places
                     </div>
 
@@ -113,12 +174,14 @@ export const ClusterMap = ({
                         <div
                             key={`${warning.code}-${warning.message}`}
                             className="
-                                rounded-xl border border-cluster-warning/30
-                                bg-cluster-warning-soft px-4 py-3
-                            "
+                    rounded-xl
+                    border border-cluster-warning/30
+                    bg-cluster-warning-soft
+                    px-4 py-3
+                "
                             role="status"
                         >
-                            <div className="text-sm font-medium text-cluster-warning-text">
+                            <div className="text-sm font-semibold text-cluster-warning-text">
                                 Map configuration warning
                             </div>
 
@@ -130,26 +193,38 @@ export const ClusterMap = ({
                 </div>
             )}
             {/*Scrollable on mobile*/}
-            <div className="mt-4 flex items-center justify-between sm:hidden">
-                <span className="text-xs text-tertiary">
-                    Swipe to explore the cluster
-                </span>
+            {canScrollHorizontally && (
+                <div className="mt-4 flex items-center justify-between sm:hidden">
+                    <span className="text-xs text-tertiary">
+                        Swipe to explore the cluster
+                    </span>
 
-                <span className="text-xs text-tertiary" aria-hidden="true">
-                    ↔
-                </span>
-            </div>
+                    <span
+                        className="text-xs text-tertiary"
+                        aria-hidden="true"
+                    >
+                        ↔
+                    </span>
+                </div>
+            )}
             {/*Scrollable */}
-            <div className="mt-2 overflow-x-auto overscroll-x-contain pb-2 sm:mt-5">
+            <div
+                ref={scrollContainerRef}
+                className="mt-2 overflow-x-auto overscroll-x-contain pb-2 sm:mt-5"
+            >
                 <div
                     className="mx-auto px-2 sm:px-0"
-                    style={{ width: `${clusterWidth + 3}rem` }}
+                    style={{
+                        width: `${clusterWidth + (compactMobile ? 2 : 3)
+                            }rem`,
+                    }}
                 >
                     {map.rows.map((row) => (
                         <ClusterRowView
                             key={row.id}
                             row={row}
                             clusterWidth={clusterWidth}
+                            compact={compactMobile}
                             selectedPlaceId={selectedPlaceId}
                             onSelectPlace={handleSelectPlace}
                             onClosePlace={handleClosePlace}
@@ -220,7 +295,7 @@ export const ClusterMap = ({
                             <span>Refreshing...</span>
                         </div>
                     ) : stale ? (
-                        <div className="flex items-center gap-1.5 text-cluster-accent">
+                        <div className="flex items-center gap-1.5 font-medium text-cluster-warning-text">
                             <span aria-hidden="true">!</span>
 
                             <span>Data may be outdated</span>
@@ -238,7 +313,7 @@ export const ClusterMap = ({
                             </span>
                         </div>
                     ) : (
-                        <div className="text-tertiary">
+                        <div className="font-normal text-tertiary">
                             Last updated{" "}
                             {map.lastUpdated
                                 ? new Date(map.lastUpdated).toLocaleTimeString([], {

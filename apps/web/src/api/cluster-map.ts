@@ -19,8 +19,6 @@ export const getClusters = async (): Promise<ClusterListResponse> => {
 };
 
 
-// added for the new /layout /occupancy 
-
 // Fetches the physical layout for one cluster.
 export const getClusterLayout = async (
     clusterNumber: number,

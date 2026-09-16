@@ -125,10 +125,11 @@
     /* Selector  Dusty blue + muted terracotta + soft navy selector*/
 
     /* Main UI accent / cluster selector */
-    --color-cluster-accent: #6f879d;
-    --color-cluster-accent-hover: #5f768b;
+    --color-cluster-accent: #dfe7ec;
+    --color-cluster-accent-hover: #d2dde4;
+    --color-cluster-accent-text: #40576a;
+
     --color-cluster-accent-soft: #eef2f5;
-    --color-cluster-accent-text: #ffffff;
 
     /* Map summary */
     --color-cluster-free: #668aa5;
@@ -145,36 +146,29 @@
     --color-cluster-surface-soft: #f5f7f8;
     --color-cluster-border: #dde3e7;
 
+    /* CLUSTER PLACE — LIGHT */
+    --color-cluster-free-fill: #f1f6fa;
+    --color-cluster-free-stroke: #7c9db7;
+    --color-cluster-free-text: #47657d;
 
-    /* Sage + dusty rose + muted olive selector */
+    --color-cluster-free-hover-fill: #e3edf4;
+    --color-cluster-free-hover-stroke: #668aa5;
+    --color-cluster-free-hover-text: #37566f;
 
-    /* --color-cluster-accent: #788b73;
-    --color-cluster-accent-hover: #687b64;
+    --color-cluster-occupied-fill: #faf1ee;
+    --color-cluster-occupied-stroke: #c18673;
+    --color-cluster-occupied-text: #855243;
 
-    --color-cluster-free: #748f78;
-    --color-cluster-occupied: #b4777e; */
+    --color-cluster-occupied-hover-fill: #f3e1db;
+    --color-cluster-occupied-hover-stroke: #b3715d;
+    --color-cluster-occupied-hover-text: #704338;
 
-    /* Indigo + sand/copper + desaturated indigo selector */
-    /* --color-cluster-accent: #66799b;
-    --color-cluster-accent-hover: #576a8b;
+    --color-cluster-selected-fill: #eed4cb;
+    --color-cluster-selected-stroke: #a95f4b;
+    --color-cluster-selected-text: #5f342a;
 
-    --color-cluster-free: #687fa7;
-    --color-cluster-occupied: #b98557; */
 
-    /* Teal + plum + slate selector */
-    /* --color-cluster-accent: #697b82;
-    --color-cluster-accent-hover: #596b72;
 
-    --color-cluster-free: #588f8b;
-    --color-cluster-occupied: #9b718e; */
-
-    /* Cool slate + muted coral + pale selector */
-    /* --color-cluster-accent: #e3e8ec;
-    --color-cluster-accent-hover: #d6dde2;
-    --color-cluster-accent-text: #43515c;
-
-    --color-cluster-free: #71899c;
-    --color-cluster-occupied: #bd7669; */
 
     /* These will be inverted in dark mode. */
     --color-alpha-white: rgb(255 255 255);
@@ -559,6 +553,46 @@
     .dark-mode {
         --color-alpha-white: rgb(12 14 18);
         --color-alpha-black: rgb(255 255 255);
+
+
+        /* CLUSTER MAP */
+        --color-cluster-accent: #506b82;
+        --color-cluster-accent-hover: #5d7991;
+        --color-cluster-accent-soft: #1c2730;
+        --color-cluster-accent-text: #f7fafc;
+
+        --color-cluster-free: #89afcb;
+        --color-cluster-occupied: #d79a86;
+
+        --color-cluster-warning: #d79a86;
+        --color-cluster-warning-soft: #2b211e;
+        --color-cluster-warning-text: #e5b5a5;
+
+        --color-cluster-page: #0c0e12;
+        --color-cluster-surface: #14181e;
+        --color-cluster-surface-soft: #1b2128;
+        --color-cluster-border: #2a3440;
+
+        /* CLUSTER PLACE — DARK */
+        --color-cluster-free-fill: #17232d;
+        --color-cluster-free-stroke: #6f95b0;
+        --color-cluster-free-text: #c5d9e7;
+
+        --color-cluster-free-hover-fill: #1f303c;
+        --color-cluster-free-hover-stroke: #82a9c3;
+        --color-cluster-free-hover-text: #e0edf5;
+
+        --color-cluster-occupied-fill: #2a1e1a;
+        --color-cluster-occupied-stroke: #b97a67;
+        --color-cluster-occupied-text: #e5b5a5;
+
+        --color-cluster-occupied-hover-fill: #352520;
+        --color-cluster-occupied-hover-stroke: #cc8a75;
+        --color-cluster-occupied-hover-text: #f0c4b5;
+
+        --color-cluster-selected-fill: #3a2721;
+        --color-cluster-selected-stroke: #dd9a83;
+        --color-cluster-selected-text: #ffe0d5;
 
         /* UTILITY COLORS */
 
