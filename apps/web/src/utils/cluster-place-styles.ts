@@ -1,103 +1,93 @@
+// Dusty blue + muted terracotta + soft navy selector
 export const clusterPlaceStyles = {
     free: {
         idle: {
-            fill: "#edf4fa",
-            stroke: "#6f97b8",
-            text: "#355a74",
+            fill: "#f1f6fa",
+            stroke: "#7c9db7",
+            text: "#47657d",
         },
+
         hover: {
-            fill: "#ddeaf4",
-            stroke: "#5d86a8",
-            text: "#2d4d63",
+            fill: "#e3edf4",
+            stroke: "#668aa5",
+            text: "#37566f",
         },
     },
 
     occupied: {
         idle: {
-            fill: "#fff3e4",
-            stroke: "#c88435",
-            text: "#8b571d",
+            fill: "#faf1ee",
+            stroke: "#c18673",
+            text: "#855243",
         },
+
         hover: {
-            fill: "#ffe4c2",
-            stroke: "#b97229",
-            text: "#764817",
+            fill: "#f3e1db",
+            stroke: "#b3715d",
+            text: "#704338",
         },
     },
 
     selected: {
-        fill: "#ffe1a8",
-        stroke: "#d18b24",
-        text: "#6f490d",
+        fill: "#eed4cb",
+        stroke: "#a95f4b",
+        text: "#5f342a",
     },
 } as const;
 
-
-
+// Sage + dusty rose + muted olive selector
 // export const clusterPlaceStyles = {
 //     free: {
-//         idle: {
-//             fill: "#edf7f6",
-//             stroke: "#6a9b94",
-//             text: "#35655f",
-//         },
-//         hover: {
-//             fill: "#dcecea",
-//             stroke: "#578980",
-//             text: "#2c5751",
-//         },
+//         idle: { fill: "#f0f5f0", stroke: "#829b85", text: "#49674e" },
+//         hover: { fill: "#e3ece4", stroke: "#708b74", text: "#3d5942" },
 //     },
 
 //     occupied: {
-//         idle: {
-//             fill: "#fff0ec",
-//             stroke: "#c97864",
-//             text: "#8d4c3f",
-//         },
-//         hover: {
-//             fill: "#ffe0d9",
-//             stroke: "#b76754",
-//             text: "#773e34",
-//         },
+//         idle: { fill: "#faf0f1", stroke: "#bd858b", text: "#805158" },
+//         hover: { fill: "#f3e0e2", stroke: "#ad737b", text: "#6e454b" },
 //     },
 
 //     selected: {
-//         fill: "#ffe2b4",
-//         stroke: "#d08b2b",
-//         text: "#704b10",
+//         fill: "#eee2bd",
+//         stroke: "#ad904d",
+//         text: "#655324",
 //     },
 // } as const;
 
+// Indigo + sand/copper + desaturated indigo selector
 // export const clusterPlaceStyles = {
 //     free: {
-//         idle: {
-//             fill: "#f1f4f8",
-//             stroke: "#7d8fa8",
-//             text: "#46576d",
-//         },
-//         hover: {
-//             fill: "#e3e8ef",
-//             stroke: "#6b7d96",
-//             text: "#39495d",
-//         },
+//         idle: { fill: "#f0f2f8", stroke: "#788bab", text: "#465c7d" },
+//         hover: { fill: "#e2e7f0", stroke: "#687fa7", text: "#3b4e6a" },
 //     },
 
 //     occupied: {
-//         idle: {
-//             fill: "#fff0f1",
-//             stroke: "#bf737d",
-//             text: "#824851",
-//         },
-//         hover: {
-//             fill: "#ffe0e3",
-//             stroke: "#ad626d",
-//             text: "#6f3b43",
-//         },
+//         idle: { fill: "#f9f2e9", stroke: "#c09269", text: "#805e3e" },
+//         hover: { fill: "#f1e4d5", stroke: "#ae7e52", text: "#6c4d33" },
 //     },
 
 //     selected: {
-//         fill: "#f7e0b4",
-//         stroke: "#c88a2f",
-//         text: "#6d4a12",
+//         fill: "#eee0b9",
+//         stroke: "#b28b42",
+//         text: "#654a19",
+//     },
+// } as const;
+
+// Teal + plum + slate selector
+// export const clusterPlaceStyles = {
+//     free: {
+//         idle: { fill: "#edf6f5", stroke: "#6b9b97", text: "#386762" },
+//         hover: { fill: "#deecea", stroke: "#588b87", text: "#305753" },
+//     },
+
+//     occupied: {
+//         idle: { fill: "#f7f0f5", stroke: "#a77b99", text: "#704e68" },
+//         hover: { fill: "#eee0e9", stroke: "#956987", text: "#604258" },
+//     },
+
+//     selected: {
+//         fill: "#eee0ba",
+//         stroke: "#b38b42",
+//         text: "#654b1e",
 //     },
 // } as const;

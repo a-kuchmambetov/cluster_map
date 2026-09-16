@@ -38,14 +38,29 @@ export const ClusterMap = ({
         ...map.rows.map(getClusterRowWidth),
     );
     return (
-        <div className="rounded-2xl border border-secondary/70 bg-primary p-4 shadow-xs sm:p-5">
+        <div className="
+                rounded-2xl
+                border border-cluster-border
+                bg-cluster-surface
+                p-4
+                shadow-sm
+                sm:p-5
+            "
+        >
             {/* Cluster title + summary */}
             <div className="flex items-center justify-between gap-4 pb-1">
                 <h2 className="text-lg font-semibold tracking-tight">
                     {map.cluster.label}
                 </h2>
 
-                <div className="flex items-center gap-4 rounded-xl bg-secondary/30 px-4 py-2 sm:gap-6">
+                <div className="
+                        flex items-center gap-4
+                        rounded-xl
+                        bg-cluster-surface-soft
+                        px-4 py-2
+                        sm:gap-6
+                    "
+                >
                     {/* Free */}
                     <div className="min-w-14 text-center">
                         <div className="text-xl font-semibold text-cluster-free">
@@ -143,7 +158,7 @@ export const ClusterMap = ({
                 </div>
             </div>
             {/* Map legend, free/occupied */}
-            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-secondary/70 pt-3 text-xs font-medium text-tertiary">
+            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-cluster-border pt-3 text-xs font-medium text-tertiary">
                 <div className="flex items-center gap-5">
                     <div className="flex items-center gap-2">
                         {/* Free icon */}
