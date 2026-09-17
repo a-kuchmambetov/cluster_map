@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ClusterMapView } from "@/types/cluster-map-view";
-import { getClusterRowWidth } from "@/components/application/cluster-map/cluster-row";
+import { getClusterRowWidth } from "@/components/application/cluster-map/cluster-row-layout";
 
 const COMPACT_LABEL_GUTTER_REM = 1.5;
 const COMPACT_MAX_SCALE = 1.8;
