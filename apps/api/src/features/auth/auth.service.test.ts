@@ -8,7 +8,9 @@ const mocks = vi.hoisted(() => ({
   approveUser: vi.fn(),
 }));
 vi.mock("../../config/auth.js", () => ({
-  auth: { api: { getSession: mocks.getSession, signUpEmail: mocks.signUpEmail } },
+  auth: {
+    api: { getSession: mocks.getSession, signUpEmail: mocks.signUpEmail },
+  },
 }));
 vi.mock("./auth.repository.js", () => ({
   findAuthUser: mocks.findAuthUser,
