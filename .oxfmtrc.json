@@ -1,16 +1,34 @@
 {
-    "$schema": "./node_modules/oxfmt/configuration_schema.json",
-    "printWidth": 160,
-    "tabWidth": 4,
-    "semi": true,
-    "singleQuote": false,
-    "importOrder": ["^react$", "^react-dom$", "^(?!react$|react-dom$|@/|\\.).*", "^@/.*", "^\\.{1,2}/.*"],
-    "importOrderSeparation": false,
-    "importOrderSortSpecifiers": true,
-    "sortPackageJson": false,
-    "sortTailwindcss": {
-        "stylesheet": "./apps/web/src/styles/globals.css",
-        "functions": ["sortCx", "cx"]
-    },
-    "ignorePatterns": []
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 80,
+  "tabWidth": 2,
+  "semi": true,
+  "singleQuote": false,
+  "importOrder": [
+    "^react$",
+    "^react-dom$",
+    "^(?!react$|react-dom$|@/|\\.).*",
+    "^@/.*",
+    "^\\.{1,2}/.*"
+  ],
+  "importOrderSeparation": false,
+  "importOrderSortSpecifiers": true,
+  "sortPackageJson": false,
+  "sortTailwindcss": {
+    "stylesheet": "./apps/web/src/styles/globals.css",
+    "functions": ["sortCx", "cx"]
+  },
+  "ignorePatterns": [
+    "**/.docusaurus/**",
+    "**/.turbo/**",
+    "**/.vite/**",
+    "**/build/**",
+    "**/coverage/**",
+    "**/dist/**",
+    "**/dist-ssr/**",
+    "**/node_modules/**",
+    "**/.cache-loader/**",
+    "**/*.tsbuildinfo",
+    "**/migrations/**"
+  ]
 }

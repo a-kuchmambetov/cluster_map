@@ -6,17 +6,18 @@ sidebar_position: 1
 
 ## Current status
 
-The Express application exposes five endpoints:
+The Express application exposes six endpoints:
 
 - `GET /api/health`
 - `GET /api/clusters`
 - `GET /api/clusters/:clusterNumber/layout`
 - `GET /api/clusters/:clusterNumber/occupancy`
 - `GET /api/clusters/:clusterNumber/config-validation`
+- `GET /api/clusters/:clusterNumber/events` — SSE stream
 
 The API mounts its router at `/api`. It enables JSON request parsing and credentialed CORS; allowed origins are described in [Configuration](../getting-started/configuration#cors-and-environment-mode).
 
-There is no authentication, no realtime/SSE push, and no write endpoint against any resource. All routes are read-only `GET` requests.
+There is no authentication and no write endpoint against any resource. All routes are read-only `GET` requests.
 
 ## Error envelope
 
@@ -24,11 +25,19 @@ Every error response, across all endpoints, uses one JSON shape:
 
 ```ts
 type ApiErrorResponse = {
-    ok: false;
-    status: "fail" | "error";
-    code: "BAD_REQUEST" | "UNAUTHORIZED" | "FORBIDDEN" | "NOT_FOUND" | "CLUSTER_NOT_FOUND" | "CONFLICT" | "VALIDATION_ERROR" | "INTERNAL_SERVER_ERROR";
-    error: string;
-    details?: unknown;
+  ok: false;
+  status: "fail" | "error";
+  code:
+    | "BAD_REQUEST"
+    | "UNAUTHORIZED"
+    | "FORBIDDEN"
+    | "NOT_FOUND"
+    | "CLUSTER_NOT_FOUND"
+    | "CONFLICT"
+    | "VALIDATION_ERROR"
+    | "INTERNAL_SERVER_ERROR";
+  error: string;
+  details?: unknown;
 };
 ```
 
@@ -38,17 +47,17 @@ Example validation error:
 
 ```json
 {
-    "ok": false,
-    "status": "fail",
-    "code": "VALIDATION_ERROR",
-    "error": "Validation error",
-    "details": [
-        {
-            "path": "clusterNumber",
-            "message": "Expected number, received nan",
-            "code": "invalid_type"
-        }
-    ]
+  "ok": false,
+  "status": "fail",
+  "code": "VALIDATION_ERROR",
+  "error": "Validation error",
+  "details": [
+    {
+      "path": "clusterNumber",
+      "message": "Expected number, received nan",
+      "code": "invalid_type"
+    }
+  ]
 }
 ```
 
@@ -95,7 +104,7 @@ Status: `200 OK`
 
 ```json
 {
-    "status": "ok"
+  "status": "ok"
 }
 ```
 
@@ -117,10 +126,10 @@ Status: `200 OK`
 
 ```json
 {
-    "clusters": [
-        { "id": "c1", "number": 1, "label": "Cluster 1" },
-        { "id": "c2", "number": 2, "label": "Cluster 2" }
-    ]
+  "clusters": [
+    { "id": "c1", "number": 1, "label": "Cluster 1" },
+    { "id": "c2", "number": 2, "label": "Cluster 2" }
+  ]
 }
 ```
 
@@ -154,29 +163,34 @@ Status: `200 OK`
 
 ```json
 {
-    "cluster": { "id": "c1", "number": 1, "label": "Cluster 1" },
-    "rows": [
+  "cluster": { "id": "c1", "number": 1, "label": "Cluster 1" },
+  "rows": [
+    {
+      "id": "c1r6",
+      "number": 6,
+      "label": "R6",
+      "cells": [
         {
-            "id": "c1r6",
-            "number": 6,
-            "label": "R6",
-            "cells": [
-                { "kind": "place", "id": "c1r6p1", "number": 1, "position": "bottom" },
-                { "kind": "place", "id": "c1r6p2", "number": 2 },
-                { "kind": "gap" }
-            ]
+          "kind": "place",
+          "id": "c1r6p1",
+          "number": 1,
+          "position": "bottom"
         },
-        {
-            "id": "c1r1",
-            "number": 1,
-            "label": "R1",
-            "cells": [
-                { "kind": "place", "id": "c1r1p1", "number": 1 },
-                { "kind": "gap" },
-                { "kind": "place", "id": "c1r1p2", "number": 2 }
-            ]
-        }
-    ]
+        { "kind": "place", "id": "c1r6p2", "number": 2 },
+        { "kind": "gap" }
+      ]
+    },
+    {
+      "id": "c1r1",
+      "number": 1,
+      "label": "R1",
+      "cells": [
+        { "kind": "place", "id": "c1r1p1", "number": 1 },
+        { "kind": "gap" },
+        { "kind": "place", "id": "c1r1p2", "number": 2 }
+      ]
+    }
+  ]
 }
 ```
 
@@ -185,8 +199,8 @@ Field meanings:
 - `cluster` — `{ id, number, label }`, same shape as an entry from `GET /api/clusters`.
 - `rows[]` — rows in top-to-bottom physical order: highest row number first. In the HIVE layout R6 is the topmost row, so `rows[0]` is always R6. The frontend can render in array order without sorting.
 - `cells[]` — positions in a row, in order. Each cell is one of:
-    - `{ "kind": "place", "id", "number", "position"? }` — a real, numbered seat.
-    - `{ "kind": "gap" }` — visual spacer; no `id`, `number`, or `position`.
+  - `{ "kind": "place", "id", "number", "position"? }` — a real, numbered seat.
+  - `{ "kind": "gap" }` — visual spacer; no `id`, `number`, or `position`.
 - `position` — `"top"` | `"bottom"`, optional. If absent, the rendering layer takes the opposite of the nearest preceding non-gap place in the same row. The first place in every row carries an explicit value in the config; interior places that continue the alternating pattern do not.
 
 No `status`, no `peer` — occupancy belongs to `/occupancy`.
@@ -221,28 +235,32 @@ Status: `200 OK`
 
 ```json
 {
-    "occupied": [
-        {
-            "row": 1,
-            "place": 2,
-            "peer": { "intraName": "jdoe", "displayName": "John Doe", "photo": null }
-        }
-    ],
-    "lastUpdated": "2026-08-27T10:00:00.000Z"
+  "occupied": [
+    {
+      "row": 1,
+      "place": 2,
+      "peer": {
+        "intraName": "jdoe",
+        "displayName": "John Doe",
+        "photo": null
+      }
+    }
+  ],
+  "lastUpdated": "2026-08-27T10:00:00.000Z"
 }
 ```
 
 Field meanings:
 
 - `occupied[]` — one entry per occupied place. Places absent from this array are free.
-    - `row` — row number within the cluster; matches `rows[].number` from `/layout`.
-    - `place` — place number within that row; matches `cells[].number` from `/layout`.
-    - `peer` — `{ intraName, displayName, photo }`, all fields `string | null`. Both name fields are passed through raw from the DB; no fallback or priority logic is applied server-side. Presentation is the frontend's decision.
-        - `intraName` — Hive/intra login, or `null` for guest accounts without one.
-        - `displayName` — real name, or `null` if absent.
-        - `photo` — avatar URL, or `null`; frontend uses a default photo when null.
-        - **All three fields may be `null` simultaneously.** The DB schema tracks `occupied` (boolean) and `holderId` (nullable FK) separately; the query filters on `occupied = true` and left-joins the holder. A seat marked occupied with no holder produces a valid record with a null peer. The frontend should render it as occupied (seat taken) but without a name or photo.
-    - No `email` — explicitly excluded per privacy rules.
+  - `row` — row number within the cluster; matches `rows[].number` from `/layout`.
+  - `place` — place number within that row; matches `cells[].number` from `/layout`.
+  - `peer` — `{ intraName, displayName, photo }`, all fields `string | null`. Both name fields are passed through raw from the DB; no fallback or priority logic is applied server-side. Presentation is the frontend's decision.
+    - `intraName` — Hive/intra login, or `null` for guest accounts without one.
+    - `displayName` — real name, or `null` if absent.
+    - `photo` — avatar URL, or `null`; frontend uses a default photo when null.
+    - **All three fields may be `null` simultaneously.** The DB schema tracks `occupied` (boolean) and `holderId` (nullable FK) separately; the query filters on `occupied = true` and left-joins the holder. A seat marked occupied with no holder produces a valid record with a null peer. The frontend should render it as occupied (seat taken) but without a name or photo.
+  - No `email` — explicitly excluded per privacy rules.
 - `lastUpdated` — ISO 8601 timestamp of the last successful DB read. `null` if the occupancy has never been successfully read.
 
 ### Occupancy data source
@@ -289,15 +307,15 @@ When the DB returns occupancy for a place the config doesn't know about:
 
 ```json
 {
-    "clusterNumber": 1,
-    "valid": false,
-    "errors": [
-        {
-            "code": "ORPHANED_OCCUPANCY",
-            "message": "DB record for row 2, place 5 has no matching place in the layout",
-            "path": "clusters[0]"
-        }
-    ]
+  "clusterNumber": 1,
+  "valid": false,
+  "errors": [
+    {
+      "code": "ORPHANED_OCCUPANCY",
+      "message": "DB record for row 2, place 5 has no matching place in the layout",
+      "path": "clusters[0]"
+    }
+  ]
 }
 ```
 
@@ -313,3 +331,106 @@ When the DB returns occupancy for a place the config doesn't know about:
 | `clusterNumber` fails validation (e.g. `abc`) |    422 | `VALIDATION_ERROR`      |
 | No cluster with that number in the config     |    404 | `CLUSTER_NOT_FOUND`     |
 | Production DB unavailable                     |    500 | `INTERNAL_SERVER_ERROR` |
+
+## `GET /api/clusters/:clusterNumber/events`
+
+A [Server-Sent Events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events) stream that pushes occupancy changes to the client as they occur. One connection per cluster per client; one-directional (server → client only).
+
+### Load sequence
+
+Always fetch `/layout` and `/occupancy` before opening this connection. The stream carries only changes from the point of connect — it does not replay current state.
+
+```
+GET /api/clusters/:clusterNumber/layout    → render the grid
+GET /api/clusters/:clusterNumber/occupancy → mark initially occupied seats
+GET /api/clusters/:clusterNumber/events    → open stream; receive deltas
+```
+
+### Request
+
+| Parameter       | Location | Validation                                                                            |
+| --------------- | -------- | ------------------------------------------------------------------------------------- |
+| `clusterNumber` | Path     | `z.coerce.number().int().positive()` — see [Request validation](#request-validation). |
+
+No query parameters or request body. The browser's `EventSource` API sets `Accept: text/event-stream` automatically.
+
+```bash
+# curl example — streams indefinitely
+curl -N -H "Accept: text/event-stream" http://localhost:5000/api/clusters/1/events
+```
+
+### Response — stream open
+
+Status: `200 OK`  
+Headers: `Content-Type: text/event-stream`, `Cache-Control: no-cache`, `Connection: keep-alive`
+
+All events are named so the client can use `addEventListener` rather than `onmessage`:
+
+```js
+const source = new EventSource("/api/clusters/1/events");
+source.addEventListener("occupancy-delta", (e) => {
+  /* ... */
+});
+source.addEventListener("error", (e) => {
+  /* ... */
+});
+```
+
+#### `occupancy-delta`
+
+Sent when occupancy changed since the last poll. Not sent when nothing changed.
+
+The stream carries deltas rather than the full occupied list because a list-based feed cannot express "this place is now free": if a place drops out of a full-state list it is ambiguous between "became free" and "missed event". An explicit `freed` array removes that ambiguity without requiring the client to handle separate event types.
+
+```
+event: occupancy-delta
+data: {"occupied":[{"row":1,"place":2,"peer":{"intraName":"jdoe","displayName":"John Doe","photo":null}}],"freed":[{"row":1,"place":5}]}
+
+```
+
+| Field        | Meaning                                                                                                                   |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| `occupied[]` | Places that became occupied, or places already occupied whose peer data changed. Same shape as entries from `/occupancy`. |
+| `freed[]`    | Places that were occupied and are now free. Identified by `{ row, place }` only — no peer data because the seat is empty. |
+
+Apply a delta by upserting every entry in `occupied` into local state and removing every entry in `freed`. An event where both arrays are empty is never sent.
+
+#### `error`
+
+Sent when the database is unreachable during a poll cycle. The connection stays open.
+
+```
+event: error
+data: {"code":"DB_UNAVAILABLE","message":"Occupancy data temporarily unavailable"}
+
+```
+
+On repeated `DB_UNAVAILABLE` events: keep the last successful occupancy rendered and mark it stale, showing the last successful update time. Do not clear occupancy and do not treat missing data as free. The stale marking clears when the next successful `occupancy-delta` arrives.
+
+#### Keepalive comments
+
+A comment line is sent every 20 seconds of inactivity to prevent proxies from closing idle connections. Comments are invisible to `EventSource` handlers and require no client-side handling.
+
+```
+: keep-alive
+
+```
+
+### Reconnect
+
+`EventSource` reconnects automatically after a disconnect, but the server keeps no event history, so the client may have missed changes during the gap. The required reconnect sequence is:
+
+1. On `EventSource` `error` or `close`, wait for the browser's built-in backoff.
+2. **Re-fetch `/occupancy`** to resync local state before reopening the stream.
+3. Open a new `EventSource` connection.
+
+The `Last-Event-ID` header sent by `EventSource` on reconnect is ignored — no event IDs are assigned.
+
+### Error responses (before the stream opens)
+
+| Case                                          | Status | Code                |
+| --------------------------------------------- | -----: | ------------------- |
+| `clusterNumber` fails validation (e.g. `abc`) |    422 | `VALIDATION_ERROR`  |
+| No cluster with that number in the config     |    404 | `CLUSTER_NOT_FOUND` |
+
+Once the stream is open, database failures are delivered as `error` events rather than HTTP status codes.

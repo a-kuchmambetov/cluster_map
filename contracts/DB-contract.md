@@ -25,19 +25,19 @@ Valentine exposes a typed read-only function from `@repo/db`, and I call it from
 
 ```ts
 // @repo/db (written by Valentine)
- 
+
 // one occupancy record — scoped to a single cluster already
 export type OccupancyRow = {
-    row: number; // row number within the cluster
-    place: number; // place number within the row
-    intraName: string | null; // Hive login — NOT always present (guest accounts may lack it)
-    displayName: string | null; // real name — also may be absent
-    photo: string | null; // avatar/photo URL, or null (default photo used by frontend)
+  row: number; // row number within the cluster
+  place: number; // place number within the row
+  intraName: string | null; // Hive login — NOT always present (guest accounts may lack it)
+  displayName: string | null; // real name — also may be absent
+  photo: string | null; // avatar/photo URL, or null (default photo used by frontend)
 };
 
 // return occupancy for a single cluster, read-only
 export function getClusterOccupancy(
-  clusterId: string // 🔴 cluster id from our config — how this maps to production (see §4)
+  clusterId: string, // 🔴 cluster id from our config — how this maps to production (see §4)
 ): Promise<OccupancyRow[]>;
 ```
 
@@ -63,25 +63,35 @@ Guarantees this function must give (from the privacy/security rules 🟢):
 ```ts
 // clusters.repository.ts (my area) — calls Valentine's function
 import { getClusterOccupancy } from "@repo/db";
- 
+
 // clusters.service.ts (my area) — serves /layout and /occupancy separately
-const config = loadClusterConfig(clusterNumber);           // from layout config (my area)
-const occupancy = await getClusterOccupancy(config.id);    // from production DB (Valentine's area)
+const config = loadClusterConfig(clusterNumber); // from layout config (my area)
+const occupancy = await getClusterOccupancy(config.id); // from production DB (Valentine's area)
 ```
 
 Until Valentine's function exists, I work against a **mock** with the same signature, so we don't block each other:
 
 ```ts
 // temporary mock in place of @repo/db
-async function getClusterOccupancy(_clusterId: string): Promise<OccupancyRow[]> {
-  return [{ row: 1, place: 2, intraName: "jdoe", displayName: "John Doe", photo: null }];
+async function getClusterOccupancy(
+  _clusterId: string,
+): Promise<OccupancyRow[]> {
+  return [
+    {
+      row: 1,
+      place: 2,
+      intraName: "jdoe",
+      displayName: "John Doe",
+      photo: null,
+    },
+  ];
 }
 ```
 
 ---
- 
+
 ## 4. Matching identifiers 🔴 (blocked on access to the school's production DB — owner unconfirmed)
- 
+
 The "production DB" here is the school's (42/HIVE) live database — not our local Postgres. We currently have neither read-only access to it nor its real schema. **Who owns/grants this access is not stated in the project docs** — Ping is DevSecOps and the likely person to ask, but this should be confirmed with the team rather than assumed.
 
 Needed (from whoever owns production DB access — confirm with Artem/Ping):
@@ -90,17 +100,19 @@ Needed (from whoever owns production DB access — confirm with Artem/Ping):
 - How a production occupancy record maps to `row`/`place` in our layout config (this section still needs the real production field mapping).
 - **`clusterId` mapping** — `getClusterOccupancy` receives the cluster's `id` from our config (e.g. `"c1"`). How that maps to a cluster identifier in the production DB (our `id`? an internal code?) is unknown until we have schema access.
 - The real **table/column names** of the production DB (for the query inside `@repo/db`).
-Until then, `clusterId` and the row/place mapping are placeholders; this does not change the shape, only what fills them.
- 
+  Until then, `clusterId` and the row/place mapping are placeholders; this does not change the shape, only what fills them.
+
 ---
- 
+
 ## 5. Occupancy semantics (so we share the same understanding) 🟢
- 
+
 Valentine's function returns **only occupied places** — everything not in the result is free by implication. Invariants the API relies on:
+
 - A `gap` cannot be occupied; any occupancy record that doesn't match a real place in the config is a data-quality mismatch, surfaced by /config-validation.
 - Duplicates cannot occur — the schema has a unique constraint on `(rowId, seatNumber)` and the query joins one holder per position.
 - A record may have `intraName`, `displayName`, and `photo` all `null` — the schema tracks `occupied` (boolean) and `holderId` (nullable FK) separately, so a seat marked occupied with no holder is a valid result, not an error.
 - Peer data (`intraName`, `displayName`, `photo`) is forwarded unchanged from the DB — no fallback or priority logic applied server-side.
+
 ---
 
 ## 6. Confirmed with Valentine ✅ (all closed 2026-08-06)
@@ -123,8 +135,9 @@ Valentine's function returns **only occupied places** — everything not in the 
 ---
 
 ## 8. Summary
+
 The seam between us is **a single function**, `getClusterOccupancy`. Everything else (layout config, response shaping for /layout and /occupancy) is my area and does not depend on Valentine. This lets me start on a mock immediately, lets him build the real query in parallel, and lets us swap the mock for `@repo/db` with no changes to `repository`/`controller`. The only hard dependency is access to the school's production DB and its matching identifiers (§4) — owner to confirm with the team.
- 
+
 ---
 
 ## 9. Consumer notes (operational, from first real run)

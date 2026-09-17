@@ -8,16 +8,16 @@ import { ThemeProvider } from "@/providers/theme-provider";
 import "@/styles/globals.css";
 
 createRoot(document.getElementById("root")!).render(
-    <StrictMode>
-        <ThemeProvider>
-            <BrowserRouter>
-                <RouteProvider>
-                    <Routes>
-                        <Route path="/" element={<HomeScreen />} />
-                        <Route path="*" element={<NotFound />} />
-                    </Routes>
-                </RouteProvider>
-            </BrowserRouter>
-        </ThemeProvider>
-    </StrictMode>,
+  <StrictMode>
+    <ThemeProvider>
+      <BrowserRouter>
+        <RouteProvider>
+          <Routes>
+            <Route path="/" element={<HomeScreen />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </RouteProvider>
+      </BrowserRouter>
+    </ThemeProvider>
+  </StrictMode>,
 );
