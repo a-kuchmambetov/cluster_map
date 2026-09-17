@@ -18,5 +18,17 @@
     "stylesheet": "./apps/web/src/styles/globals.css",
     "functions": ["sortCx", "cx"]
   },
-  "ignorePatterns": []
+  "ignorePatterns": [
+    "**/.docusaurus/**",
+    "**/.turbo/**",
+    "**/.vite/**",
+    "**/build/**",
+    "**/coverage/**",
+    "**/dist/**",
+    "**/dist-ssr/**",
+    "**/node_modules/**",
+    "**/.cache-loader/**",
+    "**/*.tsbuildinfo",
+    "**/migrations/**"
+  ]
 }
