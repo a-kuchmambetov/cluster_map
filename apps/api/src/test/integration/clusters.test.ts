@@ -5,8 +5,8 @@ import {
   resetPool,
   subscribe,
   writeSharedSnapshot,
-} from "./clusters.pool";
-import type { OccupiedEntry } from "./clusters.types";
+} from "../../features/clusters/clusters.pool";
+import type { OccupiedEntry } from "../../features/clusters/clusters.types";
 
 // The pool calls getClusterOccupancy from the repository.
 // Mock the entire repository module so no DB connection is required.
@@ -236,7 +236,7 @@ describe("subscribe", () => {
 
     // Let the first poll finish; .finally() should now schedule the next timeout.
     resolveFirst([]);
-    for (let i = 0; i < 10; i++) await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(0);
 
     // Advance 30 s more: the second poll fires.
     await vi.advanceTimersByTimeAsync(30_000);
@@ -265,7 +265,7 @@ describe("subscribe", () => {
 
     // Let the in-flight poll resolve — .finally() must not schedule another timeout.
     resolveOccupancy([]);
-    for (let i = 0; i < 10; i++) await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(0);
 
     // Advancing time should produce no further polls.
     getClusterOccupancyMock.mockClear();
