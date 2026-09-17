@@ -25,11 +25,19 @@ Every error response, across all endpoints, uses one JSON shape:
 
 ```ts
 type ApiErrorResponse = {
-    ok: false;
-    status: "fail" | "error";
-    code: "BAD_REQUEST" | "UNAUTHORIZED" | "FORBIDDEN" | "NOT_FOUND" | "CLUSTER_NOT_FOUND" | "CONFLICT" | "VALIDATION_ERROR" | "INTERNAL_SERVER_ERROR";
-    error: string;
-    details?: unknown;
+  ok: false;
+  status: "fail" | "error";
+  code:
+    | "BAD_REQUEST"
+    | "UNAUTHORIZED"
+    | "FORBIDDEN"
+    | "NOT_FOUND"
+    | "CLUSTER_NOT_FOUND"
+    | "CONFLICT"
+    | "VALIDATION_ERROR"
+    | "INTERNAL_SERVER_ERROR";
+  error: string;
+  details?: unknown;
 };
 ```
 
@@ -39,17 +47,17 @@ Example validation error:
 
 ```json
 {
-    "ok": false,
-    "status": "fail",
-    "code": "VALIDATION_ERROR",
-    "error": "Validation error",
-    "details": [
-        {
-            "path": "clusterNumber",
-            "message": "Expected number, received nan",
-            "code": "invalid_type"
-        }
-    ]
+  "ok": false,
+  "status": "fail",
+  "code": "VALIDATION_ERROR",
+  "error": "Validation error",
+  "details": [
+    {
+      "path": "clusterNumber",
+      "message": "Expected number, received nan",
+      "code": "invalid_type"
+    }
+  ]
 }
 ```
 
@@ -96,7 +104,7 @@ Status: `200 OK`
 
 ```json
 {
-    "status": "ok"
+  "status": "ok"
 }
 ```
 
@@ -118,10 +126,10 @@ Status: `200 OK`
 
 ```json
 {
-    "clusters": [
-        { "id": "c1", "number": 1, "label": "Cluster 1" },
-        { "id": "c2", "number": 2, "label": "Cluster 2" }
-    ]
+  "clusters": [
+    { "id": "c1", "number": 1, "label": "Cluster 1" },
+    { "id": "c2", "number": 2, "label": "Cluster 2" }
+  ]
 }
 ```
 
@@ -155,29 +163,34 @@ Status: `200 OK`
 
 ```json
 {
-    "cluster": { "id": "c1", "number": 1, "label": "Cluster 1" },
-    "rows": [
+  "cluster": { "id": "c1", "number": 1, "label": "Cluster 1" },
+  "rows": [
+    {
+      "id": "c1r6",
+      "number": 6,
+      "label": "R6",
+      "cells": [
         {
-            "id": "c1r6",
-            "number": 6,
-            "label": "R6",
-            "cells": [
-                { "kind": "place", "id": "c1r6p1", "number": 1, "position": "bottom" },
-                { "kind": "place", "id": "c1r6p2", "number": 2 },
-                { "kind": "gap" }
-            ]
+          "kind": "place",
+          "id": "c1r6p1",
+          "number": 1,
+          "position": "bottom"
         },
-        {
-            "id": "c1r1",
-            "number": 1,
-            "label": "R1",
-            "cells": [
-                { "kind": "place", "id": "c1r1p1", "number": 1 },
-                { "kind": "gap" },
-                { "kind": "place", "id": "c1r1p2", "number": 2 }
-            ]
-        }
-    ]
+        { "kind": "place", "id": "c1r6p2", "number": 2 },
+        { "kind": "gap" }
+      ]
+    },
+    {
+      "id": "c1r1",
+      "number": 1,
+      "label": "R1",
+      "cells": [
+        { "kind": "place", "id": "c1r1p1", "number": 1 },
+        { "kind": "gap" },
+        { "kind": "place", "id": "c1r1p2", "number": 2 }
+      ]
+    }
+  ]
 }
 ```
 
@@ -186,8 +199,8 @@ Field meanings:
 - `cluster` — `{ id, number, label }`, same shape as an entry from `GET /api/clusters`.
 - `rows[]` — rows in top-to-bottom physical order: highest row number first. In the HIVE layout R6 is the topmost row, so `rows[0]` is always R6. The frontend can render in array order without sorting.
 - `cells[]` — positions in a row, in order. Each cell is one of:
-    - `{ "kind": "place", "id", "number", "position"? }` — a real, numbered seat.
-    - `{ "kind": "gap" }` — visual spacer; no `id`, `number`, or `position`.
+  - `{ "kind": "place", "id", "number", "position"? }` — a real, numbered seat.
+  - `{ "kind": "gap" }` — visual spacer; no `id`, `number`, or `position`.
 - `position` — `"top"` | `"bottom"`, optional. If absent, the rendering layer takes the opposite of the nearest preceding non-gap place in the same row. The first place in every row carries an explicit value in the config; interior places that continue the alternating pattern do not.
 
 No `status`, no `peer` — occupancy belongs to `/occupancy`.
@@ -222,28 +235,32 @@ Status: `200 OK`
 
 ```json
 {
-    "occupied": [
-        {
-            "row": 1,
-            "place": 2,
-            "peer": { "intraName": "jdoe", "displayName": "John Doe", "photo": null }
-        }
-    ],
-    "lastUpdated": "2026-08-27T10:00:00.000Z"
+  "occupied": [
+    {
+      "row": 1,
+      "place": 2,
+      "peer": {
+        "intraName": "jdoe",
+        "displayName": "John Doe",
+        "photo": null
+      }
+    }
+  ],
+  "lastUpdated": "2026-08-27T10:00:00.000Z"
 }
 ```
 
 Field meanings:
 
 - `occupied[]` — one entry per occupied place. Places absent from this array are free.
-    - `row` — row number within the cluster; matches `rows[].number` from `/layout`.
-    - `place` — place number within that row; matches `cells[].number` from `/layout`.
-    - `peer` — `{ intraName, displayName, photo }`, all fields `string | null`. Both name fields are passed through raw from the DB; no fallback or priority logic is applied server-side. Presentation is the frontend's decision.
-        - `intraName` — Hive/intra login, or `null` for guest accounts without one.
-        - `displayName` — real name, or `null` if absent.
-        - `photo` — avatar URL, or `null`; frontend uses a default photo when null.
-        - **All three fields may be `null` simultaneously.** The DB schema tracks `occupied` (boolean) and `holderId` (nullable FK) separately; the query filters on `occupied = true` and left-joins the holder. A seat marked occupied with no holder produces a valid record with a null peer. The frontend should render it as occupied (seat taken) but without a name or photo.
-    - No `email` — explicitly excluded per privacy rules.
+  - `row` — row number within the cluster; matches `rows[].number` from `/layout`.
+  - `place` — place number within that row; matches `cells[].number` from `/layout`.
+  - `peer` — `{ intraName, displayName, photo }`, all fields `string | null`. Both name fields are passed through raw from the DB; no fallback or priority logic is applied server-side. Presentation is the frontend's decision.
+    - `intraName` — Hive/intra login, or `null` for guest accounts without one.
+    - `displayName` — real name, or `null` if absent.
+    - `photo` — avatar URL, or `null`; frontend uses a default photo when null.
+    - **All three fields may be `null` simultaneously.** The DB schema tracks `occupied` (boolean) and `holderId` (nullable FK) separately; the query filters on `occupied = true` and left-joins the holder. A seat marked occupied with no holder produces a valid record with a null peer. The frontend should render it as occupied (seat taken) but without a name or photo.
+  - No `email` — explicitly excluded per privacy rules.
 - `lastUpdated` — ISO 8601 timestamp of the last successful DB read. `null` if the occupancy has never been successfully read.
 
 ### Occupancy data source
@@ -290,15 +307,15 @@ When the DB returns occupancy for a place the config doesn't know about:
 
 ```json
 {
-    "clusterNumber": 1,
-    "valid": false,
-    "errors": [
-        {
-            "code": "ORPHANED_OCCUPANCY",
-            "message": "DB record for row 2, place 5 has no matching place in the layout",
-            "path": "clusters[0]"
-        }
-    ]
+  "clusterNumber": 1,
+  "valid": false,
+  "errors": [
+    {
+      "code": "ORPHANED_OCCUPANCY",
+      "message": "DB record for row 2, place 5 has no matching place in the layout",
+      "path": "clusters[0]"
+    }
+  ]
 }
 ```
 
@@ -351,8 +368,12 @@ All events are named so the client can use `addEventListener` rather than `onmes
 
 ```js
 const source = new EventSource("/api/clusters/1/events");
-source.addEventListener("occupancy-delta", (e) => { /* ... */ });
-source.addEventListener("error", (e) => { /* ... */ });
+source.addEventListener("occupancy-delta", (e) => {
+  /* ... */
+});
+source.addEventListener("error", (e) => {
+  /* ... */
+});
 ```
 
 #### `occupancy-delta`
@@ -367,9 +388,9 @@ data: {"occupied":[{"row":1,"place":2,"peer":{"intraName":"jdoe","displayName":"
 
 ```
 
-| Field        | Meaning                                                                                                                    |
-| ------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| `occupied[]` | Places that became occupied, or places already occupied whose peer data changed. Same shape as entries from `/occupancy`.  |
+| Field        | Meaning                                                                                                                   |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| `occupied[]` | Places that became occupied, or places already occupied whose peer data changed. Same shape as entries from `/occupancy`. |
 | `freed[]`    | Places that were occupied and are now free. Identified by `{ row, place }` only — no peer data because the seat is empty. |
 
 Apply a delta by upserting every entry in `occupied` into local state and removing every entry in `freed`. An event where both arrays are empty is never sent.

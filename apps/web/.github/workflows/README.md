@@ -8,8 +8,8 @@ This workflow synchronizes components from the main [untitleduico/react](https:/
 2. Select "Sync Components from Main Repository"
 3. Click "Run workflow"
 4. Configure options:
-    - **Directories**: Which directories to sync (default: `components,hooks,utils,styles`)
-    - **Sync mode**: Choose between `all` or `existing-only`
+   - **Directories**: Which directories to sync (default: `components,hooks,utils,styles`)
+   - **Sync mode**: Choose between `all` or `existing-only`
 5. Click "Run workflow" to start the sync
 
 ## What it does

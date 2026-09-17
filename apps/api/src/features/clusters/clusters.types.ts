@@ -1,12 +1,12 @@
 import type { z } from "zod";
 import type {
-    cellConfigSchema,
-    clusterConfigSchema,
-    clusterRowConfigSchema,
-    clustersConfigFileSchema,
-    gapCellConfigSchema,
-    placeCellConfigSchema,
-    positionSchema,
+  cellConfigSchema,
+  clusterConfigSchema,
+  clusterRowConfigSchema,
+  clustersConfigFileSchema,
+  gapCellConfigSchema,
+  placeCellConfigSchema,
+  positionSchema,
 } from "./clusters.schema";
 
 export type Position = z.infer<typeof positionSchema>;
@@ -18,31 +18,37 @@ export type ClusterConfig = z.infer<typeof clusterConfigSchema>;
 export type ClustersConfigFile = z.infer<typeof clustersConfigFileSchema>;
 
 // PlaceCellConfig with position resolved to a definite value (never undefined).
-export type ResolvedPlaceCellConfig = Omit<PlaceCellConfig, "position"> & { position: Position };
+export type ResolvedPlaceCellConfig = Omit<PlaceCellConfig, "position"> & {
+  position: Position;
+};
 export type ResolvedCellConfig = ResolvedPlaceCellConfig | GapCellConfig;
 
 export type OccupancyRow = {
-    row: number;
-    place: number;
-    intraName: string | null;
-    displayName: string | null;
-    photo: string | null;
+  row: number;
+  place: number;
+  intraName: string | null;
+  displayName: string | null;
+  photo: string | null;
 };
 
 // Response types for /layout
 export type ClusterLayoutResponse = {
-    cluster: { id: string; number: number; label: string };
-    rows: ClusterRowConfig[];
+  cluster: { id: string; number: number; label: string };
+  rows: ClusterRowConfig[];
 };
 
 // Response types for /occupancy
 export type OccupiedEntry = {
-    row: number;
-    place: number;
-    peer: { intraName: string | null; displayName: string | null; photo: string | null };
+  row: number;
+  place: number;
+  peer: {
+    intraName: string | null;
+    displayName: string | null;
+    photo: string | null;
+  };
 };
 
 export type ClusterOccupancyResponse = {
-    occupied: OccupiedEntry[];
-    lastUpdated: string | null;
+  occupied: OccupiedEntry[];
+  lastUpdated: string | null;
 };

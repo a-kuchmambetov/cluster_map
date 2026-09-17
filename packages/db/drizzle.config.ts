@@ -6,14 +6,16 @@ import { DATABASE_URL } from "./src/env";
 dotenv.config({ path: resolve(process.cwd(), "../../.env") });
 
 if (!DATABASE_URL) {
-    throw new Error("DATABASE_URL or PG_USER, PG_PASSWORD, and PG_DB must be set");
+  throw new Error(
+    "DATABASE_URL or PG_USER, PG_PASSWORD, and PG_DB must be set",
+  );
 }
 
 export default defineConfig({
-    out: "./migrations",
-    schema: ["./src/schema/index.ts"],
-    dialect: "postgresql",
-    dbCredentials: {
-        url: DATABASE_URL,
-    },
+  out: "./migrations",
+  schema: ["./src/schema/index.ts"],
+  dialect: "postgresql",
+  dbCredentials: {
+    url: DATABASE_URL,
+  },
 });

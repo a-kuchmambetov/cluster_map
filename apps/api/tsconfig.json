@@ -1,16 +1,16 @@
 {
-    "extends": "../../tsconfig.base.json",
-    "compilerOptions": {
-        "outDir": "./dist",
-        "rootDir": "./src",
-        "paths": {
-            "@middleware/*": ["./src/middleware/*"],
-            "@features/*": ["./src/features/*"],
-            "@config/*": ["./src/config/*"]
-        },
-        "declaration": false,
-        "declarationMap": false
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "paths": {
+      "@middleware/*": ["./src/middleware/*"],
+      "@features/*": ["./src/features/*"],
+      "@config/*": ["./src/config/*"]
     },
-    "include": ["src", "src/**/*", "../../packages/errors/app-error.ts"],
-    "exclude": ["node_modules", "dist"]
+    "declaration": false,
+    "declarationMap": false
+  },
+  "include": ["src", "src/**/*", "../../packages/errors/app-error.ts"],
+  "exclude": ["node_modules", "dist"]
 }

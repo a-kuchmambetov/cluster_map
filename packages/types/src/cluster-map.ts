@@ -20,9 +20,9 @@ export type PlaceStatus = "free" | "occupied";
  * intra name, display name, and optional photo.
  */
 export interface Peer {
-    intraName: string | null;
-    displayName: string | null;
-    photo: string | null;
+  intraName: string | null;
+  displayName: string | null;
+  photo: string | null;
 }
 /**
  * A real, numbered place in the cluster layout.
@@ -33,11 +33,11 @@ export interface Peer {
  * `peer` is null when the place is free.
  */
 export type PlaceCell = {
-    kind: "place";
-    id: string;
-    number: number;
-    status: PlaceStatus;
-    peer: Peer | null;
+  kind: "place";
+  id: string;
+  number: number;
+  status: PlaceStatus;
+  peer: Peer | null;
 };
 /**
  * A visual gap in the physical layout.
@@ -46,7 +46,7 @@ export type PlaceCell = {
  * The frontend should render it as empty space without interaction.
  */
 export type GapCell = {
-    kind: "gap";
+  kind: "gap";
 };
 /**
  * A cell in a row can be either a real place or a layout gap.
@@ -70,9 +70,9 @@ export type MapCell = PlaceCell | GapCell;
  * Used both by the cluster picker and by the map response.
  */
 export type Cluster = {
-    id: string;
-    number: number;
-    label: string;
+  id: string;
+  number: number;
+  label: string;
 };
 /**
  * A row inside a cluster.
@@ -82,10 +82,10 @@ export type Cluster = {
  */
 
 export type ClusterRow = {
-    id: string;
-    number: number;
-    label: string;
-    cells: MapCell[];
+  id: string;
+  number: number;
+  label: string;
+  cells: MapCell[];
 };
 /**
  * Pre-calculated availability information returned by the API.
@@ -96,9 +96,9 @@ export type ClusterRow = {
  * `total` does not include layout gaps.
  */
 export type ClusterMapSummary = {
-    free: number;
-    occupied: number;
-    total: number;
+  free: number;
+  occupied: number;
+  total: number;
 };
 /**
  * A non-fatal problem encountered while building the map.
@@ -109,8 +109,8 @@ export type ClusterMapSummary = {
  * The API keeps the valid map data and reports the problem here.
  */
 export type MapWarning = {
-    code: string;
-    message: string;
+  code: string;
+  message: string;
 };
 /**
  * Complete response returned by:
@@ -121,11 +121,11 @@ export type MapWarning = {
  * the Cluster Map.
  */
 export type ClusterMapResponse = {
-    cluster: Cluster;
-    rows: ClusterRow[];
-    summary: ClusterMapSummary;
-    lastUpdated: string | null;
-    warnings: MapWarning[];
+  cluster: Cluster;
+  rows: ClusterRow[];
+  summary: ClusterMapSummary;
+  lastUpdated: string | null;
+  warnings: MapWarning[];
 };
 /**
  * Response returned by:
@@ -135,16 +135,16 @@ export type ClusterMapResponse = {
  * Used by the frontend to populate the cluster selector.
  */
 export type ClusterListResponse = {
-    clusters: Cluster[];
+  clusters: Cluster[];
 };
 
 /**
  * Describes one validation problem in a cluster layout configuration.
  */
 export type ConfigValidationError = {
-    code: string;
-    message: string;
-    path: string;
+  code: string;
+  message: string;
+  path: string;
 };
 
 /**
@@ -153,7 +153,7 @@ export type ConfigValidationError = {
  * GET /api/clusters/:clusterNumber/config-validation
  */
 export type ConfigValidationResponse = {
-    clusterNumber: number;
-    valid: boolean;
-    errors: ConfigValidationError[];
+  clusterNumber: number;
+  valid: boolean;
+  errors: ConfigValidationError[];
 };

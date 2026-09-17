@@ -11,23 +11,26 @@ const DB_PING_TIMEOUT_MS = 2000;
 // missing/broken DB dependency degrades this endpoint instead of crashing
 // the process.
 export async function isDatabaseReachable(): Promise<boolean> {
+  try {
+    const { db } = await import("@repo/db");
+
+    let timeoutHandle: NodeJS.Timeout;
+    const timeout = new Promise<never>((_resolve, reject) => {
+      timeoutHandle = setTimeout(
+        () => reject(new Error("Database ping timed out")),
+        DB_PING_TIMEOUT_MS,
+      );
+    });
+
     try {
-        const { db } = await import("@repo/db");
-
-        let timeoutHandle: NodeJS.Timeout;
-        const timeout = new Promise<never>((_resolve, reject) => {
-            timeoutHandle = setTimeout(() => reject(new Error("Database ping timed out")), DB_PING_TIMEOUT_MS);
-        });
-
-        try {
-            await Promise.race([db.execute("SELECT 1"), timeout]);
-            return true;
-        } finally {
-            clearTimeout(timeoutHandle!);
-        }
-    } catch {
-        return false;
+      await Promise.race([db.execute("SELECT 1"), timeout]);
+      return true;
+    } finally {
+      clearTimeout(timeoutHandle!);
     }
+  } catch {
+    return false;
+  }
 }
 
 // healthHandler is a factory, not a plain Express handler. Express calls
@@ -37,18 +40,18 @@ export async function isDatabaseReachable(): Promise<boolean> {
 // unit tests call the returned handler directly. The factory keeps `checkDb`
 // out of the Express signature entirely so that bug can't happen.
 export function healthHandler(
-    checkDb: () => Promise<boolean>,
+  checkDb: () => Promise<boolean>,
 ): (req: Request, res: Response) => Promise<void> {
-    return async (_req, res) => {
-        const dbReachable = await checkDb();
+  return async (_req, res) => {
+    const dbReachable = await checkDb();
 
-        if (!dbReachable) {
-            res.status(503).json({ status: "degraded", db: "unreachable" });
-            return;
-        }
+    if (!dbReachable) {
+      res.status(503).json({ status: "degraded", db: "unreachable" });
+      return;
+    }
 
-        res.json({ status: "ok", db: "ok" });
-    };
+    res.json({ status: "ok", db: "ok" });
+  };
 }
 
 healthRouter.get("/", healthHandler(isDatabaseReachable));

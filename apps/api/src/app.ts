@@ -9,7 +9,8 @@ export const app: express.Express = express();
 
 app.use(requestLogger);
 
-const origin = process.env.NODE_ENV === "development" ? [env.WEB_ORIGIN] : env.WEB_ORIGIN;
+const origin =
+  process.env.NODE_ENV === "development" ? [env.WEB_ORIGIN] : env.WEB_ORIGIN;
 
 app.use(cors({ origin: origin, credentials: true }));
 
