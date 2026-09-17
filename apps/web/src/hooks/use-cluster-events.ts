@@ -27,13 +27,7 @@ export const useClusterEvents = ({
     useEffect(() => {
         // The stream is opened only after the initial occupancy snapshot
         // has loaded successfully.
-        //
-        // In mock mode there is no real SSE endpoint, so the hook is disabled.
-        if (
-            !enabled ||
-            import.meta.env.VITE_USE_MOCK_API === "true" ||
-            import.meta.env.VITE_ENABLE_SSE !== "true"
-        ) {
+        if (!enabled) {
             return;
         }
 
