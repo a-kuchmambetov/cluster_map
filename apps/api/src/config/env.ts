@@ -24,3 +24,12 @@ const pgPort = process.env.PG_PORT ?? "5432";
 const pgPassword = process.env.PG_PASSWORD ?? "app";
 
 export const DATABASE_URL = `postgres://${encodeURIComponent(pgUser)}:${encodeURIComponent(pgPassword)}@${pgHost}:${pgPort}/${pgDb}`;
+
+const authEnvSchema = z.object({
+  BETTER_AUTH_SECRET: z.string().min(32),
+  BETTER_AUTH_URL: z.string().url(),
+});
+export type AuthEnv = z.infer<typeof authEnvSchema>;
+export function getAuthEnv(): AuthEnv {
+  return authEnvSchema.parse(process.env);
+}

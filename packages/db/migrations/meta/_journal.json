@@ -15,6 +15,13 @@
       "when": 1789109566923,
       "tag": "0001_clean_penance",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789642258165,
+      "tag": "0002_admin_approval",
+      "breakpoints": true
     }
   ]
 }

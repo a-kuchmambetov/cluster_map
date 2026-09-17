@@ -12,7 +12,9 @@ export function requestLogger(
   // req.path) as they strip mount prefixes. req.originalUrl is never touched.
   // Split on "?" to drop any query string — query params may carry sensitive input.
   const method = req.method;
-  const path = req.originalUrl.split("?")[0];
+  const path = req.originalUrl
+    .split("?")[0]
+    .replace(/(\/api\/auth\/confirm\/)[^/]+/gi, "$1[REDACTED]");
 
   res.on("finish", () => {
     const ms = Date.now() - start;

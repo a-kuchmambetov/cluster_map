@@ -92,3 +92,18 @@ describe("requestLogger", () => {
     expect(line).not.toContain("foo=bar");
   });
 });
+
+it("redacts verification tokens from request logs", () => {
+  const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+  try {
+    const { req, res, next, emitter } = makeArgs({
+      originalUrl: "/api/auth/confirm/secret-token?token=also-secret",
+    });
+    requestLogger(req, res, next);
+    emitter.emit("finish");
+    expect(spy.mock.calls[0][0]).toContain("/api/auth/confirm/[REDACTED]");
+    expect(spy.mock.calls[0][0]).not.toContain("secret");
+  } finally {
+    spy.mockRestore();
+  }
+});

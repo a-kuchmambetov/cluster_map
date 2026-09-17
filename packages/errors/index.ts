@@ -1,4 +1,5 @@
 export type AppErrorCode =
+  | "TOO_MANY_REQUESTS"
   | "BAD_REQUEST"
   | "UNAUTHORIZED"
   | "FORBIDDEN"
