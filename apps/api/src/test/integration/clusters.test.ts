@@ -4,6 +4,10 @@ import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { app } from "../../app";
 import { resetPool, writeSharedSnapshot } from "../../features/clusters/clusters.pool";
+
+// Captured before vi.useFakeTimers() runs so it always refers to the real
+// implementation — used in openSSE's timeout guard and the "no event" race.
+const realSetTimeout = setTimeout;
 import type { OccupancyRow } from "../../features/clusters/clusters.types";
 
 // Cluster 1, row 1 layout: places 1–8, a gap, then places 9–11.
@@ -241,9 +245,9 @@ function openSSE(
                 nextEvent: () =>
                     new Promise((res, rej) => {
                         eventResolve = res;
-                        // Real setTimeout (not faked) so advancing fake timers
-                        // doesn't accidentally fire this guard.
-                        setTimeout(() => rej(new Error("SSE event timeout")), 5_000);
+                        // realSetTimeout (captured before vi.useFakeTimers) so
+                        // advancing the fake clock can't fire this guard early.
+                        realSetTimeout(() => rej(new Error("SSE event timeout")), 5_000);
                     }),
                 close: () => req.destroy(),
             });
@@ -282,10 +286,11 @@ describe("GET /api/clusters/:clusterNumber/events — stream", () => {
     let port: number;
 
     beforeEach(async () => {
-        // Only fake setInterval/clearInterval — what the pool uses for polling.
-        // setTimeout stays real so the openSSE timeout guard and server.listen
-        // callback are not affected by vi.advanceTimersByTimeAsync.
-        vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+        // Fake only setTimeout/clearTimeout — what the pool uses for the poll
+        // chain. realSetTimeout (module-level) keeps the openSSE guard and the
+        // "no event" race on the real clock, so vi.advanceTimersByTimeAsync
+        // can't accidentally fire them.
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
         resetPool();
         getClusterOccupancyMock.mockReset();
 
@@ -375,13 +380,16 @@ describe("GET /api/clusters/:clusterNumber/events — stream", () => {
         // always time out regardless of what the mock returns.
         const eventPromise = nextEvent();
         await vi.advanceTimersByTimeAsync(30_000);
+        // realSetTimeout (real clock) gives I/O 200 ms to deliver any event that
+        // was emitted. If eventPromise is still pending after 200 ms, nothing was
+        // sent. If a wrong mock causes an event to arrive, it wins the race first.
         const result = await Promise.race([
             eventPromise.then(() => "got-event" as const),
-            new Promise<"timeout">((res) => setTimeout(() => res("timeout"), 200)),
+            new Promise<"no-event">((res) => realSetTimeout(() => res("no-event"), 200)),
         ]);
         close();
 
-        expect(result).toBe("timeout");
+        expect(result).toBe("no-event");
     });
 
     it("sends an error event when the DB is unavailable", async () => {
