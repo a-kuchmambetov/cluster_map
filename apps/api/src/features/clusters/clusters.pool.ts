@@ -137,6 +137,30 @@ function schedulePoll(clusterId: string): void {
   timers.set(clusterId, timer);
 }
 
+// Schedules one poll after POLL_INTERVAL_MS, then chains the next one when it
+// finishes. Because the next timeout is only registered after the current poll
+// resolves, two polls for the same cluster can never run concurrently.
+function schedulePoll(clusterId: string): void {
+    const timer = setTimeout(() => {
+        timers.delete(clusterId);
+        poll(clusterId)
+            .catch(() => {
+                // poll() handles its own errors internally (DB_UNAVAILABLE event);
+                // this catch prevents unhandled-rejection noise.
+            })
+            .finally(() => {
+                // Only reschedule if the cluster still has active subscribers.
+                // This covers the case where the last subscriber left while the
+                // poll was in flight.
+                const subs = subscribers.get(clusterId);
+                if (subs && subs.size > 0) {
+                    schedulePoll(clusterId);
+                }
+            });
+    }, POLL_INTERVAL_MS);
+    timers.set(clusterId, timer);
+}
+
 // Returns an unsubscribe function. The caller (SSE handler) must call it when
 // the client disconnects.
 export function subscribe(clusterId: string, emit: EmitFn): () => void {
