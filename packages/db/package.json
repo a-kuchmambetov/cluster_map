@@ -1,31 +1,31 @@
 {
-    "name": "@repo/db",
-    "version": "0.0.0",
-    "private": true,
-    "main": "./dist/index.js",
-    "types": "./dist/index.d.ts",
-    "exports": {
-        ".": {
-            "types": "./dist/index.d.ts",
-            "default": "./dist/index.js"
-        }
-    },
-    "scripts": {
-        "build": "tsc",
-        "db:generate": "drizzle-kit generate",
-        "db:migrate": "drizzle-kit migrate",
-        "db:studio": "drizzle-kit studio",
-        "typecheck": "tsc --noEmit"
-    },
-    "dependencies": {
-        "drizzle-kit": "^0.28.0",
-        "drizzle-orm": "^0.36.0",
-        "dotenv": "^16.4.5",
-        "pg": "^8.13.1"
-    },
-    "devDependencies": {
-        "@types/node": "25.5.0",
-        "@types/pg": "^8.11.10",
-        "typescript": "7.0.1-rc"
+  "name": "@repo/db",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     }
+  },
+  "scripts": {
+    "build": "tsc",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "drizzle-kit": "^0.28.0",
+    "drizzle-orm": "^0.36.0",
+    "dotenv": "^16.4.5",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@types/node": "25.5.0",
+    "@types/pg": "^8.11.10",
+    "typescript": "7.0.1-rc"
+  }
 }

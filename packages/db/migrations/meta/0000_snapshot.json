@@ -28,9 +28,7 @@
         "cluster_name_unique": {
           "name": "cluster_name_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "name"
-          ]
+          "columns": ["name"]
         }
       },
       "policies": {},
@@ -116,12 +114,8 @@
           "name": "position_row_id_row_id_fk",
           "tableFrom": "position",
           "tableTo": "row",
-          "columnsFrom": [
-            "row_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["row_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -129,12 +123,8 @@
           "name": "position_holder_id_user_hive_info_id_fk",
           "tableFrom": "position",
           "tableTo": "user_hive_info",
-          "columnsFrom": [
-            "holder_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["holder_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -144,10 +134,7 @@
         "position_row_seat_unique": {
           "name": "position_row_seat_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "row_id",
-            "seat_number"
-          ]
+          "columns": ["row_id", "seat_number"]
         }
       },
       "policies": {},
@@ -199,12 +186,8 @@
           "name": "row_cluster_id_cluster_id_fk",
           "tableFrom": "row",
           "tableTo": "cluster",
-          "columnsFrom": [
-            "cluster_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["cluster_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -214,10 +197,7 @@
         "row_cluster_number_unique": {
           "name": "row_cluster_number_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "cluster_id",
-            "number"
-          ]
+          "columns": ["cluster_id", "number"]
         }
       },
       "policies": {},
@@ -253,12 +233,8 @@
           "name": "user_hive_info_id_user_id_fk",
           "tableFrom": "user_hive_info",
           "tableTo": "user",
-          "columnsFrom": [
-            "id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -268,9 +244,7 @@
         "user_hive_info_login_unique": {
           "name": "user_hive_info_login_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "login"
-          ]
+          "columns": ["login"]
         }
       },
       "policies": {},
@@ -383,12 +357,8 @@
           "name": "account_user_id_user_id_fk",
           "tableFrom": "account",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -475,12 +445,8 @@
           "name": "session_user_id_user_id_fk",
           "tableFrom": "session",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -490,9 +456,7 @@
         "session_token_unique": {
           "name": "session_token_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token"
-          ]
+          "columns": ["token"]
         }
       },
       "policies": {},
@@ -556,9 +520,7 @@
         "user_email_unique": {
           "name": "user_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {},

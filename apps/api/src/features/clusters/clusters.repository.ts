@@ -11,20 +11,22 @@ import { and, eq } from "drizzle-orm";
 //     return OCCUPANCY_FIXTURES[clusterKey] ?? [];
 // };
 
-export async function getClusterOccupancy(clusterId: string): Promise<OccupancyRow[]> {
-    const occupancy = await db
-        .select({
-            row: row.number,
-            place: position.seatNumber,
-            intraName: userHiveInfo.login,
-            displayName: user.name,
-            photo: user.image,
-        })
-        .from(position)
-        .innerJoin(row, eq(position.rowId, row.id))
-        .innerJoin(cluster, eq(row.clusterId, cluster.id))
-        .leftJoin(userHiveInfo, eq(position.holderId, userHiveInfo.id))
-        .leftJoin(user, eq(userHiveInfo.id, user.id))
-        .where(and(eq(cluster.name, clusterId), eq(position.occupied, true)));
-    return occupancy;
+export async function getClusterOccupancy(
+  clusterId: string,
+): Promise<OccupancyRow[]> {
+  const occupancy = await db
+    .select({
+      row: row.number,
+      place: position.seatNumber,
+      intraName: userHiveInfo.login,
+      displayName: user.name,
+      photo: user.image,
+    })
+    .from(position)
+    .innerJoin(row, eq(position.rowId, row.id))
+    .innerJoin(cluster, eq(row.clusterId, cluster.id))
+    .leftJoin(userHiveInfo, eq(position.holderId, userHiveInfo.id))
+    .leftJoin(user, eq(userHiveInfo.id, user.id))
+    .where(and(eq(cluster.name, clusterId), eq(position.occupied, true)));
+  return occupancy;
 }
