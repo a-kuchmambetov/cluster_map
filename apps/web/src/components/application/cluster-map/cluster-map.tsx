@@ -19,15 +19,27 @@ export const ClusterMap = ({
     refreshing = false,
     stale = false,
 }: ClusterMapProps) => {
+
+
+    const COMPACT_LABEL_GUTTER_REM = 1.5;
+    const COMPACT_MAX_SCALE = 1.8;
+    const COMPACT_MIN_SCALE = 0.8;
+    const COMPACT_SIDE_SPACE_REM = 0.35;
+
     const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(
         null,
     );
+
     const [compactMobile, setCompactMobile] = useState(false);
 
-    const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const [compactScale, setCompactScale] =
+        useState(1);
 
     const [canScrollHorizontally, setCanScrollHorizontally] =
         useState(false);
+
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+
     useEffect(() => {
         const media = window.matchMedia("(max-width: 639px)");
 
@@ -43,12 +55,80 @@ export const ClusterMap = ({
         };
     }, []);
 
-    const handleClosePlace = () => {
-        setSelectedPlaceId(null);
-    };
+    const baseCompactClusterWidth = Math.max(
+        ...map.rows.map((row) =>
+            getClusterRowWidth(row, true, 1),
+        ),
+    );
+
+    useEffect(() => {
+        if (!compactMobile) {
+            setCompactScale(1);
+            return;
+        }
+
+        const container = scrollContainerRef.current;
+
+        if (!container) {
+            return;
+        }
+
+        const updateScale = () => {
+            const rootFontSize =
+                parseFloat(
+                    getComputedStyle(
+                        document.documentElement,
+                    ).fontSize,
+                ) || 16;
+
+            const availableWidthRem =
+                container.clientWidth / rootFontSize;
+
+            const usableWidthRem =
+                availableWidthRem -
+                COMPACT_LABEL_GUTTER_REM -
+                COMPACT_SIDE_SPACE_REM;
+
+            const scale =
+                usableWidthRem /
+                baseCompactClusterWidth;
+
+            setCompactScale(
+                Math.min(
+                    COMPACT_MAX_SCALE,
+                    Math.max(
+                        COMPACT_MIN_SCALE,
+                        scale,
+                    ),
+                ),
+            );
+        };
+
+        updateScale();
+
+        const observer =
+            new ResizeObserver(updateScale);
+
+        observer.observe(container);
+
+        return () => {
+            observer.disconnect();
+        };
+    }, [
+        compactMobile,
+        baseCompactClusterWidth,
+        map.cluster.number,
+    ]);
+
     useEffect(() => {
         setSelectedPlaceId(null);
     }, [map.cluster.number]);
+
+
+    const handleClosePlace = () => {
+        setSelectedPlaceId(null);
+    };
+
 
     const handleSelectPlace = (placeId: string) => {
         setSelectedPlaceId((current) =>
@@ -57,9 +137,14 @@ export const ClusterMap = ({
     };
     const clusterWidth = Math.max(
         ...map.rows.map((row) =>
-            getClusterRowWidth(row, compactMobile),
+            getClusterRowWidth(
+                row,
+                compactMobile,
+                compactScale,
+            ),
         ),
     );
+
     useEffect(() => {
         const container = scrollContainerRef.current;
 
@@ -89,10 +174,6 @@ export const ClusterMap = ({
     }, [clusterWidth, map.cluster.number]);
 
 
-
-
-
-
     return (
         <div className="
                 rounded-2xl
@@ -110,16 +191,17 @@ export const ClusterMap = ({
                 </h2>
 
                 <div className="
-                        flex items-center gap-4
-                        rounded-xl
+                        flex items-center gap-2
+                        rounded-lg
                         bg-cluster-surface-soft
-                        px-4 py-2
+                        px-2 py-1.5
                         sm:gap-6
-                    "
-                >
+                        sm:rounded-xl
+                        sm:px-4 sm:py-2
+                ">
                     {/* Free */}
-                    <div className="min-w-14 text-center">
-                        <div className="text-xl font-semibold text-cluster-free">
+                    <div className="min-w-10 text-center sm:min-w-14">
+                        <div className="text-base font-semibold text-cluster-free sm:text-xl">
                             {map.summary.free}
                         </div>
                         <div className="mt-0.5 text-xs font-medium text-tertiary">
@@ -128,8 +210,8 @@ export const ClusterMap = ({
                     </div>
 
                     {/* Occupied */}
-                    <div className="min-w-14 text-center">
-                        <div className="text-xl font-semibold text-cluster-occupied">
+                    <div className="min-w-10 text-center sm:min-w-14">
+                        <div className="text-base font-semibold text-cluster-occupied sm:text-xl">
                             {map.summary.occupied}
                         </div>
                         <div className="mt-0.5 text-xs font-medium text-tertiary">
@@ -138,8 +220,8 @@ export const ClusterMap = ({
                     </div>
 
                     {/* Total */}
-                    <div className="min-w-14 text-center">
-                        <div className="text-xl font-semibold text-primary">
+                    <div className="min-w-10 text-center sm:min-w-14">
+                        <div className="text-base font-semibold text-primary sm:text-xl">
                             {map.summary.total}
                         </div>
                         <div className="mt-0.5 text-xs font-medium text-tertiary">
@@ -213,9 +295,10 @@ export const ClusterMap = ({
                 className="mt-2 overflow-x-auto overscroll-x-contain pb-2 sm:mt-5"
             >
                 <div
-                    className="mx-auto px-2 sm:px-0"
+                    className="mx-auto"
                     style={{
-                        width: `${clusterWidth + (compactMobile ? 2 : 3)
+                        width: `${clusterWidth +
+                            (compactMobile ? 1.5 : 3)
                             }rem`,
                     }}
                 >
@@ -225,6 +308,7 @@ export const ClusterMap = ({
                             row={row}
                             clusterWidth={clusterWidth}
                             compact={compactMobile}
+                            compactScale={compactScale}
                             selectedPlaceId={selectedPlaceId}
                             onSelectPlace={handleSelectPlace}
                             onClosePlace={handleClosePlace}

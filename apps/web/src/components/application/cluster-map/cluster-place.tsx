@@ -9,14 +9,18 @@ type ClusterPlaceProps = {
     place: ClusterMapPlaceCell;
     selected: boolean;
     compact: boolean;
+    compactScale: number;
     onSelect: () => void;
     onClose: () => void;
 };
+
+
 
 export const ClusterPlace = ({
     place,
     selected,
     compact,
+    compactScale,
     onSelect,
     onClose,
 }: ClusterPlaceProps) => {
@@ -25,6 +29,12 @@ export const ClusterPlace = ({
     const containerRef = useRef<HTMLDivElement>(null);
     const buttonRef = useRef<HTMLButtonElement>(null);
     const popupRef = useRef<HTMLDivElement>(null);
+
+    const compactSize = 1.35 * compactScale;
+    const compactFontSize = Math.min(
+        10,
+        7 * compactScale,
+    );
 
     const [popupPosition, setPopupPosition] = useState<{
         top: number;
@@ -189,11 +199,22 @@ export const ClusterPlace = ({
                     }`}
                 className={`
                     group relative
-                    ${compact ? "h-[1.35rem] w-[1.35rem]" : "h-16 w-16"}
+                    ${compact ? "" : "h-16 w-16"}
                     transition-transform duration-150
                     focus:outline-none
-                    ${isOccupied && !compact ? "hover:-translate-y-0.5" : ""}
+                    ${isOccupied && !compact
+                        ? "hover:-translate-y-0.5"
+                        : ""
+                    }
                 `}
+                style={
+                    compact
+                        ? {
+                            width: `${compactSize}rem`,
+                            height: `${compactSize}rem`,
+                        }
+                        : undefined
+                }
             >
                 <svg
                     viewBox="0 0 100 100"
@@ -260,10 +281,16 @@ export const ClusterPlace = ({
                     style={{ color: styles.text }}
                 >
                     <span
-                        className={
+                        className={`
+                            font-mono font-medium
+                            ${compact ? "" : "text-xs"}
+                        `}
+                        style={
                             compact
-                                ? "font-mono text-[7px] font-medium"
-                                : "font-mono text-xs font-medium"
+                                ? {
+                                    fontSize: `${compactFontSize}px`,
+                                }
+                                : undefined
                         }
                     >
                         {place.number}
