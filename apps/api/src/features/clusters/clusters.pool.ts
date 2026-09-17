@@ -56,7 +56,7 @@ const sharedSnapshots = new Map<string, OccupiedEntry[]>();
 
 // Pool state — keyed by cluster DB id.
 const subscribers = new Map<string, Set<EmitFn>>();
-const timers = new Map<string, ReturnType<typeof setInterval>>();
+const timers = new Map<string, ReturnType<typeof setTimeout>>();
 
 // Called by /occupancy after every successful fetch.
 export function writeSharedSnapshot(clusterId: string, entries: OccupiedEntry[]): void {
@@ -101,6 +101,30 @@ async function poll(clusterId: string): Promise<void> {
     }
 }
 
+// Schedules one poll after POLL_INTERVAL_MS, then chains the next one when it
+// finishes. Because the next timeout is only registered after the current poll
+// resolves, two polls for the same cluster can never run concurrently.
+function schedulePoll(clusterId: string): void {
+    const timer = setTimeout(() => {
+        timers.delete(clusterId);
+        poll(clusterId)
+            .catch(() => {
+                // poll() handles its own errors internally (DB_UNAVAILABLE event);
+                // this catch prevents unhandled-rejection noise.
+            })
+            .finally(() => {
+                // Only reschedule if the cluster still has active subscribers.
+                // This covers the case where the last subscriber left while the
+                // poll was in flight.
+                const subs = subscribers.get(clusterId);
+                if (subs && subs.size > 0) {
+                    schedulePoll(clusterId);
+                }
+            });
+    }, POLL_INTERVAL_MS);
+    timers.set(clusterId, timer);
+}
+
 // Returns an unsubscribe function. The caller (SSE handler) must call it when
 // the client disconnects.
 export function subscribe(clusterId: string, emit: EmitFn): () => void {
@@ -110,13 +134,7 @@ export function subscribe(clusterId: string, emit: EmitFn): () => void {
     subscribers.get(clusterId)!.add(emit);
 
     if (!timers.has(clusterId)) {
-        const timer = setInterval(() => {
-            poll(clusterId).catch(() => {
-                // poll() handles its own errors internally (DB_UNAVAILABLE event);
-                // this catch prevents unhandled-rejection noise from the interval.
-            });
-        }, POLL_INTERVAL_MS);
-        timers.set(clusterId, timer);
+        schedulePoll(clusterId);
     }
 
     return () => unsubscribe(clusterId, emit);
@@ -131,7 +149,7 @@ function unsubscribe(clusterId: string, emit: EmitFn): void {
     if (subs.size === 0) {
         const timer = timers.get(clusterId);
         if (timer !== undefined) {
-            clearInterval(timer);
+            clearTimeout(timer);
             timers.delete(clusterId);
         }
         subscribers.delete(clusterId);
@@ -144,7 +162,7 @@ function unsubscribe(clusterId: string, emit: EmitFn): void {
 
 // For tests only — resets all module-level state so pool tests are isolated.
 export function resetPool(): void {
-    for (const timer of timers.values()) clearInterval(timer);
+    for (const timer of timers.values()) clearTimeout(timer);
     timers.clear();
     subscribers.clear();
     sharedSnapshots.clear();

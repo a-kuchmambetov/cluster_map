@@ -200,4 +200,60 @@ describe("subscribe", () => {
 
         expect(emit).not.toHaveBeenCalled();
     });
+
+    it("a slow poll does not produce a second concurrent query before it finishes", async () => {
+        // First DB call hangs until we manually resolve it.
+        let resolveFirst!: (value: unknown[]) => void;
+        getClusterOccupancyMock
+            .mockImplementationOnce(
+                () => new Promise<unknown[]>(resolve => { resolveFirst = resolve; })
+            )
+            .mockResolvedValue([]);
+
+        subscribe("c1", vi.fn());
+
+        // First poll fires and is now in flight.
+        await vi.advanceTimersByTimeAsync(30_000);
+        expect(getClusterOccupancyMock).toHaveBeenCalledTimes(1);
+
+        // Another 30 s passes — no second poll because the chained timeout
+        // isn't scheduled until the first one resolves.
+        await vi.advanceTimersByTimeAsync(30_000);
+        expect(getClusterOccupancyMock).toHaveBeenCalledTimes(1);
+
+        // Let the first poll finish; .finally() should now schedule the next timeout.
+        resolveFirst([]);
+        for (let i = 0; i < 10; i++) await Promise.resolve();
+
+        // Advance 30 s more: the second poll fires.
+        await vi.advanceTimersByTimeAsync(30_000);
+        expect(getClusterOccupancyMock).toHaveBeenCalledTimes(2);
+    });
+
+    it("a cluster removed during an in-flight poll does not restart the poller", async () => {
+        // DB call hangs so we can control exactly when it resolves.
+        let resolveOccupancy!: (value: unknown[]) => void;
+        getClusterOccupancyMock.mockImplementationOnce(
+            () => new Promise<unknown[]>(resolve => { resolveOccupancy = resolve; })
+        );
+
+        const emit = vi.fn();
+        const unsubscribe = subscribe("c1", emit);
+
+        // Fire the first poll (now in flight).
+        await vi.advanceTimersByTimeAsync(30_000);
+        expect(getClusterOccupancyMock).toHaveBeenCalledTimes(1);
+
+        // Last subscriber leaves while the poll is still awaiting the DB.
+        unsubscribe();
+
+        // Let the in-flight poll resolve — .finally() must not schedule another timeout.
+        resolveOccupancy([]);
+        for (let i = 0; i < 10; i++) await Promise.resolve();
+
+        // Advancing time should produce no further polls.
+        getClusterOccupancyMock.mockClear();
+        await vi.advanceTimersByTimeAsync(60_000);
+        expect(getClusterOccupancyMock).not.toHaveBeenCalled();
+    });
 });
