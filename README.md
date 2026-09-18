@@ -46,4 +46,41 @@ Tools:
 - Docusaurus (Static site generator for project documentation)
 - Hetzner dedicated / VPS
 - Cloudflare (temporary domain/dns for map-hive.pp.ua)
+
+## Demo database
+
+Configure the root `.env` with local `PG_*` connection settings, a
+`BETTER_AUTH_SECRET` of at least 32 characters, and `BETTER_AUTH_URL`
+(for example, `http://localhost:5000`). Then run:
+
+```bash
+pnpm db:up
+pnpm db:migrate
+pnpm db:seed
+```
+
+The seed uses the cluster IDs, rows, and seats from `apps/api/src/config/clusters.json`
+so the demo occupancy appears in `apps/web`: cluster 1 is mixed, cluster 2 is empty,
+and cluster 3 is full. It creates enough demo members for the occupied seats
+and these accounts through Better Auth:
+
+| Email                                                             | State                            |
+| ----------------------------------------------------------------- | -------------------------------- |
+| `demo-admin@example.test`                                         | Approved administrator           |
+| `demo-member-<number>@example.test` | Approved members                 |
+| `demo-pending@example.test`                                       | Pending approval; cannot sign in |
+
+New accounts share the development password `Demo-password-123!`.
+Run this only against a development database; `NODE_ENV=production` is rejected.
+The script uses the same `PG_*` settings as the application.
+
+Reruns insert missing records and preserve existing passwords, approval states,
+roles, and seat occupancy. The `demo-*` logins/emails are reserved for this dataset.
+If you ran the older seed with `Demo: *` clusters, rerun `pnpm db:seed` to add
+occupancy for the configured map clusters; the old demo clusters are preserved. Map inserts run in a transaction; authentication
+accounts are created separately through Better Auth. No existing data is deleted.
+
+Automated integration tests should use their own migrated, disposable database
+and create scenario-specific fixtures rather than depending on this demo seed.
+
 - Pnpm (mono-repo)
