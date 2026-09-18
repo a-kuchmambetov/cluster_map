@@ -1,86 +1,225 @@
-import {
-  BookOpen01,
-  Check,
-  Copy01,
-  Cube01,
-  HelpCircle,
-} from "@untitledui/icons";
-import { Button } from "@/components/base/buttons/button";
-import { ButtonUtility } from "@/components/base/buttons/button-utility";
-import { UntitledLogoMinimal } from "@/components/foundations/logo/untitledui-logo-minimal";
-import { useClipboard } from "@/hooks/use-clipboard";
+import { useState } from "react";
+import { useClusters } from "@/hooks/use-clusters";
+import { useClusterLayout } from "@/hooks/use-cluster-layout";
+import { useClusterOccupancy } from "@/hooks/use-cluster-occupancy";
+import { buildClusterMapView } from "@/utils/build-cluster-map-view";
+import { ClusterSelector } from "@/components/application/cluster-map/cluster-selector";
+import { ClusterMap } from "@/components/application/cluster-map/cluster-map";
+import { useClusterEvents } from "@/hooks/use-cluster-events";
 
 export const HomeScreen = () => {
-  const clipboard = useClipboard();
+    const {
+        data: clustersData,
+        loading: clustersLoading,
+        error: clustersError,
+    } = useClusters();
 
-  return (
-    <div className="flex h-dvh flex-col">
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-4">
-        <div className="relative flex size-28 items-center justify-center">
-          <UntitledLogoMinimal className="size-10" />
+    const [selectedCluster, setSelectedCluster] = useState(1);
+
+    const {
+        data: layoutData,
+        loading: layoutLoading,
+        error: layoutError,
+        refetch: refetchLayout,
+    } = useClusterLayout(selectedCluster);
+
+    const {
+        data: occupancyData,
+        loading: occupancyLoading,
+        refreshing: occupancyRefreshing,
+        stale: occupancyStale,
+        error: occupancyError,
+        refetch: refetchOccupancy,
+        applyDelta,
+        markStale,
+    } = useClusterOccupancy(selectedCluster);
+
+    useClusterEvents({
+        clusterNumber: selectedCluster,
+        enabled: occupancyData !== null,
+        onDelta: applyDelta,
+        onDbUnavailable: markStale,
+        refetchOccupancy,
+    });
+
+    const mapData =
+        layoutData && occupancyData
+            ? buildClusterMapView(layoutData, occupancyData)
+            : null;
+
+    const mapLoading =
+        (!layoutData && layoutLoading) ||
+        (!occupancyData && occupancyLoading);
+
+    const mapError =
+        (!layoutData ? layoutError : null) ??
+        (!occupancyData ? occupancyError : null);
+
+    if (clustersLoading) {
+        return (
+            <div className="mx-auto w-full max-w-[1280px] px-4 py-6 sm:px-6 lg:px-8">
+                <h1 className="text-3xl font-semibold tracking-tight">
+                    Cluster Map
+                </h1>
+
+                <div className="mt-6 rounded-2xl border border-secondary bg-primary p-6 shadow-sm">
+                    <div className="text-sm text-tertiary">
+                        Loading clusters...
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (clustersError) {
+        return (
+            <div className="mx-auto w-full max-w-[1280px] px-4 py-6 sm:px-6 lg:px-8">
+                <h1 className="text-2xl font-semibold">
+                    Cluster Map
+                </h1>
+
+                <div className="mt-6 rounded-2xl border border-secondary bg-primary p-6 shadow-sm">
+                    <div className="font-medium">
+                        Unable to load clusters
+                    </div>
+
+                    <div className="mt-1 text-sm text-tertiary">
+                        Please try again later.
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="mx-auto w-full max-w-[1280px] px-4 py-6 sm:px-6 lg:px-8">
+            <h1 className="text-3xl font-semibold tracking-tight">
+                Cluster Map
+            </h1>
+
+            <div className="mt-3 space-y-5">
+                <div>
+                    <ClusterSelector
+                        clusters={clustersData?.clusters ?? []}
+                        selectedCluster={selectedCluster}
+                        onSelect={setSelectedCluster}
+                    />
+                </div>
+
+                {mapLoading && (
+                    <div className="
+                            rounded-2xl
+                            border border-cluster-border
+                            bg-cluster-surface
+                            p-4
+                            shadow-xs
+                            sm:p-5
+                    ">
+                        <div className="animate-pulse">
+                            {/* Header */}
+                            <div className="flex items-center justify-between gap-4">
+                                <div className="h-5 w-24 rounded-md bg-cluster-surface-soft" />
+
+                                <div className="
+                                        flex items-center gap-4
+                                        rounded-xl
+                                        bg-cluster-surface-soft
+                                        px-4 py-2
+                                        sm:gap-6
+                                ">
+                                    <div className="h-10 w-12 rounded-md bg-secondary/60" />
+                                    <div className="h-10 w-12 rounded-md bg-secondary/60" />
+                                    <div className="h-10 w-12 rounded-md bg-secondary/60" />
+                                </div>
+                            </div>
+
+                            {/* Map */}
+                            <div className="mt-8 space-y-5">
+                                <div className="flex items-center gap-4">
+                                    <div className="h-4 w-8 rounded bg-secondary/60" />
+                                    <div className="h-16 w-3/4 rounded-xl bg-cluster-surface-soft" />
+                                </div>
+
+                                <div className="flex items-center gap-4">
+                                    <div className="h-4 w-8 rounded bg-secondary/60" />
+                                    <div className="h-16 w-2/3 rounded-xl bg-cluster-surface-soft" />
+                                </div>
+
+                                <div className="flex items-center gap-4">
+                                    <div className="h-4 w-8 rounded bg-secondary/60" />
+                                    <div className="h-16 w-4/5 rounded-xl bg-cluster-surface-soft" />
+                                </div>
+
+                                <div className="flex items-center gap-4">
+                                    <div className="h-4 w-8 rounded bg-secondary/60" />
+                                    <div className="h-16 w-1/2 rounded-xl bg-cluster-surface-soft" />
+                                </div>
+                            </div>
+
+                            {/* Footer */}
+                            <div className="
+                                    mt-6 flex items-center justify-between
+                                    border-t border-cluster-border
+                                    pt-3
+                            ">
+                                <div className="h-4 w-32 rounded bg-secondary/60" />
+                                <div className="h-3 w-28 rounded bg-secondary/60" />
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {mapError && (
+                    <div
+                        className="
+                            rounded-2xl
+                            border border-cluster-border
+                            bg-cluster-surface
+                            p-5
+                            shadow-xs
+                            sm:p-6
+                        "
+                    >
+                        <div className="text-sm font-semibold text-primary">
+                            Unable to load this cluster
+                        </div>
+
+                        <div className="mt-1 text-sm text-tertiary">
+                            {mapError.message}
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={() => {
+                                void refetchLayout();
+                                void refetchOccupancy();
+                            }}
+                            className="
+                                mt-4 rounded-lg
+                                bg-cluster-accent px-4 py-2
+                                text-sm font-medium
+                                text-cluster-accent-text
+                                transition-colors duration-150
+                                hover:bg-cluster-accent-hover
+                                focus-visible:outline-none
+                                focus-visible:ring-2
+                                focus-visible:ring-cluster-accent/40
+                                focus-visible:ring-offset-2
+                            "
+                        >
+                            Try again
+                        </button>
+                    </div>
+                )}
+
+                {mapData && !mapLoading && !mapError && (
+                    <ClusterMap
+                        map={mapData}
+                        refreshing={occupancyRefreshing}
+                        stale={occupancyStale}
+                    />
+                )}
+            </div>
         </div>
-
-        <h1 className="max-w-3xl text-center text-display-sm font-semibold text-primary">
-          Untitled UI Vite starter kit
-        </h1>
-
-        <p className="mt-2 max-w-xl text-center text-lg text-tertiary">
-          Get started by using existing components that came with this starter
-          kit or add new ones:
-        </p>
-
-        <div className="relative mt-6 flex h-10 items-center rounded-lg border border-secondary bg-secondary">
-          <code className="px-3 font-mono text-secondary">
-            npx untitledui@latest add
-          </code>
-
-          <hr className="h-10 w-px bg-border-secondary" />
-
-          <ButtonUtility
-            color="tertiary"
-            size="sm"
-            tooltip="Copy"
-            className="mx-1"
-            icon={clipboard.copied ? Check : Copy01}
-            onClick={() => clipboard.copy("npx untitledui@latest add")}
-          />
-        </div>
-
-        <div className="mt-6 flex items-center gap-3">
-          <Button
-            href="https://www.untitledui.com/react/docs/introduction"
-            target="_blank"
-            rel="noopener noreferrer"
-            color="link-color"
-            size="lg"
-            iconLeading={BookOpen01}
-          >
-            Docs
-          </Button>
-          <div className="h-px w-4 bg-brand-solid" />
-          <Button
-            href="https://www.untitledui.com/react/resources/icons"
-            target="_blank"
-            rel="noopener noreferrer"
-            color="link-color"
-            size="lg"
-            iconLeading={Cube01}
-          >
-            Icons
-          </Button>
-          <div className="h-px w-4 bg-brand-solid" />
-          <Button
-            href="https://github.com/untitleduico/react/issues/"
-            target="_blank"
-            rel="noopener noreferrer"
-            color="link-color"
-            size="lg"
-            iconLeading={HelpCircle}
-          >
-            Help
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
+    );
 };
