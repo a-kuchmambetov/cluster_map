@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { API_BASE_URL } from "../api/config";
 import type {
     OccupancyDelta,
     OccupancyStreamError,
@@ -52,10 +53,6 @@ export const useClusterEvents = ({
                 recoveryTimer = null;
             }
         };
-
-        // Declared before scheduleReconnect because reconnect logic
-        // needs to call openStream after a successful occupancy refresh.
-        let openStream: () => void;
 
         const clearReconnectTimer = () => {
             if (reconnectTimer !== null) {
@@ -137,13 +134,13 @@ export const useClusterEvents = ({
         /**
          * Opens the realtime SSE stream for the selected cluster.
          */
-        openStream = () => {
+        const openStream = (): void => {
             if (cancelled) {
                 return;
             }
 
             source = new EventSource(
-                `${import.meta.env.VITE_API_URL}/api/clusters/${clusterNumber}/events`,
+                `${API_BASE_URL}/clusters/${clusterNumber}/events`,
             );
 
             /**
