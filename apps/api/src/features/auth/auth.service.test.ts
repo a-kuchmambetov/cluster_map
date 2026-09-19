@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { confirm, register } from "./auth.service";
+import { confirm, register, getSession } from "./auth.service";
 
 const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
@@ -76,5 +76,39 @@ describe("administrator approval authorization", () => {
     await expect(
       confirm("consumed-token", new Headers()),
     ).rejects.toMatchObject({ statusCode: 404 });
+  });
+});
+
+describe("session access", () => {
+  it("rejects absent sessions", async () => {
+    mocks.getSession.mockResolvedValue(null);
+    await expect(getSession(new Headers())).rejects.toMatchObject({
+      statusCode: 401,
+    });
+  });
+  it("rejects revoked approval despite a valid session", async () => {
+    mocks.getSession.mockResolvedValue({ user: { id: "1" } });
+    mocks.findAuthUser.mockResolvedValue({ approved: false });
+    await expect(getSession(new Headers())).rejects.toMatchObject({
+      statusCode: 403,
+    });
+  });
+  it("returns only public user fields and bypasses cookie cache", async () => {
+    mocks.getSession.mockResolvedValue({
+      user: {
+        id: "1",
+        name: "Test",
+        email: "test@example.com",
+        emailVerified: false,
+        approvalToken: "secret",
+      },
+    });
+    mocks.findAuthUser.mockResolvedValue({ approved: true });
+    expect((await getSession(new Headers())).user).not.toHaveProperty(
+      "approvalToken",
+    );
+    expect(mocks.getSession).toHaveBeenCalledWith(
+      expect.objectContaining({ query: { disableCookieCache: true } }),
+    );
   });
 });

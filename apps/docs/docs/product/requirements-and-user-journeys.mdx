@@ -31,9 +31,8 @@ The following are out of scope for the first release:
 - user and role administration;
 - an administrative interface.
 
-Authentication is an **open decision**. Earlier requirements assumed both
-anonymous access and Hive authentication; neither is authoritative until the
-access model is decided. Read-only behavior is required in either case. See
+Viewers register with email and password, await administrator approval, and sign
+in before accessing the map. Occupancy remains read-only. See
 [Architecture Decisions](../architecture/decisions#authentication-and-access).
 
 ## Actors

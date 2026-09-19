@@ -1,3 +1,4 @@
+import { apiRequest, ApiError } from "@/lib/http";
 import { API_BASE_URL } from "@/config/api";
 import type { OccupancyDelta, OccupancyStreamError } from "@repo/types";
 
@@ -27,6 +28,7 @@ export const subscribeClusterEvents = ({
   }
 
   let source: EventSource | null = null;
+  const sessionCheck = new AbortController();
 
   // recoveryTimer:
   // Used when SSE is still connected but the API reports DB_UNAVAILABLE.
@@ -135,6 +137,7 @@ export const subscribeClusterEvents = ({
 
     source = new EventSource(
       `${API_BASE_URL}/clusters/${clusterNumber}/events`,
+      { withCredentials: true },
     );
 
     /**
@@ -196,7 +199,22 @@ export const subscribeClusterEvents = ({
       clearRecoveryTimer();
       source?.close();
 
-      scheduleReconnect();
+      void apiRequest("/auth/session", { signal: sessionCheck.signal })
+        .then(() => {
+          if (!cancelled) scheduleReconnect();
+          return undefined;
+        })
+        .catch((error) => {
+          if (
+            error instanceof ApiError &&
+            (error.status === 401 || error.status === 403)
+          ) {
+            cancelled = true;
+            clearReconnectTimer();
+            return;
+          }
+          if (!cancelled) scheduleReconnect();
+        });
     });
   };
 
@@ -206,6 +224,7 @@ export const subscribeClusterEvents = ({
     // Stops timers and async callbacks from reopening a stream
     // after unmount or cluster change.
     cancelled = true;
+    sessionCheck.abort();
 
     clearRecoveryTimer();
     clearReconnectTimer();

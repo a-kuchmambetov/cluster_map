@@ -75,3 +75,26 @@ Untitled UI React open-source components are licensed under the MIT license, whi
 [Untitled UI license agreement →](https://www.untitledui.com/license)
 
 [Frequently asked questions →](https://www.untitledui.com/faqs)
+
+## Authentication
+
+`/login` and `/register` are public. `/` requires a valid Better Auth session and
+administrator approval. Registration displays a pending-approval result; it does
+not sign the user in. Approval uses the existing administrator API; no approval
+or password-reset UI is included.
+
+The auth provider checks `/api/auth/session` before mounting the map. Network
+failures show retry UI; `401` redirects to login and `403` hides private content.
+Logout clears the server session before removing local auth state. Tokens are not
+stored in local/session storage. HTTP and SSE include cookie credentials.
+
+Prefer a same-origin `/api` reverse proxy in production. Set `WEB_ORIGIN` to the
+actual web origin and `BETTER_AUTH_URL` to the externally reachable auth API
+origin. Use HTTPS in production. If `VITE_API_URL` points to another origin,
+verify credentialed CORS and cookie SameSite/domain behavior in the deployed
+browser; arbitrary cross-site cookie deployments are not configured by the web app.
+
+Smoke checks: register and verify the pending result; approve the account via the
+existing administrator flow; sign in; reload `/`; sign out; attempt direct API
+access without a cookie; revoke approval during an open map and verify access
+ends after the next request or stream check (20 seconds plus check latency).

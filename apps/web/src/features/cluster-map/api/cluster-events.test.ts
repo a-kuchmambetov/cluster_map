@@ -28,12 +28,17 @@ describe("cluster event recovery", () => {
     vi.useFakeTimers();
     vi.clearAllMocks();
     vi.stubGlobal("EventSource", FakeEventSource);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }),
+    );
     FakeEventSource.instances = [];
     refetchOccupancy.mockResolvedValue(true);
   });
   afterEach(() => {
     unsubscribe?.();
     vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   it("waits for the initial snapshot before opening a stream", () => {
@@ -102,6 +107,18 @@ describe("cluster event recovery", () => {
     unsubscribe?.();
     resolve(true);
     await vi.advanceTimersByTimeAsync(60_000);
+    expect(FakeEventSource.instances).toHaveLength(1);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+  it("stops reconnecting when the session expires", async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({}),
+    } as Response);
+    subscribe();
+    FakeEventSource.instances[0].dispatchEvent(new Event("error"));
+    await vi.advanceTimersByTimeAsync(90_000);
     expect(FakeEventSource.instances).toHaveLength(1);
     expect(vi.getTimerCount()).toBe(0);
   });

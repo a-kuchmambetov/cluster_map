@@ -7,6 +7,8 @@ import * as service from "./auth.service";
 import { authRouter } from "./auth.routes";
 
 vi.mock("./auth.service", () => ({
+  getSession: vi.fn(),
+  logout: vi.fn(),
   register: vi.fn(),
   confirm: vi.fn(),
   login: vi.fn(),
@@ -105,5 +107,41 @@ describe("custom auth routes", () => {
     const result = results.at(-1);
     expect(result!.status).toBe(429);
     expect(result!.body.code).toBe("TOO_MANY_REQUESTS");
+  });
+});
+
+describe("session lifecycle routes", () => {
+  it("does not throttle routine session checks with the login limiter", async () => {
+    vi.mocked(service.getSession).mockResolvedValue({
+      user: {
+        id: "1",
+        name: "Test",
+        email: "test@example.com",
+        emailVerified: false,
+        image: null,
+      },
+    });
+    const results = await Promise.all(
+      Array.from({ length: 12 }, () => request(app).get("/api/auth/session")),
+    );
+    expect(results.every((result) => result.status === 200)).toBe(true);
+  });
+  it("clears cookies on logout and rejects untrusted origins", async () => {
+    vi.mocked(service.logout).mockResolvedValue({
+      headers: new Headers({
+        "set-cookie": "session=; Max-Age=0; HttpOnly; Path=/",
+      }),
+      response: { success: true, url: undefined, redirect: undefined },
+    });
+    const result = await request(app).post("/api/auth/logout");
+    expect(result.status).toBe(200);
+    expect(result.headers["set-cookie"][0]).toContain("Max-Age=0");
+    expect(
+      (
+        await request(app)
+          .post("/api/auth/logout")
+          .set("Origin", "https://untrusted.example")
+      ).status,
+    ).toBe(403);
   });
 });

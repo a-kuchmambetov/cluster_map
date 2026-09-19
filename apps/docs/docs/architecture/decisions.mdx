@@ -22,16 +22,17 @@ These constraints are consistent across the current requirements:
 
 These constraints describe the target product; most are not implemented yet.
 
-## Open decisions
+## Access decision
 
 ### Authentication and access
 
-**Question:** Can viewers use Cluster Map anonymously, or must they authenticate
-through the Hive authentication API?
+**Implemented:** Viewers sign in with email and password through Better Auth.
+New accounts require administrator approval. The web app gates map rendering on
+session resolution; the API independently checks sessions and current approval
+for every cluster request. Open SSE streams recheck access every 20 seconds.
+Health checks remain public. Hive OAuth and an administrator UI are outside this scope.
 
-Earlier notes contain both assumptions. The decision is explicitly open; neither
-anonymous access nor Hive authentication should be treated as a requirement until
-the deployment audience, privacy impact, and integration cost are evaluated.
+## Open decisions
 
 ### Displayed peer identity
 

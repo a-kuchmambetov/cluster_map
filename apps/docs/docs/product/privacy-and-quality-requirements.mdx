@@ -6,7 +6,7 @@ title: Privacy and Quality Requirements
 # Privacy and Quality Requirements
 
 These requirements apply to the proposed Cluster Map product. Numerical targets
-and the authentication model are not yet decided.
+are not yet decided. Map access requires an approved, authenticated account.
 
 ## Privacy
 
@@ -23,9 +23,7 @@ place and, when approved, its peer.
 
 The allowed identity fields—such as an Intra login, display name, or photo—remain
 an [open architecture decision](../architecture/decisions#displayed-peer-identity).
-The same is true of whether viewers must authenticate. Until those decisions are
-made, no documentation should describe peer data as public or the application as
-anonymous.
+Peer data is restricted to authenticated, administrator-approved viewers.
 
 ## Security constraints
 
@@ -36,8 +34,7 @@ anonymous.
 - Restrict production CORS to approved web origins.
 - Expose only the API operations required by the frontend.
 
-Authentication and authorization requirements will be added after the access
-model is decided.
+The API must enforce session validity and current approval independently of frontend route guards. Logout invalidates the session; open streams recheck access every 20 seconds.
 
 ## Freshness
 

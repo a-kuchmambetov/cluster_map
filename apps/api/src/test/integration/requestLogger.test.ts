@@ -2,6 +2,11 @@ import request from "supertest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { app } from "../../app";
 
+// These tests isolate logging; authorization is covered by requireAuth tests.
+vi.mock("../../features/auth/auth.service", () => ({
+  getSession: vi.fn().mockResolvedValue({ user: { id: "logger-test" } }),
+}));
+
 const getClusterOccupancyMock = vi.fn();
 
 vi.mock("../../features/clusters/clusters.repository", () => ({

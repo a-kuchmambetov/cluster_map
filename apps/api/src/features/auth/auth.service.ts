@@ -73,3 +73,27 @@ export function login(body: LoginInput, headers: Headers) {
     };
   });
 }
+
+export function getSession(headers: Headers) {
+  return callAuth(async () => {
+    const { auth } = await import("../../config/auth.js");
+    const session = await auth.api.getSession({
+      headers,
+      query: { disableCookieCache: true },
+    });
+    if (!session) throw AppError.unauthorized("Authentication required");
+    const { findAuthUser } = await import("./auth.repository.js");
+    const actor = await findAuthUser(session.user.id);
+    if (!actor?.approved)
+      throw AppError.forbidden("Account access has not been approved");
+    const { id, name, email, emailVerified, image } = session.user;
+    return { user: { id, name, email, emailVerified, image } };
+  });
+}
+
+export function logout(headers: Headers) {
+  return callAuth(async () => {
+    const { auth } = await import("../../config/auth.js");
+    return auth.api.signOut({ headers, returnHeaders: true });
+  });
+}
