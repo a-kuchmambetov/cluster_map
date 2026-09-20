@@ -8,6 +8,17 @@ Scope: continuous integration and delivery for the Cluster Map pnpm monorepo (`a
 
 ---
 
+:::info[Plan versus implementation]
+
+This page is a future CI/CD design, not an implemented pipeline. The repository
+already has API/web test scripts, migrations in `packages/db/migrations`, a root
+`.dockerignore`, four Dockerfiles, and `docker-compose.yml` with services `db`,
+`api`, `web`, and `docs`. Web Nginx proxies `/api`; DB and API health checks exist.
+No `.github/workflows` files, WAF, secrets manager, separate database roles,
+or automatic migration/rollback jobs are checked in.
+
+:::
+
 ## 1. Requirements
 
 Prerequisites that are currently missing or need confirmation.
@@ -16,13 +27,13 @@ Prerequisites that are currently missing or need confirmation.
 
 **Names that must match exactly:**
 
-- **Compose service names:** `database`, `api`, `web`, `docs`, `proxy` or `nginx`?
+- **Compose service names:** currently `db`, `api`, `web`, `docs`; decide whether a separate WAF proxy is needed.
 - **env var names** in `.env.example`
 
 **Conventions:**
 
 - **A `test` script in every workspace**
-- **An agreed location for migrations**
+- **Migration location:** `packages/db/migrations` is implemented; agree on deployment ownership.
 - Confirm the four database roles in §1.5 so that we have four secrets to store, four files to render, instead of one
 
 **Two decisions owned by others:**
@@ -33,38 +44,39 @@ Prerequisites that are currently missing or need confirmation.
 ### 1.1 Repository baseline
 
 - **Pin the toolchain.** The runtime is not pinned — add the matching `devEngines.runtime` entry (`{ "name": "node", "version": "^26.5.0", "onFail": "download" }`). pnpm then installs that runtime and records the exact version and checksum in the lockfile, and `actions/setup-node` reads it directly via `node-version-file: package.json`. The Node version in `Dockerfile.docs` also needs to be pinned (`node:26.5.0-alpine3.24`).
-- **Add the test scripts when they are ready.** Add one per workspace and invoke it with `pnpm -r --if-present test`, so workspaces without tests are skipped explicitly rather than passing silently.
-- **Add a root `.dockerignore`** covering `node_modules`, `dist`, `build`, `.env*`, `.git`, `apps/docs/.docusaurus`. Without it the build context includes local `.env` files and every `node_modules` tree.
+- **Wire existing tests into CI.** API and web have Vitest scripts. Run `pnpm -r --if-present test` plus the separate API integration suite; define a disposable DB job for `AUTH_DB_TEST=1`.
+- **Maintain the existing root `.dockerignore`** as deployment artifacts evolve.
 
 ### 1.2 Container artifacts
 
-The subject requires deployment through containers with a **single command**, which the repo does not satisfy today. Needed:
+The repository now includes a runnable Compose stack. Database migrations and optional demo seeding are separate host commands; a complete fresh-install deployment command remains work. Extend the current artifacts with:
 
 - `Dockerfile.api` — multi-stage, `pnpm install --frozen-lockfile`, build, then a runtime stage with production dependencies only, a non-root user, an init process, and a `HEALTHCHECK` against `/api/health`.
 - `Dockerfile.web` — build the Vite output, serve it from Nginx.
-- **Simulation agent — not yet specified.** A simulation agent will write data to the database and is expected to run in production, so it will need container, compose, and credential treatment.
+- **Simulation agent — not implemented.** Define a separate local/test/demo container and credentials if needed. The current demo seed is static and refuses production mode; simulation must not modify the live production occupancy source.
 - A reverse-proxy service extending the existing `nginx.docs.conf` pattern to serve the web app and proxy `/api` to the API container. ModSecurity with the OWASP core ruleset is also built into this proxy.
 - `compose.yml` (base) plus `compose.staging.yml`, `compose.prod.yml` overlays. All data is currently self-managed, so Postgres is a service in **every** environment, from dev to production.
 - **Parameterize the Postgres data mount** for different environments. Declared once in the base file so no overlay can omit it:
 
 ```yaml
-  services:
-    database:
-      volumes:
-        - ${PG_DATA:-pgdata}:/var/lib/postgresql/data
-  volumes:
-    pgdata:
+services:
+  database:
+    volumes:
+      - ${PG_DATA:-pgdata}:/var/lib/postgresql/data
+volumes:
+  pgdata:
 ```
 
-  Dev leaves `PG_DATA` unset and gets the named volume, so no host-permission problems, and wiping it between test runs. Production sets e.g. `PG_DATA=/login/data/cluster-map/postgres`, mounting it on our own disk that survives both `down -v` and `docker system prune --volumes`. *Needs to be confirmed using `docker compose config` to see how it works since same-target mounts key on the container path.*
+Dev leaves `PG_DATA` unset and gets the named volume, so no host-permission problems, and wiping it between test runs. Production sets e.g. `PG_DATA=/login/data/cluster-map/postgres`, mounting it on our own disk that survives both `down -v` and `docker system prune --volumes`. _Needs to be confirmed using `docker compose config` to see how it works since same-target mounts key on the container path._
+
 - Health checks and `depends_on: condition: service_healthy` for every service, so `docker compose up -d --wait` can be used as the deployment gate.
 
 ### 1.3 Secrets and configuration
 
 - **An Infisical instance** — **Infisical Cloud** or **self-hosted**. One project (`cluster-map`) with the built-in `dev` / `staging` / `prod` environments, folder paths per service (`/api`, `/docs`, `/web`, `/db`), and a machine identity per environment scoped to the paths it needs.
 - **Two ways of auth** Use OIDC auth for GitHub Actions, which stores no credential at all. Whether the deploy host also needs its own Universal Auth identity is open — see §3. Enable audit logging to record every action against the project — who read which secret, which machine identity authenticated, from what IP (Notice that on Infisical Cloud, data retention is tiered).
-- **Secrets are rendered to files on the host**, either by the Infisical Agent or by the deploy workflow (§3). There are now four database credentials, so this needs a file path per role.
-- **GitHub Actions secrets hold bootstrap credentials only**, the machine identity ID and the Infisical domain are non-sensitive and belong in repository *variables*, not secrets. Secrets are reserved for the registry token and the deploy SSH key if one is used.
+- **Secrets are rendered to files on the host**, either by the Infisical Agent or by the deploy workflow (§3). The proposed four-role design would need a file path per role; current runtime code uses one credential and does not read secret files.
+- **GitHub Actions secrets hold bootstrap credentials only**, the machine identity ID and the Infisical domain are non-sensitive and belong in repository _variables_, not secrets. Secrets are reserved for the registry token and the deploy SSH key if one is used.
 
 :::info[Delivery path with the deployed host]
 
@@ -81,18 +93,18 @@ Infisical -> Agent or deploy workflow -> host file -> Compose secret -> Docker s
 
 ### 1.5 Health checks, migrations, and database access
 
-- `/api/health` needs to actually check database connectivity instead of container reporting healthy.
+- `/api/health` already checks database connectivity with a two-second timeout. Add migration/application-readiness checks if the deployment gate needs more than `SELECT 1`.
 - **Migrations run as a one-shot container** using the migrator role, after Postgres reports healthy and before the API is allowed to serve traffic, so that the database is always a superset of what the running code needs.
 - A pre-migration **backup** for production, and a documented restore path.
 
 **Four database roles** for different levels of access and a connection config function to take the role:
 
-| Role | Grants | Used by |
-| --- | --- | --- |
-| simulator | write access to the tables it owns | simulation agent |
-| migrator | owns the schema, full DDL | migration job in CI and deploy only |
-| reader | `SELECT` on occupancy and layout | API map read path |
-| app | `SELECT` / `INSERT` / `UPDATE` on account tables | API profile and auth path |
+| Role      | Grants                                           | Used by                             |
+| --------- | ------------------------------------------------ | ----------------------------------- |
+| simulator | write access to the tables it owns               | simulation agent                    |
+| migrator  | owns the schema, full DDL                        | migration job in CI and deploy only |
+| reader    | `SELECT` on occupancy and layout                 | API map read path                   |
+| app       | `SELECT` / `INSERT` / `UPDATE` on account tables | API profile and auth path           |
 
 ---
 
@@ -134,7 +146,7 @@ Land prerequisites in §1.1.
 **Needs first:**
 
 - §1.2 for image builds
-- §1.4's registry *if used*
+- §1.4's registry _if used_
 - Whether the frontend API URL is fixed and read by Vite at build time (recommend build with a placeholder instead)
 
 **Triggers:**
@@ -190,7 +202,7 @@ Redeploying the previous **digest** can easily make the site healthy again, leav
 **Needs first:**
 
 - a working Phase 3
-- §1.4's `production` environment with its required reviewer *if applicable*
+- §1.4's `production` environment with its required reviewer _if applicable_
 - §1.6's backup and restore steps
 
 **Triggers:**
@@ -222,7 +234,7 @@ Cloud removes all of that but means deploys depend on an outside service and you
 
 **Who keeps the Infisical bootstrap `.env`, and where is it backed up?** Self-hosted Infisical needs `ENCRYPTION_KEY`, `AUTH_SECRET`, and its database password in a plain file on the host. These are the one set of secrets that cannot live inside Infisical. If `ENCRYPTION_KEY` is lost, every stored secret is gone permanently. Decide who holds the offline copy, and put it in the same runbook as the database backup.
 
-**Run the Infisical Agent on the host, or not?** Only the second step of the chain changes — `Infisical → Agent or deploy workflow → host file → Compose secret → /run/secrets/ → code`. Everything downstream, including the existing `PG_PASSWORD_FILE` code, is identical either way.
+**Run the Infisical Agent on the host, or not?** Only the second step of the chain changes — `Infisical → Agent or deploy workflow → host file → Compose secret → /run/secrets/ → code`. Everything downstream, including a future `PG_PASSWORD_FILE` reader (the current code does not implement one), is identical either way.
 
 - **With the Agent:** a rotated secret reaches the containers within a minute, and files are re-rendered after a reboot. Costs a stored credential on the host, which would be the only long-lived one you have, plus a second machine identity against the free tier's cap of five, plus another process on a crowded box.
 - **Without it:** the deploy workflow authenticates by OIDC and writes the files. No stored credential, no extra identity. Secrets then only refresh on deploy, and nothing re-renders after a reboot — so the files need a persistent path such as `/srv/cluster-map/secrets/`, not `/run/`, and the workflow must write to a temporary file and move it into place so a failed fetch cannot overwrite a working secret with an empty one.

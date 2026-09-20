@@ -1,8 +1,6 @@
 services:
   db:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: postgres:17-alpine
     container_name: cluster-map-db
     restart: unless-stopped
     environment:

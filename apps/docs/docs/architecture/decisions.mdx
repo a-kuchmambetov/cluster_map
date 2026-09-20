@@ -5,85 +5,72 @@ title: Architecture Decisions
 
 # Architecture Decisions
 
-This page tracks decisions that affect product behavior or more than one
-component. A working proposal is not an accepted decision. Once a choice is
-accepted, record its context, alternatives, rationale, and consequences in a
-dedicated architecture decision record (ADR) and link it here.
+This page separates choices encoded in current code from unresolved production
+and product policies. Record future accepted decisions in linked ADRs.
 
-## Established constraints
-
-These constraints are consistent across the current requirements:
-
-- Cluster Map does not write to the production occupancy source.
-- Physical layout and live occupancy are modeled as separate inputs.
-- The browser receives data through the API rather than connecting to PostgreSQL.
-- A failed refresh preserves the last successful map.
-- Only approved peer fields may leave the API.
-
-These constraints describe the target product; most are not implemented yet.
-
-## Access decision
+## Implemented choices
 
 ### Authentication and access
 
-**Implemented:** Viewers sign in with email and password through Better Auth.
-New accounts require administrator approval. The web app gates map rendering on
-session resolution; the API independently checks sessions and current approval
-for every cluster request. Open SSE streams recheck access every 20 seconds.
-Health checks remain public. Hive OAuth and an administrator UI are outside this scope.
+Viewers register and sign in with email/password through Better Auth. New
+accounts require administrator approval before session creation. The API checks
+current approval for cluster requests and rechecks open SSE streams every
+20 seconds. Health checks are public.
+
+Approved administrators use `/admin/users`, `GET /api/auth/pending-users`, and
+`POST /api/auth/confirm/:id` to approve accounts. `:id` is a single-use approval
+token, not the user's ID. Hive OAuth and 2FA remain unimplemented.
+
+### Layout and occupancy
+
+JSON layout and database occupancy are separate responses. The frontend merges
+by row/place number; config cluster IDs match database cluster names. A missing
+occupancy entry means a configured place is free. Gaps never count as places.
+
+### Refresh interval
+
+SSE delivers deltas from a shared server poller. The poll interval is a fixed
+30-second constant, with the next poll scheduled after the previous one finishes.
+Frontend recovery/reconnect attempts also use 30 seconds. These are current code
+constants, not environment settings or guaranteed maximum data age.
+
+### Documentation hosting
+
+Docusaurus is configured for `https://docs.map-hive.pp.ua/`. Compose serves docs
+separately on port 8081 by default; production DNS/TLS setup is external.
 
 ## Open decisions
 
 ### Displayed peer identity
 
-**Question:** Which combination of Intra login, display name, real name, and photo
-may be returned and shown?
-
-Choose the minimum fields needed for identification and obtain approval for their
-audience and retention in logs or client caches.
-
-### Refresh interval
-
-**Question:** How often should the frontend request occupancy updates?
-
-Polling every 30 seconds is the initial proposal. Validate it against acceptable
-freshness, database and API load, number of clients, and rate limits. Polling is
-preferred for the first implementation unless those constraints require a push
-transport.
+The implemented map response exposes nullable `intraName`, `displayName`, and
+`photo`. Confirm the production audience and retention policy for these fields.
+Auth session and administrator approval responses also contain account email;
+map privacy constraints must be distinguished from account management.
 
 ### Stale-data threshold
 
-**Question:** How old can the last successful update be before the UI marks it as
-stale?
-
-The threshold should be independent of the polling interval and based on the last
-successful retrieval time.
+The UI marks stale data after failed snapshot refreshes or database SSE errors.
+There is no age threshold or successful-unchanged-poll freshness event. Define
+acceptable data age and how transport loss should affect the indicator.
 
 ### Configuration-warning audience
 
-**Question:** Should layout-to-occupancy mismatches be visible to every viewer,
-operators only, or both at different levels of detail?
+The API returns mismatch details to approved viewers, but the frontend does not
+request or display them yet. Decide how to expose actionable warnings to viewers
+and operators.
 
-Regardless of audience, mismatches must be observable and user-facing messages
-must not expose internal configuration or database details.
+### Production database access
+
+Occupancy reads and auth writes currently share one DB client/credential.
+Define production source integration, separate privileges where needed, migration
+ownership, and backup/restore procedures. A read-only role for the whole app
+cannot support registration, sessions, and approvals.
 
 ### Performance targets
 
-**Question:** What page-load, map-interaction, API-response, and supported-map-size
-targets define an acceptable release?
-
-Record performance measurements and test conditions so the requirements can be
-verified rather than described only as “fast.”
-
-## Decision workflow
-
-For each decision:
-
-1. identify the owner and deadline;
-2. record relevant privacy, operational, and user-experience constraints;
-3. compare viable alternatives;
-4. accept one option in an ADR;
-5. update the affected product and architecture pages.
+Define measurable page-load, interaction, API-response, supported-map-size, and
+accessibility acceptance criteria. Test browser compatibility before claiming it.
 
 See [Privacy and Quality Requirements](../product/privacy-and-quality-requirements)
-for the policies these decisions must satisfy.
+and the [CI/CD plan](../development-and-testing/CI-CD-implementation).

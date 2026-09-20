@@ -4,70 +4,75 @@ sidebar_position: 2
 
 # Configuration
 
-Current runtime configuration is environment-based. There is no implemented map-layout configuration yet; its proposed contract is documented separately in [Map configuration](../reference/map-configuration).
+Runtime settings come from environment variables; physical layout comes from
+`apps/api/src/config/clusters.json`. See [Map Configuration](../reference/map-configuration).
 
 ## Root environment file
 
-The API loads `../../.env` relative to its workspace working directory. When it is started through the repository's pnpm scripts, this resolves to `.env` in the repository root.
-
-Create the file from the checked-in template:
+The API and database configuration load `../../.env` relative to their workspace
+working directories. Vite also uses the repository root as `envDir`.
 
 ```bash
 cp .env.example .env
 ```
 
-A local configuration aligned with the current default ports is:
+A consistent local example is:
 
 ```dotenv
 API_PORT=5000
 WEB_ORIGIN=http://localhost:5173
-
+VITE_API_URL=
 PG_USER=app
 PG_DB=app
 PG_PASSWORD=app
 PG_HOST=localhost
 PG_PORT=5432
+BETTER_AUTH_SECRET=replace-with-a-random-secret-at-least-32-characters
+BETTER_AUTH_URL=http://localhost:5000
 ```
 
-These database values are examples for local development, not production credentials. Do not commit `.env`.
+Generate the auth secret with `openssl rand -base64 32`. The template currently
+sets API port 5001 but auth URL port 5000; choose one port and align both.
+Do not commit the resulting `.env`.
 
-See [Environment variables](../reference/environment-variables) for requirements, defaults, precedence, and secret-file support.
+## API and database configuration
 
-## API configuration validation
+The API validates `API_PORT` as a number and applies defaults for `WEB_ORIGIN`
+and `PG_*`. The DB client constructs a PostgreSQL URL from `PG_USER`,
+`PG_PASSWORD`, `PG_HOST`, `PG_PORT`, and `PG_DB`, defaulting to
+`app`, `app`, `localhost`, `5432`, and `app` respectively. User/password are
+URL-encoded. Neither module currently reads `PG_PASSWORD_FILE` or a supplied
+`DATABASE_URL` environment variable.
 
-At startup, the API validates the following values with Zod:
+Auth configuration is initialized lazily when auth functionality is used.
+`BETTER_AUTH_SECRET` must have at least 32 characters and `BETTER_AUTH_URL` must
+be a URL. A healthy `/api/health` response does not validate auth configuration
+or prove that migrations have run.
 
-- `API_PORT`, coerced to a number and defaulting to `5000`.
-- `WEB_ORIGIN`, defaulting to `http://localhost:5173` when the variable is absent.
-- `PG_USER`, `PG_DB`, and `PG_PASSWORD`, which must be non-empty.
-- `PG_HOST`, defaulting to `localhost`.
-
-If `PG_PASSWORD` is absent, the API first tries to read the password from the file named by `PG_PASSWORD_FILE`. `PG_PASSWORD_FILE` will be used for Compose Secrets setup as file inside service from environment variable value. Startup fails if the provided configuration is invalid.
-
-The current health endpoint does not query PostgreSQL. The database values are nevertheless required because API configuration is validated before the server starts.
-
-## Database connection precedence
-
-The database package builds its connection string in this order:
-
-1. Cconstruct a PostgreSQL URL from `PG_USER`, `PG_PASSWORD`, `PG_HOST`, `PG_PORT`, and `PG_DB`.
-2. When `PG_PASSWORD` is absent, read `PG_PASSWORD_FILE` if it is set.
-
-`PG_HOST` defaults to `localhost` and `PG_PORT` defaults to `5432` in the database package.
-
-The API explicitly loads the root `.env`; the database package itself only reads `process.env`. Database CLI commands therefore need the variables to be present in their process environment. The repository does not currently include a Docker Compose file or another local database bootstrap command.
+Use `pnpm db:up`, `pnpm db:migrate`, and optionally `pnpm db:seed` for local setup.
+The DB client is shared by map reads and auth writes.
 
 ## CORS and environment mode
 
-The API enables credentialed CORS.
+Credentialed CORS allows exactly `WEB_ORIGIN` in every mode. Development wraps
+that same origin in an array; it does not add another origin. Auth POST requests
+also reject explicit untrusted browser origins and cross-site requests without
+an Origin header.
 
-- When `NODE_ENV` is exactly `development`, it accepts `WEB_ORIGIN` and can accept additional values if needed.
-- For every other value, it accepts only `WEB_ORIGIN`.
-
-Set `WEB_ORIGIN` to the complete browser origin, including `http://` or `https://` and a non-default port. For the current Vite default, use `http://localhost:5173`.
-
-`NODE_ENV=production` also masks internal server-error messages and details. Other modes return the unmasked error information and log errors to the server console. See the [API error contract](../reference/api#error-responses).
+`NODE_ENV=production` masks internal errors and enables JSON request logs.
+Other modes expose more diagnostic error information. See the
+[API error envelope](../reference/api#error-envelope).
 
 ## Frontend configuration
 
-The web application currently reads no `VITE_*` environment variables. Its route table and API base URL are not configurable through an implemented frontend environment contract yet.
+`VITE_API_URL` is an optional API origin without `/api`. An empty value makes
+requests use same-origin `/api`; local Vite proxies this to
+`http://localhost:API_PORT` (default 5000). The web Nginx container proxies `/api`
+to the API service. An explicit origin is baked into the frontend at build time.
+Browser HTTP requests and EventSource connections include credentials.
+
+## Container configuration
+
+Compose sets API auth URL and allowed origin from `DOCKER_WEB_ORIGIN`
+(default `http://localhost:8080`). If changing `WEB_PORT`, update that origin too.
+See [Environment Variables](../reference/environment-variables) for the full list.

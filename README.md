@@ -84,3 +84,35 @@ Automated integration tests should use their own migrated, disposable database
 and create scenario-specific fixtures rather than depending on this demo seed.
 
 - Pnpm (mono-repo)
+
+## Docker
+
+Each service has a root-level Dockerfile: `Dockerfile.web`, `Dockerfile.api`,
+`Dockerfile.db`, and `Dockerfile.docs`. Build with the repository root as context,
+for example `docker build -f Dockerfile.web -t cluster-map-web .`.
+
+Copy `.env.example` to `.env` if needed and set `BETTER_AUTH_SECRET` to a random
+secret of at least 32 characters (`openssl rand -base64 32`). Then run:
+
+```bash
+docker compose up -d --build db api
+docker compose exec api pnpm --filter @repo/db db:migrate
+docker compose up -d --build web docs
+```
+
+- Web: http://localhost:8080 (includes the `/api` proxy and client-side routing)
+- Docs: http://localhost:8081
+- API: http://localhost:5000, or the `API_PORT` configured in `.env`
+- PostgreSQL: localhost:5432, or the `PG_PORT` configured in `.env`
+
+Compose connects the API to `db:5432` regardless of the host database settings.
+Database data persists in the `postgres_data` volume. Migrations are run explicitly
+using the command above, including after updates that add migrations.
+
+Override `WEB_PORT` and `DOCS_PORT` to change the published frontend ports. Set
+`DOCKER_WEB_ORIGIN` to the browser-facing web URL when changing the web port or
+using a domain; Compose uses it for CORS and authentication. It defaults to
+`http://localhost:8080`. Leave `VITE_API_URL` empty to use the web proxy; if set,
+it is baked into the web image and requires rebuilding to change.
+
+`docker compose up -d --build db` still starts only the database for local development.

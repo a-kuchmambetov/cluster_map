@@ -4,96 +4,104 @@ sidebar_position: 1
 
 # Local Development
 
-This page describes the repository as it exists today. The web application is still an Untitled UI starter screen, the API exposes only a health endpoint, and the database schema is empty. The Cluster Map behavior described in the architecture documents is defined, not implemented.
-
-See the [current API reference](../reference/api) and the [proposed map-configuration contract](../reference/map-configuration) for the same current-versus-proposed distinction.
+The repository includes the cluster map, authentication, administrator approvals,
+PostgreSQL schemas, tests, and a full-stack Compose setup.
 
 ## Prerequisites
 
-- Node.js 20 or newer. The documentation workspace declares Node.js 20 as its minimum version.
+- Node.js 24 is used by the API and web Dockerfiles and is a suitable local baseline.
 - pnpm 11.5.2, matching the root package-manager configuration.
-- Environment values for the API. A running PostgreSQL server is not used by the current health endpoint. Database credentials are required only when code that initializes `@repo/db` is executed.
+- Docker Compose for the local database, or an existing development PostgreSQL server.
 
-## Install the workspace
+## Install and configure
 
-Run commands from the repository root unless a section says otherwise.
+Run from the repository root:
 
 ```bash
 pnpm install
 cp .env.example .env
+openssl rand -base64 32
 ```
 
-The Nodejs server uses `localhost:5000`, while Vite currently uses port 5173 by default. CORS compares origins, so the scheme and port matter. See [Configuration](./configuration) for a complete local example.
+Put the generated value in `BETTER_AUTH_SECRET`. For this walkthrough, set
+`API_PORT=5000` and `BETTER_AUTH_URL=http://localhost:5000`. The checked-in template
+currently uses `API_PORT=5001` but an auth URL on port 5000; align those values
+before starting. Keep `WEB_ORIGIN=http://localhost:5173` and `VITE_API_URL=` for
+the local Vite proxy. See [Configuration](./configuration).
 
-Build the non-documentation workspaces once so packages that publish from `dist/` are available:
+## Prepare the database
 
 ```bash
-pnpm build
+pnpm db:up
 ```
 
-The root build intentionally excludes the documentation workspace. Build it separately with `pnpm build:docs`.
+Wait for the DB to become healthy (`docker compose ps db`), then run:
 
-## Start the web app and API
+```bash
+pnpm db:migrate
+pnpm build
+pnpm db:seed
+```
+
+Migrations create auth and Hive tables. `pnpm build` builds all workspaces except
+docs and makes shared `dist/` packages available. The optional seed writes demo
+accounts and occupancy to the configured database; use a local/demo database.
+It refuses to run with `NODE_ENV=production` and is not a live simulation agent.
+
+On a fresh seed, sign in with `demo-admin@example.test` or
+`demo-member-1@example.test` and password `Demo-password-123!`. The administrator
+can approve `demo-pending@example.test` from `/admin/users`. Existing demo accounts
+retain their passwords and approval/role state when seeding again.
+
+## Start web and API
 
 ```bash
 pnpm dev
 ```
 
-The root development command runs workspace `dev` scripts in parallel. Currently that means:
+| Service | URL with the walkthrough configuration | Behavior                                                 |
+| ------- | -------------------------------------- | -------------------------------------------------------- |
+| Web     | `http://localhost:5173`                | Login, registration, protected map, and admin approvals. |
+| API     | `http://localhost:5000`                | Health, auth, cluster HTTP endpoints, and SSE.           |
 
-| Service | Default URL             | Current behavior                                    |
-| ------- | ----------------------- | --------------------------------------------------- |
-| Web     | `http://localhost:5173` | Untitled UI starter screen and a catch-all 404 page |
-| API     | `http://localhost:5000` | Express API with `GET /api/health` only             |
-
-Vite may choose another port when 5173 is unavailable. If it does, update `WEB_ORIGIN` and restart the API.
-
-Verify the API:
+Vite proxies `/api` to `localhost:API_PORT`. If Vite chooses another port, update
+`WEB_ORIGIN` and restart the API.
 
 ```bash
 curl http://localhost:5000/api/health
 ```
 
-Expected response:
+A reachable database returns `200` with `{ "status": "ok", "db": "ok" }`.
+An unavailable database returns `503` with
+`{ "status": "degraded", "db": "unreachable" }`.
 
-```json
-{ "status": "ok" }
-```
-
-## Start one workspace
-
-Use filters when working on a single application:
+## Start individual workspaces
 
 ```bash
 pnpm --filter @repo/api dev
 pnpm --filter @repo/web dev
-pnpm --filter @repo/docs start # or pnpm start:docs
-```
-
-Use the workspace scripts for the API. Its dotenv path is resolved relative to the process working directory, and the pnpm workspace script starts it from `apps/api` so it finds the root `.env` file.
-
-## Start the documentation site
-
-The root development command does not start Docusaurus. Start it separately:
-
-```bash
 pnpm start:docs
 ```
 
-Docusaurus uses `http://localhost:3000` by default and does not open a browser automatically.
+Docusaurus starts separately at `http://localhost:3000`; `pnpm dev` does not start
+it. Use the API workspace command so relative `.env` and layout paths resolve.
 
-## Command reference
+## Common checks
 
-| Command           | Current effect                                                                                                  |
-| ----------------- | --------------------------------------------------------------------------------------------------------------- |
-| `pnpm dev`        | Starts the API and web development servers in parallel                                                          |
-| `pnpm start:docs` | Starts the Docusaurus development server                                                                        |
-| `pnpm build`      | Builds all workspaces except `@repo/docs`                                                                       |
-| `pnpm build:docs` | Builds the Docusaurus static site                                                                               |
-| `pnpm start`      | Starts the built API and Docusaurus and WEB Vite preview                                                        |
-| `pnpm typecheck`  | Runs the `typecheck` script in workspaces that define it; the web workspace is checked during its build instead |
-| `pnpm lint`       | Delegates to workspace `lint` scripts; no workspace currently defines one                                       |
+```bash
+pnpm typecheck
+pnpm lint
+pnpm fmt:check
+pnpm --filter @repo/api test
+pnpm --filter @repo/api test:integration
+pnpm --filter @repo/web test
+pnpm build:docs
+```
 
-## Tests
+See [Testing and Simulation](../development-and-testing/testing-and-simulation)
+for the optional DB-backed test and [Deployment](../operations/deployment) for
+running web, API, DB, and docs in containers.
 
-The repository currently has no test scripts or test files. Vitest, Playwright, MSW, and Supertest will be used as mentioned in the project README, but they are not configured at the current project stage.
+`pnpm db:down` runs `docker compose down`, stopping the whole Compose project
+without removing its named database volume. `pnpm start` runs workspace start
+scripts, including built API, Vite preview, and the Docusaurus development server.

@@ -5,16 +5,16 @@ title: Requirements and User Journeys
 
 # Requirements and User Journeys
 
-This page describes the intended Cluster Map experience. Unless a requirement is
-explicitly marked as implemented, it is a product target rather than a description
-of the current application.
+The current application implements email/password access, administrator approval,
+cluster selection, map rendering, occupied-place details, and SSE updates. This
+page describes those journeys and identifies remaining product requirements.
 
 ## Purpose and scope
 
 Cluster Map helps a viewer find an available place in a physical cluster and
 understand which places are already occupied.
 
-The first usable release is expected to let a viewer:
+The current web app lets an approved viewer:
 
 - select a cluster;
 - view its rows and numbered places;
@@ -28,12 +28,21 @@ The following are out of scope for the first release:
 
 - booking or reserving a place;
 - changing occupancy through Cluster Map;
-- user and role administration;
-- an administrative interface.
+- general user/role administration beyond approving pending accounts.
+
+A focused administrator approval interface is implemented at `/admin/users`.
 
 Viewers register with email and password, await administrator approval, and sign
 in before accessing the map. Occupancy remains read-only. See
 [Architecture Decisions](../architecture/decisions#authentication-and-access).
+
+## Register and approve an account
+
+A viewer registers at `/register` and receives an approval-pending message;
+registration does not create a session. An approved administrator opens
+`/admin/users`, reviews pending users, and approves an account. The viewer can
+then sign in at `/login`. The API enforces current privileges independently of
+the frontend, and logout invalidates the session.
 
 ## Actors
 
@@ -47,7 +56,8 @@ and interactions that work without relying on hover or color alone.
 
 A displayed peer is associated with an occupied place. They might not be actively
 using Cluster Map, but approved identifying information about them can be visible
-to viewers. The exact identity fields and access audience remain open decisions;
+to viewers. The map currently returns Intra login, display name, and optional photo to
+approved viewers. Production privacy approval remains a policy decision;
 see [Privacy and Quality Requirements](./privacy-and-quality-requirements).
 
 ## Core user journeys
@@ -55,8 +65,8 @@ see [Privacy and Quality Requirements](./privacy-and-quality-requirements).
 ### Find a free place
 
 1. The viewer opens Cluster Map.
-2. The application loads the available clusters and selects a valid default when
-   the viewer has not chosen one.
+2. The application loads available clusters and initially selects cluster 1.
+   Dynamic default selection for a configuration without cluster 1 is not implemented.
 3. The viewer selects a cluster.
 4. The application displays its rows, numbered places, and layout gaps.
 5. The application displays the number of free places.
@@ -69,7 +79,8 @@ stale.
 
 ### Inspect an occupied place
 
-1. The viewer focuses, clicks, taps, or hovers over an occupied place.
+1. The viewer clicks, taps, or keyboard-activates an occupied place. Hover styles
+   and keyboard focus alone do not open the details.
 2. The application displays only the approved peer and place information.
 3. The viewer dismisses the details or moves to another place.
 
@@ -79,12 +90,13 @@ receive equivalent information.
 ### Receive occupancy updates
 
 1. The application records the time of a successful map load.
-2. It requests new occupancy data at a configurable interval.
+2. It opens a credentialed SSE stream after a successful occupancy snapshot.
 3. The existing map stays visible and interactive while the request is running.
-4. After success, the map and last-updated time change together.
+4. Deltas update occupied/free entries and set last-updated to the client receipt time.
 
-Polling is the proposed first implementation. Thirty seconds **(30 sec)** is a candidate
-interval, not an accepted requirement.
+The API polls once per subscribed cluster per process with a fixed 30-second
+delay after each poll. Unchanged polls do not advance the frontend timestamp.
+These timings are not currently configurable through environment variables.
 
 ### Continue after a refresh failure
 
@@ -97,8 +109,8 @@ with a retry action.
 
 If occupancy data references a place missing from the layout configuration, the
 application should keep valid parts of the map visible and report the mismatch.
-Whether that warning is visible to all viewers or only through operational
-monitoring is still undecided.
+The API implements a configuration-validation endpoint available to approved
+viewers. The frontend does not call it yet; the map warnings array remains empty.
 
 ## User-visible states
 
@@ -115,5 +127,5 @@ monitoring is still undecided.
 | Initial load failure   | An error message and retry action.                                                  |
 | Cluster not found      | A clear message and a way to choose another cluster.                                |
 
-The underlying concepts and proposed merge behavior are defined in
+The underlying concepts and implemented merge behavior are defined in
 [Domain Model and Data Flow](../architecture/domain-model-and-data-flow).

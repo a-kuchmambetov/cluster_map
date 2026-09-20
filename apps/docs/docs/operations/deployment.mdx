@@ -4,40 +4,80 @@ sidebar_position: 1
 
 # Deployment
 
-## Current Deployment Support
+## Checked-in stack
 
-Only the documentation site currently has checked-in deployment artifacts:
+`docker-compose.yml` defines four services:
 
-- `Dockerfile.docs` builds the Docusaurus site and copies the static output into Nginx.
-- `nginx.docs.conf` serves that output on port 80.
-- Docusaurus is configured for `https://docs.map-hive.pp.ua/`.
+| Service | Artifact                                             | Default published port              |
+| ------- | ---------------------------------------------------- | ----------------------------------- |
+| `db`    | `Dockerfile.db`, PostgreSQL 17                       | 5432                                |
+| `api`   | `Dockerfile.api`, Node.js 24, non-root runtime       | 5000 (template sets host port 5001) |
+| `web`   | `Dockerfile.web`, Vite output served by Nginx        | 8080                                |
+| `docs`  | `Dockerfile.docs`, Docusaurus output served by Nginx | 8081                                |
 
-Build the documentation image from the repository root:
+The DB persists in the `postgres_data` named volume. API startup depends on DB
+health; web startup depends on API health. Health is database connectivity only,
+not application schema readiness. Migrations and seeding are not automatic.
+
+## Local full-stack run
+
+After `pnpm install`, copy `.env.example` to `.env`, set a random
+`BETTER_AUTH_SECRET`, and configure your local DB values. Keep `VITE_API_URL`
+empty for same-origin API access. Then:
+
+```bash
+docker compose up -d db
+```
+
+Wait for DB health, then apply migrations from the host workspace:
+
+```bash
+pnpm db:migrate
+pnpm db:seed
+
+docker compose up --build -d
+```
+
+The optional seed is for local/demo data only. It uses the host `.env`, so
+`PG_HOST=localhost` and the published DB port must match. It also requires a valid
+host `BETTER_AUTH_URL`; see [Local Development](../getting-started/local-development).
+
+Open `http://localhost:8080` for the application and `http://localhost:8081` for
+docs. Compose sets the API's auth URL and trusted origin from `DOCKER_WEB_ORIGIN`
+(default `http://localhost:8080`); update it when changing `WEB_PORT` or hostname.
+
+`nginx.web.conf` serves SPA routes and forwards `/api/` to `api:5000`.
+`VITE_API_URL`, if set, is a build argument baked into the frontend. The API
+image includes `src/config/clusters.json` because the runtime reads that path.
+
+```bash
+docker compose ps
+docker compose logs api db
+docker compose down
+```
+
+Stopping the stack without `-v` retains the named DB volume.
+
+## Documentation image
 
 ```bash
 docker build -f Dockerfile.docs -t cluster-map-docs .
-```
-
-Run it locally on port 8080:
-
-```bash
 docker run --rm -p 8080:80 cluster-map-docs
 ```
 
-The image build runs `pnpm build:docs`, and Docusaurus treats broken links as build failures.
+Choose another host port if the web stack already uses 8080. The docs image runs
+`pnpm build:docs`; Docusaurus treats broken links as build failures. The site is
+configured for `https://docs.map-hive.pp.ua/`.
 
-## Target Full-Stack Deployment
+## Production work still required
 
-The [System Overview](../architecture/system-overview.mdx) describes the intended web, API, database, and Cloudflare boundaries. The repository does not yet include full-stack Docker, Compose, proxy, CI/CD, or rollback configuration.
+Compose is a runnable baseline, not evidence of a deployed or hardened service.
+Remaining work includes TLS/Cloudflare/WAF configuration, secrets-manager
+integration, CI/CD, staging/production isolation, migration/backup ownership,
+and rollback/restore procedures. Auth needs DB write privileges; the current
+single connection cannot be replaced by a globally read-only account.
 
-Before treating that strategy as production-ready, define:
-
-- Separate development, staging, and production configuration.
-- TLS termination and the exact web, API, and documentation hostnames or paths.
-- A read-only production database account for the application.
-- Secret injection without credentials in images or source control.
-- API and database readiness checks.
-- Migration ownership, backup, rollback, and recovery procedures.
-- Deployment verification and rollback commands.
-
-Do not infer a production processes from the architecture diagram alone.
+Verify SSE behavior through Nginx: the checked-in proxy does not explicitly
+configure buffering or stream timeouts. There is no automatic migration job,
+production admin bootstrap workflow, or secret-file reader in the current stack.
+See the [CI/CD implementation plan](../development-and-testing/CI-CD-implementation).
