@@ -1,3 +1,4 @@
+import { requireAuth } from "@middleware/requireAuth";
 import { validateRequest } from "@middleware/validateRequest";
 import { Router } from "express";
 import {
@@ -10,6 +11,8 @@ import {
 import { clusterNumberParamSchema } from "./clusters.schema";
 
 export const clustersRouter: Router = Router();
+
+clustersRouter.use(requireAuth);
 
 clustersRouter.get("/", listClusters);
 clustersRouter.get(

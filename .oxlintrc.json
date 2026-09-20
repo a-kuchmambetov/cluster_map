@@ -122,6 +122,70 @@
       "globals": {
         "require": "readonly"
       }
+    },
+    {
+      "files": [
+        "apps/web/src/components/**/*.{ts,tsx}",
+        "apps/web/src/hooks/**/*.{ts,tsx}",
+        "apps/web/src/utils/**/*.{ts,tsx}",
+        "apps/web/src/config/**/*.{ts,tsx}",
+        "apps/web/src/types/**/*.{ts,tsx}"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "@/features/**",
+                  "@/app/**",
+                  "@/pages/**",
+                  "**/features/**",
+                  "**/app/**",
+                  "**/pages/**"
+                ],
+                "message": "Shared code must not depend on app composition, routes, or features."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "apps/web/src/pages/**/*.{ts,tsx}",
+        "apps/web/src/app/**/*.{ts,tsx}"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@/features/*/**", "**/features/*/**"],
+                "message": "Import features through their public entry point."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["apps/web/src/features/**/*.{ts,tsx}"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@/pages/**", "@/app/**", "**/pages/**", "**/app/**"],
+                "message": "Features must not depend on routes or app composition."
+              }
+            ]
+          }
+        ]
+      }
     }
   ]
 }

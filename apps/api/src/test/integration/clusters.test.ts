@@ -11,7 +11,7 @@ import type { OccupiedEntry } from "../../features/clusters/clusters.types";
 // The pool calls getClusterOccupancy from the repository.
 // Mock the entire repository module so no DB connection is required.
 const getClusterOccupancyMock = vi.fn();
-vi.mock("./clusters.repository", () => ({
+vi.mock("../../features/clusters/clusters.repository", () => ({
   getClusterOccupancy: (...args: unknown[]) => getClusterOccupancyMock(...args),
 }));
 

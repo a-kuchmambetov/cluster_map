@@ -186,17 +186,18 @@
   --color-alpha-white: rgb(255 255 255);
   --color-alpha-black: rgb(0 0 0);
 
-  --color-brand-50: rgb(249 245 255);
-  --color-brand-100: rgb(244 235 255);
-  --color-brand-200: rgb(233 215 254);
-  --color-brand-300: rgb(214 187 251);
-  --color-brand-400: rgb(182 146 246);
-  --color-brand-500: rgb(158 119 237);
-  --color-brand-600: rgb(127 86 217);
-  --color-brand-700: rgb(105 65 198);
-  --color-brand-800: rgb(83 56 158);
-  --color-brand-900: rgb(66 48 125);
-  --color-brand-950: rgb(44 28 95);
+  /* Shared controls follow the cluster map's muted blue-gray palette. */
+  --color-brand-50: #f1f6fa;
+  --color-brand-100: #e3edf4;
+  --color-brand-200: #d2dde4;
+  --color-brand-300: #a6bdce;
+  --color-brand-400: #7c9db7;
+  --color-brand-500: #668aa5;
+  --color-brand-600: #47657d;
+  --color-brand-700: #37566f;
+  --color-brand-800: #2d465b;
+  --color-brand-900: #233747;
+  --color-brand-950: #172530;
 
   /* LIGHT MODE VARIABLES */
 

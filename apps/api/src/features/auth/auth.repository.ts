@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { db, user } from "@repo/db";
 
 export async function findAuthUser(id: string) {
@@ -18,4 +18,18 @@ export async function approveUser(token: string) {
     .where(and(eq(user.approvalToken, token), eq(user.approved, false)))
     .returning({ id: user.id });
   return record;
+}
+
+export async function listPendingUsers() {
+  return db
+    .select({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      createdAt: user.createdAt,
+      approvalToken: user.approvalToken,
+    })
+    .from(user)
+    .where(eq(user.approved, false))
+    .orderBy(asc(user.createdAt), asc(user.id));
 }

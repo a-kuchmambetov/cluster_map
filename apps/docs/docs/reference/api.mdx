@@ -6,7 +6,7 @@ sidebar_position: 1
 
 ## Current status
 
-The Express application exposes six endpoints:
+The Express application exposes these map and health endpoints:
 
 - `GET /api/health`
 - `GET /api/clusters`
@@ -17,7 +17,17 @@ The Express application exposes six endpoints:
 
 The API mounts its router at `/api`. It enables JSON request parsing and credentialed CORS; allowed origins are described in [Configuration](../getting-started/configuration#cors-and-environment-mode).
 
-There is no authentication and no write endpoint against any resource. All routes are read-only `GET` requests.
+Cluster endpoints require a Better Auth session cookie and a currently approved account. Health checks remain public. Missing or expired sessions return `401`; revoked or unapproved accounts return `403`. Cluster responses use `Cache-Control: no-store`.
+
+Authentication endpoints:
+
+- `POST /api/auth/register`: `{ name, email, password }`; creates an account awaiting administrator approval.
+- `POST /api/auth/login`: `{ email, password }`; sets an HttpOnly session cookie and returns `{ user }`.
+- `GET /api/auth/session`: returns `{ user: { id, name, email, emailVerified, image } }` for an approved session.
+- `POST /api/auth/logout`: invalidates the session and clears cookies.
+- `POST /api/auth/confirm/:id`: consumes an approval token; requires a currently approved administrator.
+
+Session checks and logout are outside the login/register/approval rate limiter. Browser POST requests must use the configured trusted origin. The browser sends credentials for both HTTP requests and SSE. Existing SSE connections revalidate access every 20 seconds and close if validation fails; revocation is therefore bounded by that interval plus check latency. The client checks its session after stream failures and stops retrying on `401`/`403`.
 
 ## Error envelope
 
@@ -114,7 +124,7 @@ Returns the list of clusters known to the layout config. Used to render a cluste
 
 ### Request
 
-No parameters, request body, or authentication requirement.
+No parameters or request body. An approved session is required.
 
 ```bash
 curl http://localhost:5000/api/clusters

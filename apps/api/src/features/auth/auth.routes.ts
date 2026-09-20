@@ -4,6 +4,9 @@ import { AppError } from "@repo/errors";
 import { env } from "@config/env";
 import { validateRequest } from "@middleware/validateRequest";
 import {
+  sessionHandler,
+  pendingUsersHandler,
+  logoutHandler,
   registerHandler,
   confirmHandler,
   loginHandler,
@@ -16,6 +19,21 @@ authRouter.use((_req, res, next) => {
   res.setHeader("Referrer-Policy", "no-referrer");
   next();
 });
+authRouter.use((req, _res, next) => {
+  // Non-browser clients may omit Origin. Reject explicit untrusted browser origins.
+  if (
+    req.method === "POST" &&
+    ((req.headers.origin &&
+      req.headers.origin !== new URL(env.WEB_ORIGIN).origin) ||
+      (req.headers["sec-fetch-site"] === "cross-site" && !req.headers.origin))
+  ) {
+    return next(AppError.forbidden("Untrusted origin"));
+  }
+  next();
+});
+authRouter.get("/session", sessionHandler);
+authRouter.get("/pending-users", pendingUsersHandler);
+authRouter.post("/logout", logoutHandler);
 authRouter.use(
   rateLimit({
     windowMs: 60_000,
@@ -32,18 +50,6 @@ authRouter.use(
       ),
   }),
 );
-authRouter.use((req, _res, next) => {
-  // Non-browser clients may omit Origin. Reject explicit untrusted browser origins.
-  if (
-    req.method === "POST" &&
-    ((req.headers.origin &&
-      req.headers.origin !== new URL(env.WEB_ORIGIN).origin) ||
-      (req.headers["sec-fetch-site"] === "cross-site" && !req.headers.origin))
-  ) {
-    return next(AppError.forbidden("Untrusted origin"));
-  }
-  next();
-});
 authRouter.post("/register", validateRequest(registerSchema), registerHandler);
 authRouter.post(
   "/confirm/:id",

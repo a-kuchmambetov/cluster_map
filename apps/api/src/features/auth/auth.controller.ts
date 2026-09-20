@@ -42,3 +42,41 @@ export async function loginHandler(
     next(error);
   }
 }
+
+export async function sessionHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    res.json(await service.getSession(fromNodeHeaders(req.headers)));
+  } catch (error) {
+    next(error);
+  }
+}
+export async function logoutHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const result = await service.logout(fromNodeHeaders(req.headers));
+    for (const cookie of result.headers.getSetCookie())
+      res.append("Set-Cookie", cookie);
+    res.json({ message: "Logged out" });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function pendingUsersHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    res.json(await service.getPendingUsers(fromNodeHeaders(req.headers)));
+  } catch (error) {
+    next(error);
+  }
+}
