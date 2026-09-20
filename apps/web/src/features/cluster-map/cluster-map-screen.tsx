@@ -22,7 +22,7 @@ export const ClusterMapScreen = () => {
   if (clustersLoading) {
     return (
       <div className="mx-auto w-full max-w-[1280px] px-4 py-6 sm:px-6 lg:px-8">
-        <h1 className="text-3xl font-semibold tracking-tight">Cluster Map</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Clusters</h1>
 
         <div className="mt-6 rounded-2xl border border-secondary bg-primary p-6 shadow-sm">
           <div className="text-sm text-tertiary">Loading clusters...</div>
@@ -34,7 +34,7 @@ export const ClusterMapScreen = () => {
   if (clustersError) {
     return (
       <div className="mx-auto w-full max-w-[1280px] px-4 py-6 sm:px-6 lg:px-8">
-        <h1 className="text-2xl font-semibold">Cluster Map</h1>
+        <h1 className="text-2xl font-semibold">Clusters</h1>
 
         <div className="mt-6 rounded-2xl border border-secondary bg-primary p-6 shadow-sm">
           <div className="font-medium">Unable to load clusters</div>
@@ -49,7 +49,7 @@ export const ClusterMapScreen = () => {
 
   return (
     <div className="mx-auto w-full max-w-[1280px] px-4 py-6 sm:px-6 lg:px-8">
-      <h1 className="text-3xl font-semibold tracking-tight">Cluster Map</h1>
+      <h1 className="text-3xl font-semibold tracking-tight">Clusters</h1>
 
       <div className="mt-3 space-y-5">
         <div>

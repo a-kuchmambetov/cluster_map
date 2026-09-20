@@ -32,7 +32,16 @@ export function AuthScreen({
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-6 px-6 py-12 text-primary">
       <div>
-        <p className="mb-2 text-sm text-tertiary">Cluster Map</p>
+        <div className="mb-2 flex items-center gap-2.5 text-sm text-tertiary">
+          <img
+            src={`${import.meta.env.BASE_URL}logo.svg`}
+            alt=""
+            width={36}
+            height={36}
+            className="size-9 shrink-0"
+          />
+          <span>Cluster Map</span>
+        </div>
         <h1 className="text-3xl font-semibold">
           {registration ? "Request an account" : "Sign in"}
         </h1>

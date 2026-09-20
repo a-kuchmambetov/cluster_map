@@ -1,3 +1,4 @@
+import { UserApprovalsScreen } from "@/features/admin";
 import { AuthProvider, AuthScreen, RequireAuth } from "@/features/auth";
 import { BrowserRouter, Route, Routes } from "react-router";
 import { HomeScreen } from "@/pages/home-screen";
@@ -18,6 +19,7 @@ export const App = () => (
             />
             <Route element={<RequireAuth />}>
               <Route path="/" element={<HomeScreen />} />
+              <Route path="/admin/users" element={<UserApprovalsScreen />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

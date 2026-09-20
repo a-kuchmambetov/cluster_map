@@ -17,6 +17,7 @@ const user = {
   name: "Test",
   email: "test@example.com",
   emailVerified: false,
+  role: "user" as const,
 };
 let root: Root;
 let container: HTMLDivElement;

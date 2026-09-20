@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { confirm, register, getSession } from "./auth.service";
+import { confirm, register, getSession, getPendingUsers } from "./auth.service";
 
 const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
   signUpEmail: vi.fn(),
   findAuthUser: vi.fn(),
   approveUser: vi.fn(),
+  listPendingUsers: vi.fn(),
 }));
 vi.mock("../../config/auth.js", () => ({
   auth: {
@@ -15,6 +16,7 @@ vi.mock("../../config/auth.js", () => ({
 vi.mock("./auth.repository.js", () => ({
   findAuthUser: mocks.findAuthUser,
   approveUser: mocks.approveUser,
+  listPendingUsers: mocks.listPendingUsers,
 }));
 beforeEach(() => vi.resetAllMocks());
 describe("registration errors", () => {
@@ -110,5 +112,35 @@ describe("session access", () => {
     expect(mocks.getSession).toHaveBeenCalledWith(
       expect.objectContaining({ query: { disableCookieCache: true } }),
     );
+  });
+});
+
+describe("pending users authorization", () => {
+  it("requires authentication", async () => {
+    mocks.getSession.mockResolvedValue(null);
+    await expect(getPendingUsers(new Headers())).rejects.toMatchObject({
+      statusCode: 401,
+    });
+    expect(mocks.listPendingUsers).not.toHaveBeenCalled();
+  });
+  it.each([
+    { role: "user", approved: true },
+    { role: "admin", approved: false },
+    undefined,
+  ])("rejects unauthorized actors: %j", async (actor) => {
+    mocks.getSession.mockResolvedValue({ user: { id: "actor" } });
+    mocks.findAuthUser.mockResolvedValue(actor);
+    await expect(getPendingUsers(new Headers())).rejects.toMatchObject({
+      statusCode: 403,
+    });
+    expect(mocks.listPendingUsers).not.toHaveBeenCalled();
+  });
+  it("returns pending users to approved admins", async () => {
+    mocks.getSession.mockResolvedValue({ user: { id: "actor" } });
+    mocks.findAuthUser.mockResolvedValue({ role: "admin", approved: true });
+    mocks.listPendingUsers.mockResolvedValue([{ id: "pending" }]);
+    expect(await getPendingUsers(new Headers())).toEqual({
+      users: [{ id: "pending" }],
+    });
   });
 });

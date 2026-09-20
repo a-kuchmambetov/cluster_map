@@ -68,3 +68,15 @@ export async function logoutHandler(
     next(error);
   }
 }
+
+export async function pendingUsersHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    res.json(await service.getPendingUsers(fromNodeHeaders(req.headers)));
+  } catch (error) {
+    next(error);
+  }
+}

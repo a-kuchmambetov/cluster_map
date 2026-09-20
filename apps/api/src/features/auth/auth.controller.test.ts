@@ -8,6 +8,7 @@ import { authRouter } from "./auth.routes";
 
 vi.mock("./auth.service", () => ({
   getSession: vi.fn(),
+  getPendingUsers: vi.fn(),
   logout: vi.fn(),
   register: vi.fn(),
   confirm: vi.fn(),
@@ -75,6 +76,7 @@ describe("custom auth routes", () => {
           email: credentials.email,
           name: "Person",
           emailVerified: true,
+          role: "user",
           image: null,
         },
       },
@@ -118,6 +120,7 @@ describe("session lifecycle routes", () => {
         name: "Test",
         email: "test@example.com",
         emailVerified: false,
+        role: "user",
         image: null,
       },
     });

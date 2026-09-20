@@ -5,6 +5,7 @@ import { env } from "@config/env";
 import { validateRequest } from "@middleware/validateRequest";
 import {
   sessionHandler,
+  pendingUsersHandler,
   logoutHandler,
   registerHandler,
   confirmHandler,
@@ -31,6 +32,7 @@ authRouter.use((req, _res, next) => {
   next();
 });
 authRouter.get("/session", sessionHandler);
+authRouter.get("/pending-users", pendingUsersHandler);
 authRouter.post("/logout", logoutHandler);
 authRouter.use(
   rateLimit({
