@@ -107,6 +107,51 @@ export async function githubCallbackHandler(
   }
 }
 
+export async function enableTwoFactorHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    res.json(await service.enableTwoFactor(req.body, fromNodeHeaders(req.headers)));
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function verifyTOTPHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const result = await service.verifyTOTP(req.body, fromNodeHeaders(req.headers));
+    for (const cookie of result.headers.getSetCookie())
+      res.append("Set-Cookie", cookie);
+    res.json(result.body);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function disableTwoFactorHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const result = await service.disableTwoFactor(
+      req.body,
+      fromNodeHeaders(req.headers),
+    );
+    for (const cookie of result.headers.getSetCookie())
+      res.append("Set-Cookie", cookie);
+    res.json(result.response);
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function pendingUsersHandler(
   req: Request,
   res: Response,

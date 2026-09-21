@@ -15,6 +15,9 @@ vi.mock("./auth.service", () => ({
   login: vi.fn(),
   initiateGitHubSignIn: vi.fn(),
   handleGitHubCallback: vi.fn(),
+  enableTwoFactor: vi.fn(),
+  verifyTOTP: vi.fn(),
+  disableTwoFactor: vi.fn(),
 }));
 const app = express()
   .use(express.json())

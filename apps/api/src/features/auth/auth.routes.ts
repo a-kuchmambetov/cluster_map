@@ -12,8 +12,18 @@ import {
   loginHandler,
   githubSignInHandler,
   githubCallbackHandler,
+  enableTwoFactorHandler,
+  verifyTOTPHandler,
+  disableTwoFactorHandler,
 } from "./auth.controller";
-import { registerSchema, confirmSchema, loginSchema } from "./auth.schema";
+import {
+  registerSchema,
+  confirmSchema,
+  loginSchema,
+  enableTwoFactorSchema,
+  verifyTOTPSchema,
+  disableTwoFactorSchema,
+} from "./auth.schema";
 
 export const authRouter: Router = Router();
 authRouter.use((_req, res, next) => {
@@ -53,6 +63,21 @@ authRouter.use(
         }),
       ),
   }),
+);
+authRouter.post(
+  "/two-factor/enable",
+  validateRequest(enableTwoFactorSchema),
+  enableTwoFactorHandler,
+);
+authRouter.post(
+  "/two-factor/verify-totp",
+  validateRequest(verifyTOTPSchema),
+  verifyTOTPHandler,
+);
+authRouter.post(
+  "/two-factor/disable",
+  validateRequest(disableTwoFactorSchema),
+  disableTwoFactorHandler,
 );
 authRouter.post("/register", validateRequest(registerSchema), registerHandler);
 authRouter.post(
