@@ -42,14 +42,8 @@ export function register(body: RegisterInput, headers: Headers) {
 }
 export function confirm(token: string, headers: Headers) {
   return callAuth(async () => {
-    const { auth } = await import("../../config/auth.js");
-    const session = await auth.api.getSession({ headers });
-    if (!session) throw AppError.unauthorized("Authentication required");
-    const { findAuthUser, approveUser } = await import("./auth.repository.js");
-    // Read current privileges from the database, never from client input or cached claims.
-    const actor = await findAuthUser(session.user.id);
-    if (!actor?.approved || actor.role !== "admin")
-      throw AppError.forbidden("Administrator access required");
+    await requireAdmin(headers);
+    const { approveUser } = await import("./auth.repository.js");
     const approved = await approveUser(token);
     if (!approved)
       throw AppError.notFound(
@@ -66,10 +60,66 @@ export function login(body: LoginInput, headers: Headers) {
       headers,
       returnHeaders: true,
     });
+    const { findAuthUser } = await import("./auth.repository.js");
+    const actor = await findAuthUser(result.response.user.id);
     const { id, name, email, emailVerified, image } = result.response.user;
     return {
       headers: result.headers,
-      body: { user: { id, name, email, emailVerified, image } },
+      body: {
+        user: {
+          id,
+          name,
+          email,
+          emailVerified,
+          image,
+          role: actor?.role ?? "user",
+        },
+      },
     };
+  });
+}
+
+export function getSession(headers: Headers) {
+  return callAuth(async () => {
+    const { auth } = await import("../../config/auth.js");
+    const session = await auth.api.getSession({
+      headers,
+      query: { disableCookieCache: true },
+    });
+    if (!session) throw AppError.unauthorized("Authentication required");
+    const { findAuthUser } = await import("./auth.repository.js");
+    const actor = await findAuthUser(session.user.id);
+    if (!actor?.approved)
+      throw AppError.forbidden("Account access has not been approved");
+    const { id, name, email, emailVerified, image } = session.user;
+    return {
+      user: { id, name, email, emailVerified, image, role: actor.role },
+    };
+  });
+}
+
+export function logout(headers: Headers) {
+  return callAuth(async () => {
+    const { auth } = await import("../../config/auth.js");
+    return auth.api.signOut({ headers, returnHeaders: true });
+  });
+}
+
+async function requireAdmin(headers: Headers) {
+  const { auth } = await import("../../config/auth.js");
+  const session = await auth.api.getSession({ headers });
+  if (!session) throw AppError.unauthorized("Authentication required");
+  const { findAuthUser } = await import("./auth.repository.js");
+  // Read current privileges from the database, never from client input or cached claims.
+  const actor = await findAuthUser(session.user.id);
+  if (!actor?.approved || actor.role !== "admin")
+    throw AppError.forbidden("Administrator access required");
+}
+
+export function getPendingUsers(headers: Headers) {
+  return callAuth(async () => {
+    await requireAdmin(headers);
+    const { listPendingUsers } = await import("./auth.repository.js");
+    return { users: await listPendingUsers() };
   });
 }

@@ -4,6 +4,8 @@ Api contract · MD
 
 # API Contract — Cluster Map
 
+> Authentication update: all `/api/clusters` routes, including SSE, require an approved Better Auth session cookie. Missing/expired sessions return `401`, and accounts without current approval return `403`. `/api/health` remains public. `GET /api/auth/session` restores the signed-in user; `POST /api/auth/logout` invalidates the session and clears cookies. Existing streams recheck access every 20 seconds. Map data contracts below are unchanged.
+
 Deliverable for the Trello card **"Define API contracts"**. Written per the requested structure: for every route — the route, its input values (body / query / params), and the response structure.
 
 Finalized per Maxim's review (2026-08-05), Artem's confirmation (2026-08-05), and the call with Valentine (2026-08-06). Based on the project docs (`reference/api`, `reference/map-configuration`, `architecture/domain-model-and-data-flow`, `product/*`).

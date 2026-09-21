@@ -143,21 +143,61 @@
   --color-white: rgb(255 255 255);
   --color-black: rgb(0 0 0);
 
+  /* CLUSTER MAP */
+
+  --color-cluster-accent: #dfe7ec;
+  --color-cluster-accent-hover: #d2dde4;
+  --color-cluster-accent-text: #40576a;
+  --color-cluster-accent-soft: #eef2f5;
+
+  --color-cluster-free: #668aa5;
+  --color-cluster-occupied: #b3715d;
+
+  --color-cluster-warning: #b3715d;
+  --color-cluster-warning-soft: #faf1ee;
+  --color-cluster-warning-text: #704338;
+
+  --color-cluster-page: #f7f9fa;
+  --color-cluster-surface: #ffffff;
+  --color-cluster-surface-soft: #f5f7f8;
+  --color-cluster-border: #dde3e7;
+
+  --color-cluster-free-fill: #f1f6fa;
+  --color-cluster-free-stroke: #7c9db7;
+  --color-cluster-free-text: #47657d;
+
+  --color-cluster-free-hover-fill: #e3edf4;
+  --color-cluster-free-hover-stroke: #668aa5;
+  --color-cluster-free-hover-text: #37566f;
+
+  --color-cluster-occupied-fill: #faf1ee;
+  --color-cluster-occupied-stroke: #c18673;
+  --color-cluster-occupied-text: #855243;
+
+  --color-cluster-occupied-hover-fill: #f3e1db;
+  --color-cluster-occupied-hover-stroke: #b3715d;
+  --color-cluster-occupied-hover-text: #704338;
+
+  --color-cluster-selected-fill: #eed4cb;
+  --color-cluster-selected-stroke: #a95f4b;
+  --color-cluster-selected-text: #5f342a;
+
   /* These will be inverted in dark mode. */
   --color-alpha-white: rgb(255 255 255);
   --color-alpha-black: rgb(0 0 0);
 
-  --color-brand-50: rgb(249 245 255);
-  --color-brand-100: rgb(244 235 255);
-  --color-brand-200: rgb(233 215 254);
-  --color-brand-300: rgb(214 187 251);
-  --color-brand-400: rgb(182 146 246);
-  --color-brand-500: rgb(158 119 237);
-  --color-brand-600: rgb(127 86 217);
-  --color-brand-700: rgb(105 65 198);
-  --color-brand-800: rgb(83 56 158);
-  --color-brand-900: rgb(66 48 125);
-  --color-brand-950: rgb(44 28 95);
+  /* Shared controls follow the cluster map's muted blue-gray palette. */
+  --color-brand-50: #f1f6fa;
+  --color-brand-100: #e3edf4;
+  --color-brand-200: #d2dde4;
+  --color-brand-300: #a6bdce;
+  --color-brand-400: #7c9db7;
+  --color-brand-500: #668aa5;
+  --color-brand-600: #47657d;
+  --color-brand-700: #37566f;
+  --color-brand-800: #2d465b;
+  --color-brand-900: #233747;
+  --color-brand-950: #172530;
 
   /* LIGHT MODE VARIABLES */
 
@@ -526,6 +566,45 @@
   .dark-mode {
     --color-alpha-white: rgb(12 14 18);
     --color-alpha-black: rgb(255 255 255);
+
+    /* CLUSTER MAP */
+
+    --color-cluster-accent: #506b82;
+    --color-cluster-accent-hover: #5d7991;
+    --color-cluster-accent-soft: #1c2730;
+    --color-cluster-accent-text: #f7fafc;
+
+    --color-cluster-free: #89afcb;
+    --color-cluster-occupied: #d79a86;
+
+    --color-cluster-warning: #d79a86;
+    --color-cluster-warning-soft: #2b211e;
+    --color-cluster-warning-text: #e5b5a5;
+
+    --color-cluster-page: #0c0e12;
+    --color-cluster-surface: #14181e;
+    --color-cluster-surface-soft: #1b2128;
+    --color-cluster-border: #2a3440;
+
+    --color-cluster-free-fill: #17232d;
+    --color-cluster-free-stroke: #6f95b0;
+    --color-cluster-free-text: #c5d9e7;
+
+    --color-cluster-free-hover-fill: #1f303c;
+    --color-cluster-free-hover-stroke: #82a9c3;
+    --color-cluster-free-hover-text: #e0edf5;
+
+    --color-cluster-occupied-fill: #2a1e1a;
+    --color-cluster-occupied-stroke: #b97a67;
+    --color-cluster-occupied-text: #e5b5a5;
+
+    --color-cluster-occupied-hover-fill: #352520;
+    --color-cluster-occupied-hover-stroke: #cc8a75;
+    --color-cluster-occupied-hover-text: #f0c4b5;
+
+    --color-cluster-selected-fill: #3a2721;
+    --color-cluster-selected-stroke: #dd9a83;
+    --color-cluster-selected-text: #ffe0d5;
 
     /* UTILITY COLORS */
 
