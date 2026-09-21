@@ -6,6 +6,7 @@ dotenv.config({ path: resolve(process.cwd(), "../../.env") });
 
 const envSchema = z.object({
   API_PORT: z.coerce.number().default(5001), // 5000 is occupied by AirPlay Receiver on macOS
+  API_PORT: z.coerce.number().default(5001),
   WEB_ORIGIN: z.string().default("http://localhost:5173"),
   //
   PG_USER: z.string().default("app"),

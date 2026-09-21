@@ -5,75 +5,61 @@ title: Domain Model and Data Flow
 
 # Domain Model and Data Flow
 
-This page defines the proposed domain language and merge behavior. The database
-schema and map endpoints have not yet been implemented, so field names and wire
-formats are intentionally not specified here.
+Shared wire types are defined in `packages/types/src/cluster-map.ts` and
+`packages/types/src/auth.ts`. Drizzle schemas live in `packages/db/src/schema/`.
 
 ## Domain concepts
 
-| Concept      | Meaning                                                                                              |
-| ------------ | ---------------------------------------------------------------------------------------------------- |
-| Cluster      | A uniquely identified physical area containing rows and places.                                      |
-| Row          | An ordered group of map positions within a cluster.                                                  |
-| Place        | A numbered physical position that can be free or occupied.                                           |
-| Layout gap   | An empty map position used to reproduce physical spacing; it is not a place and has no place number. |
-| Occupancy    | The current association between a real place and, when permitted, a peer.                            |
-| Peer         | A person associated with an occupied place; only approved identity fields may leave the API.         |
-| Last updated | The time at which occupancy data was most recently retrieved successfully.                           |
+| Concept   | Implementation                                                                           |
+| --------- | ---------------------------------------------------------------------------------------- |
+| Cluster   | Config `{ id, number, label }`; config `id` matches database `cluster.name`.             |
+| Row       | Numbered group within a cluster; layout rows are returned in descending number order.    |
+| Place     | Numbered cell with an ID and optional `top`/`bottom` position.                           |
+| Gap       | `{ kind: "gap" }`, excluded from occupancy and summary counts.                           |
+| Occupancy | Database `position.occupied`, holder, and taken time; API exposes only occupied entries. |
+| Peer      | Nullable `intraName`, `displayName`, and `photo`; no email in map responses.             |
+| Viewer    | Auth user with a session, role (`user` or `admin`), and approval state.                  |
 
-A cluster contains ordered rows, and each row contains ordered layout positions.
-A position is either a real place or a layout gap. A real place has exactly one
-display state at a given observation: free or occupied.
+The Hive schema contains `cluster`, `row`, `position`, and `user_hive_info`.
+Auth tables are `user`, `session`, `account`, and `verification`. Database
+constraints enforce unique cluster names, row numbers within clusters, and seat
+numbers within rows. A position must be either free with no holder/taken time,
+or occupied with both fields populated.
 
-## Separate sources
+## Read and merge flow
 
-The target design uses two independent inputs:
+1. The frontend requests the cluster list and initially selects cluster number 1.
+2. Layout and occupancy load independently for the selected cluster.
+3. The API parses and validates the JSON layout on each config read.
+4. The occupancy repository filters occupied positions by `cluster.name` and
+   joins row, Hive identity, and auth user data.
+5. The frontend matches entries by `(row, place)` number. Configured places absent
+   from occupancy are free. Gaps remain non-interactive spacing.
+6. The frontend derives summary counts and renders the map once both snapshots exist.
 
-- **Layout configuration** defines clusters, rows, place numbers, ordering, and
-  visual gaps. It should be editable without changing production occupancy data.
-- **Occupancy data** is read from the production source and associates known real
-  places with current peer information.
+Occupancy for an unknown place does not create a new map cell. The separate
+`config-validation` endpoint reports `ORPHANED_OCCUPANCY` errors, but the web map
+does not call it yet. Duplicate occupancy keys collapse to the last entry in the
+frontend map; there is no separate duplicate-warning UI.
 
-Keeping these sources separate prevents visual layout concerns from leaking into
-the production occupancy schema.
+## Updates and recovery
 
-## Proposed read flow
+After a successful occupancy load, the frontend opens SSE. The server shares
+one poller and snapshot per subscribed cluster within each API process. It emits
+only changed/new occupied entries and freed coordinates, with no event history.
+The frontend removes freed entries, then upserts occupied entries.
 
-1. The viewer selects a cluster.
-2. The web application requests its map from the API.
-3. The API loads and validates the cluster's layout configuration.
-4. The API reads the minimum required occupancy fields with a read-only database
-   connection.
-5. The API matches occupancy records to configured real places.
-6. It returns an ordered map representation plus summary counts, update metadata,
-   and safe warnings.
-7. The web application renders the response and retains it during later refreshes.
+A `DB_UNAVAILABLE` event retains the existing map, marks occupancy stale, and
+schedules a snapshot recovery attempt after 30 seconds. Failed recovery repeats;
+a successful snapshot or delta clears stale state. A transport failure closes
+the stream, checks the session, and retries via a fresh snapshot after 30 seconds.
+An unauthorized/forbidden session stops reconnecting.
 
-## Merge rules
+Snapshot `lastUpdated` is the API's successful-read time. On a delta, the frontend
+uses its local receipt time. Unchanged server polls send no timestamp update;
+keepalive comments do not prove occupancy freshness. There is no age-based stale
+threshold, and transport failures alone do not immediately mark the map stale.
 
-The implementation should preserve these invariants:
-
-- A layout gap is never considered free or occupied.
-- A configured place with no matching occupancy record is free, subject to the
-  production source's eventual contract.
-- A configured place with one valid matching record is occupied.
-- Duplicate occupancy records or occupancy for an unknown place are data-quality
-  mismatches, not additional map positions.
-- A mismatch must be observable and must not silently invalidate unrelated map
-  content.
-- Peer data must be reduced to the approved response fields before it reaches the
-  browser.
-
-The meaning of “no matching occupancy record” and the stable keys used for a
-match must be confirmed against the production schema before implementation.
-
-## Refresh and failure flow
-
-The frontend is expected to poll at a configurable interval. On success it replaces
-the map and last-updated value together. On failure it retains the last successful
-response, reports that the data might be stale, and retries later. Staleness is
-measured from the last successful occupancy retrieval, not the most recent attempt.
-
-See [Requirements and User Journeys](../product/requirements-and-user-journeys)
-for the user-visible states and [Architecture Decisions](./decisions) for
-unresolved freshness and warning policies.
+Switching clusters cancels prior requests/streams and hides the old cluster's
+snapshot. A failed initial map load shows a retry action; a later failed snapshot
+refresh preserves existing data.

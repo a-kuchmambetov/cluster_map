@@ -1,0 +1,13 @@
+.git
+.agents
+.codex
+**/node_modules
+**/dist
+**/build
+**/.docusaurus
+**/coverage
+**/*.tsbuildinfo
+.env
+.env.*
+!.env.example
+*.log

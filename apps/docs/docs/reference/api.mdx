@@ -23,15 +23,27 @@ Authentication endpoints:
 
 - `POST /api/auth/register`: `{ name, email, password }`; creates an account awaiting administrator approval.
 - `POST /api/auth/login`: `{ email, password }`; sets an HttpOnly session cookie and returns `{ user }`.
-- `GET /api/auth/session`: returns `{ user: { id, name, email, emailVerified, image } }` for an approved session.
+- `GET /api/auth/session`: returns `{ user: { id, name, email, emailVerified, image, role } }` for an approved session.
 - `POST /api/auth/logout`: invalidates the session and clears cookies.
-- `POST /api/auth/confirm/:id`: consumes an approval token; requires a currently approved administrator.
+- `GET /api/auth/pending-users`: returns `{ users: [{ id, name, email, createdAt, approvalToken }] }`, ordered by creation time then ID; requires an approved administrator. Tokens are for the approval action and must not be exposed to ordinary viewers.
+- `POST /api/auth/confirm/:id`: consumes a single-use approval token (not a user ID); requires a currently approved administrator. Returns `{ message }` and clears the token.
 
-Session checks and logout are outside the login/register/approval rate limiter. Browser POST requests must use the configured trusted origin. The browser sends credentials for both HTTP requests and SSE. Existing SSE connections revalidate access every 20 seconds and close if validation fails; revocation is therefore bounded by that interval plus check latency. The client checks its session after stream failures and stops retrying on `401`/`403`.
+Session checks, pending-user reads, and logout are outside the login/register/approval rate limiter. That limiter allows 10 requests per IP per 60 seconds. Cluster routes have no separate rate limiter. Auth responses use `Cache-Control: no-store` and `Referrer-Policy: no-referrer`. Login also includes `role` in its user response; registration returns a generic `{ message }` without signing in. Browser POST requests must use the configured trusted origin. The browser sends credentials for both HTTP requests and SSE. Existing SSE connections revalidate access every 20 seconds and close if validation fails; revocation is therefore bounded by that interval plus check latency. The client checks its session after stream failures and stops retrying on `401`/`403`.
+
+For the protected curl examples below, first save an approved account's session:
+
+```bash
+curl -c cookies.txt -H 'Content-Type: application/json' \
+  -d '{"email":"demo-admin@example.test","password":"Demo-password-123!"}' \
+  http://localhost:5000/api/auth/login
+```
+
+These credentials are created by the local demo seed. Adjust the API port if
+using the template's `API_PORT=5001`.
 
 ## Error envelope
 
-Every error response, across all endpoints, uses one JSON shape:
+Errors handled by the API error middleware use this JSON shape. Health degradation and unregistered routes are exceptions described below:
 
 ```ts
 type ApiErrorResponse = {
@@ -44,6 +56,7 @@ type ApiErrorResponse = {
     | "NOT_FOUND"
     | "CLUSTER_NOT_FOUND"
     | "CONFLICT"
+    | "TOO_MANY_REQUESTS"
     | "VALIDATION_ERROR"
     | "INTERNAL_SERVER_ERROR";
   error: string;
@@ -51,7 +64,7 @@ type ApiErrorResponse = {
 };
 ```
 
-`UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, and `CONFLICT` are part of the shared `AppError` type but are not currently returned by any mounted route.
+Auth and cluster routes can return `401 UNAUTHORIZED` or `403 FORBIDDEN`. Invalid/consumed approval tokens return `404 NOT_FOUND`; auth errors can also include `409 CONFLICT`. The auth rate limiter returns `429 TOO_MANY_REQUESTS`.
 
 Example validation error:
 
@@ -71,11 +84,16 @@ Example validation error:
 }
 ```
 
-Status codes currently in use:
+Common error-middleware responses:
 
 | Condition                                             | HTTP status | Code                    |
 | ----------------------------------------------------- | ----------: | ----------------------- |
 | Malformed JSON request body                           |         400 | `BAD_REQUEST`           |
+| Missing or expired session                            |         401 | `UNAUTHORIZED`          |
+| Unapproved account or insufficient privileges         |         403 | `FORBIDDEN`             |
+| Invalid or consumed approval token                    |         404 | `NOT_FOUND`             |
+| Auth conflict                                         |         409 | `CONFLICT`              |
+| Auth rate limit exceeded                              |         429 | `TOO_MANY_REQUESTS`     |
 | Path parameter fails Zod validation                   |         422 | `VALIDATION_ERROR`      |
 | Cluster number has no matching cluster in the config  |         404 | `CLUSTER_NOT_FOUND`     |
 | Unexpected server error (e.g. occupancy source fails) |         500 | `INTERNAL_SERVER_ERROR` |
@@ -98,7 +116,7 @@ A non-numeric, non-integer, or non-positive `clusterNumber` (e.g. `abc`, `1.5`, 
 
 ## `GET /api/health`
 
-Returns a process-level health response. It does not currently check PostgreSQL or another dependency.
+Checks PostgreSQL with `SELECT 1` and a two-second timeout. It does not verify migrations, authentication configuration, or occupancy freshness.
 
 ### Request
 
@@ -114,9 +132,14 @@ Status: `200 OK`
 
 ```json
 {
-  "status": "ok"
+  "status": "ok",
+  "db": "ok"
 }
 ```
+
+If the database is unavailable or the check times out, the endpoint returns
+`503` with `{ "status": "degraded", "db": "unreachable" }`, outside the normal
+error envelope.
 
 ## `GET /api/clusters`
 
@@ -127,7 +150,7 @@ Returns the list of clusters known to the layout config. Used to render a cluste
 No parameters or request body. An approved session is required.
 
 ```bash
-curl http://localhost:5000/api/clusters
+curl -b cookies.txt http://localhost:5000/api/clusters
 ```
 
 ### Success response
@@ -164,7 +187,7 @@ Returns the cluster's physical layout from the config file. No DB query.
 No query parameters or request body.
 
 ```bash
-curl http://localhost:5000/api/clusters/1/layout
+curl -b cookies.txt http://localhost:5000/api/clusters/1/layout
 ```
 
 ### Success response
@@ -207,7 +230,7 @@ Status: `200 OK`
 Field meanings:
 
 - `cluster` — `{ id, number, label }`, same shape as an entry from `GET /api/clusters`.
-- `rows[]` — rows in top-to-bottom physical order: highest row number first. In the HIVE layout R6 is the topmost row, so `rows[0]` is always R6. The frontend can render in array order without sorting.
+- `rows[]` — rows in top-to-bottom physical order: highest row number first. The highest row depends on the selected cluster; do not assume every cluster has R6. The frontend can render in array order without sorting.
 - `cells[]` — positions in a row, in order. Each cell is one of:
   - `{ "kind": "place", "id", "number", "position"? }` — a real, numbered seat.
   - `{ "kind": "gap" }` — visual spacer; no `id`, `number`, or `position`.
@@ -236,7 +259,7 @@ Returns the currently occupied places. Every place not listed is free by implica
 No query parameters or request body.
 
 ```bash
-curl http://localhost:5000/api/clusters/1/occupancy
+curl -b cookies.txt http://localhost:5000/api/clusters/1/occupancy
 ```
 
 ### Success response
@@ -268,14 +291,14 @@ Field meanings:
   - `peer` — `{ intraName, displayName, photo }`, all fields `string | null`. Both name fields are passed through raw from the DB; no fallback or priority logic is applied server-side. Presentation is the frontend's decision.
     - `intraName` — Hive/intra login, or `null` for guest accounts without one.
     - `displayName` — real name, or `null` if absent.
-    - `photo` — avatar URL, or `null`; frontend uses a default photo when null.
-    - **All three fields may be `null` simultaneously.** The DB schema tracks `occupied` (boolean) and `holderId` (nullable FK) separately; the query filters on `occupied = true` and left-joins the holder. A seat marked occupied with no holder produces a valid record with a null peer. The frontend should render it as occupied (seat taken) but without a name or photo.
+    - `photo` — avatar URL, or `null`; frontend uses an initial or `?` fallback when null.
+    - **The response type permits all three fields to be `null`.** Render such an entry as occupied even without identity details. The current DB constraint requires occupied positions to have a holder and taken time; an occupied position without a holder is not a valid current database row.
   - No `email` — explicitly excluded per privacy rules.
 - `lastUpdated` — ISO 8601 timestamp of the last successful DB read. `null` if the occupancy has never been successfully read.
 
 ### Occupancy data source
 
-Occupancy is read from `@repo/db`'s `getClusterOccupancy` function, which queries the production DB directly over a read-only connection. The real `@repo/db` integration is in place; the production DB credentials and cluster identifier mapping are tracked in `contracts/DB-contract.md` §4.
+Occupancy is read by `apps/api/src/features/clusters/clusters.repository.ts` using the shared `@repo/db` client. It queries occupied positions and matches config `id` to database `cluster.name`. Auth writes use the same client, so read-only connection permissions and production-source integration are not enforced by this repository.
 
 ### Error responses
 
@@ -289,7 +312,7 @@ Occupancy is read from `@repo/db`'s `getClusterOccupancy` function, which querie
 
 Checks whether the layout config is consistent with what the database currently reports.
 
-The config file is structurally valid by construction — Zod catches schema problems at load time. This endpoint detects semantic mismatches: if the database returns occupancy for a `(row, place)` pair that doesn't exist in the config, the config is probably out of date. The site should surface a message asking someone to review it.
+The config file is structurally valid by construction — Zod catches schema problems at load time. This endpoint detects semantic mismatches: if the database returns occupancy for a `(row, place)` pair that doesn't exist in the config, the config is probably out of date. The current web map does not call this endpoint or populate its warnings array yet.
 
 ### Request
 
@@ -300,7 +323,7 @@ The config file is structurally valid by construction — Zod catches schema pro
 No query parameters or request body.
 
 ```bash
-curl http://localhost:5000/api/clusters/1/config-validation
+curl -b cookies.txt http://localhost:5000/api/clusters/1/config-validation
 ```
 
 ### Success response
@@ -344,7 +367,7 @@ When the DB returns occupancy for a place the config doesn't know about:
 
 ## `GET /api/clusters/:clusterNumber/events`
 
-A [Server-Sent Events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events) stream that pushes occupancy changes to the client as they occur. One connection per cluster per client; one-directional (server → client only).
+A [Server-Sent Events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events) stream that delivers changes detected by the server polling PostgreSQL. Each subscribed cluster has one poller per API process, with a 30-second delay between completed poll cycles. One connection per cluster per client; one-directional (server → client only).
 
 ### Load sequence
 
@@ -366,18 +389,20 @@ No query parameters or request body. The browser's `EventSource` API sets `Accep
 
 ```bash
 # curl example — streams indefinitely
-curl -N -H "Accept: text/event-stream" http://localhost:5000/api/clusters/1/events
+curl -N -b cookies.txt -H "Accept: text/event-stream" http://localhost:5000/api/clusters/1/events
 ```
 
 ### Response — stream open
 
 Status: `200 OK`  
-Headers: `Content-Type: text/event-stream`, `Cache-Control: no-cache`, `Connection: keep-alive`
+Headers: `Content-Type: text/event-stream`, `Cache-Control: no-store`, `Connection: keep-alive`
 
 All events are named so the client can use `addEventListener` rather than `onmessage`:
 
 ```js
-const source = new EventSource("/api/clusters/1/events");
+const source = new EventSource("/api/clusters/1/events", {
+  withCredentials: true,
+});
 source.addEventListener("occupancy-delta", (e) => {
   /* ... */
 });
@@ -390,7 +415,7 @@ source.addEventListener("error", (e) => {
 
 Sent when occupancy changed since the last poll. Not sent when nothing changed.
 
-The stream carries deltas rather than the full occupied list because a list-based feed cannot express "this place is now free": if a place drops out of a full-state list it is ambiguous between "became free" and "missed event". An explicit `freed` array removes that ambiguity without requiring the client to handle separate event types.
+The stream carries incremental changes with explicit `occupied` and `freed` arrays. It does not include event IDs, timestamps, full snapshots, or replay history.
 
 ```
 event: occupancy-delta
@@ -403,7 +428,7 @@ data: {"occupied":[{"row":1,"place":2,"peer":{"intraName":"jdoe","displayName":"
 | `occupied[]` | Places that became occupied, or places already occupied whose peer data changed. Same shape as entries from `/occupancy`. |
 | `freed[]`    | Places that were occupied and are now free. Identified by `{ row, place }` only — no peer data because the seat is empty. |
 
-Apply a delta by upserting every entry in `occupied` into local state and removing every entry in `freed`. An event where both arrays are empty is never sent.
+Apply a delta by removing entries in `freed`, then upserting entries in `occupied`. An event where both arrays are empty is never sent.
 
 #### `error`
 
@@ -415,11 +440,11 @@ data: {"code":"DB_UNAVAILABLE","message":"Occupancy data temporarily unavailable
 
 ```
 
-On repeated `DB_UNAVAILABLE` events: keep the last successful occupancy rendered and mark it stale, showing the last successful update time. Do not clear occupancy and do not treat missing data as free. The stale marking clears when the next successful `occupancy-delta` arrives.
+On repeated `DB_UNAVAILABLE` events: keep the last successful occupancy rendered and mark it stale, showing the last successful update time. Do not clear occupancy and do not treat missing data as free. The frontend retries an occupancy snapshot after 30 seconds so a successful read can clear stale state even when recovery produces no changes. A successful delta also clears stale state.
 
 #### Keepalive comments
 
-A comment line is sent every 20 seconds of inactivity to prevent proxies from closing idle connections. Comments are invisible to `EventSource` handlers and require no client-side handling.
+A comment line is sent every 20 seconds after a successful session recheck to prevent proxies from closing idle connections. Comments are invisible to `EventSource` handlers and require no client-side handling.
 
 ```
 : keep-alive
@@ -430,9 +455,11 @@ A comment line is sent every 20 seconds of inactivity to prevent proxies from cl
 
 `EventSource` reconnects automatically after a disconnect, but the server keeps no event history, so the client may have missed changes during the gap. The required reconnect sequence is:
 
-1. On `EventSource` `error` or `close`, wait for the browser's built-in backoff.
-2. **Re-fetch `/occupancy`** to resync local state before reopening the stream.
-3. Open a new `EventSource` connection.
+1. On a native transport error, close EventSource and check `/auth/session`. Stop retries on `401` or `403`.
+2. Wait 30 seconds, then **re-fetch `/occupancy`**. Repeat if that snapshot fails.
+3. Open a new credentialed EventSource only after a successful snapshot.
+
+The current client replaces browser automatic reconnect with this sequence. A transport error alone does not immediately mark data stale; a failed snapshot refresh does.
 
 The `Last-Event-ID` header sent by `EventSource` on reconnect is ignored — no event IDs are assigned.
 

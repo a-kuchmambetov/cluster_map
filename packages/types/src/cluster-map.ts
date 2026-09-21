@@ -6,18 +6,18 @@
  * Minimal peer information exposed by the API.
  */
 export interface Peer {
-    intraName: string | null;
-    displayName: string | null;
-    photo: string | null;
+  intraName: string | null;
+  displayName: string | null;
+  photo: string | null;
 }
 
 /**
  * Basic information identifying a cluster.
  */
 export type Cluster = {
-    id: string;
-    number: number;
-    label: string;
+  id: string;
+  number: number;
+  label: string;
 };
 
 /**
@@ -26,7 +26,7 @@ export type Cluster = {
  * GET /api/clusters
  */
 export type ClusterListResponse = {
-    clusters: Cluster[];
+  clusters: Cluster[];
 };
 
 /**
@@ -43,17 +43,17 @@ export type Position = "top" | "bottom";
  * the alternating top/bottom pattern from the preceding place.
  */
 export type LayoutPlaceCell = {
-    kind: "place";
-    id: string;
-    number: number;
-    position?: Position;
+  kind: "place";
+  id: string;
+  number: number;
+  position?: Position;
 };
 
 /**
  * A visual spacer in the physical layout.
  */
 export type LayoutGapCell = {
-    kind: "gap";
+  kind: "gap";
 };
 
 /**
@@ -67,10 +67,10 @@ export type LayoutCell = LayoutPlaceCell | LayoutGapCell;
  * Cells are returned in their physical order.
  */
 export type ClusterLayoutRow = {
-    id: string;
-    number: number;
-    label: string;
-    cells: LayoutCell[];
+  id: string;
+  number: number;
+  label: string;
+  cells: LayoutCell[];
 };
 
 /**
@@ -79,8 +79,8 @@ export type ClusterLayoutRow = {
  * GET /api/clusters/:clusterNumber/layout
  */
 export type ClusterLayoutResponse = {
-    cluster: Cluster;
-    rows: ClusterLayoutRow[];
+  cluster: Cluster;
+  rows: ClusterLayoutRow[];
 };
 
 /**
@@ -90,9 +90,9 @@ export type ClusterLayoutResponse = {
  * row number + place number.
  */
 export type OccupiedEntry = {
-    row: number;
-    place: number;
-    peer: Peer;
+  row: number;
+  place: number;
+  peer: Peer;
 };
 
 /**
@@ -103,17 +103,17 @@ export type OccupiedEntry = {
  * Places missing from `occupied` are considered free.
  */
 export type ClusterOccupancyResponse = {
-    occupied: OccupiedEntry[];
-    lastUpdated: string | null;
+  occupied: OccupiedEntry[];
+  lastUpdated: string | null;
 };
 
 /**
  * One validation problem found in a cluster configuration.
  */
 export type ConfigValidationError = {
-    code: string;
-    message: string;
-    path: string;
+  code: string;
+  message: string;
+  path: string;
 };
 
 /**
@@ -122,11 +122,10 @@ export type ConfigValidationError = {
  * GET /api/clusters/:clusterNumber/config-validation
  */
 export type ConfigValidationResponse = {
-    clusterNumber: number;
-    valid: boolean;
-    errors: ConfigValidationError[];
+  clusterNumber: number;
+  valid: boolean;
+  errors: ConfigValidationError[];
 };
-
 
 /**
  * Identifies a place that became free.
@@ -136,8 +135,8 @@ export type ConfigValidationResponse = {
  * using the row number + place number pair.
  */
 export type FreedEntry = {
-    row: number;
-    place: number;
+  row: number;
+  place: number;
 };
 
 /**
@@ -152,8 +151,8 @@ export type FreedEntry = {
  * instead of replacing the whole occupancy snapshot.
  */
 export type OccupancyDelta = {
-    occupied: OccupiedEntry[];
-    freed: FreedEntry[];
+  occupied: OccupiedEntry[];
+  freed: FreedEntry[];
 };
 
 /**
@@ -164,6 +163,6 @@ export type OccupancyDelta = {
  * last successful occupancy state visible and mark it as stale.
  */
 export type OccupancyStreamError = {
-    code: "DB_UNAVAILABLE";
-    message: string;
+  code: "DB_UNAVAILABLE";
+  message: string;
 };

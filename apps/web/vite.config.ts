@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => {
     server: {
       proxy: {
         "/api": {
-          target: `http://localhost:${process.env.API_PORT ?? env.API_PORT ?? "5000"}`,
+          target: `http://localhost:${process.env.API_PORT ?? env.API_PORT ?? "5001"}`,
           changeOrigin: true,
         },
       },

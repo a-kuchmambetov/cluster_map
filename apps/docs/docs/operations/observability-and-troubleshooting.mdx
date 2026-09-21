@@ -4,36 +4,44 @@ sidebar_position: 2
 
 # Observability and Troubleshooting
 
-## Current Signals
+## Current signals
 
-The API currently exposes:
+`GET /api/health` is public and executes `SELECT 1` with a two-second timeout:
 
-- `GET /api/health`, which returns `{ "status": "ok" }` when the Express process is responding.
-- Detailed console error output outside production.
-- Masked messages for server errors when `NODE_ENV=production`.
+- `200`: `{ "status": "ok", "db": "ok" }`.
+- `503`: `{ "status": "degraded", "db": "unreachable" }`.
 
-The health endpoint does not currently verify database connectivity or map-data freshness.
+This tests connectivity, not schema migration state, auth configuration, layout
+validity, or occupancy freshness.
 
-## Planned Operational Signals
+The request logger records timestamp, method, path, response status, duration in
+milliseconds, and an error code when available. Production writes JSON lines to
+stdout; other modes use readable console lines. It drops query strings and
+redacts approval tokens from `/api/auth/confirm/:id`. It does not log request
+bodies, headers, or peer records. Production 5xx responses mask internal details.
 
-The MVP requirements call for visibility into:
-
-- API availability and response time.
-- Production database connection failures.
-- Invalid or mismatched map configuration.
-- Failed occupancy refreshes and stale data age.
-- Unexpected server errors without logging unnecessary personal data.
-
-Metrics, structured production logging, alerting, and tracing have not been selected yet.
+The API exposes layout/occupancy mismatch checks through `config-validation`.
+SSE reports database poll failures as `DB_UNAVAILABLE`; the frontend preserves
+loaded data and retries snapshots. A long-lived stream's request log is not a
+per-event signal. Metrics, alerting, and distributed tracing are not configured.
 
 ## Troubleshooting
 
-| Symptom                                          | Check                                                                                            |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| API exits during startup                         | Confirm all required PostgreSQL variables are present and readable                               |
-| Browser reports a CORS failure                   | Set `WEB_ORIGIN` to the frontend's exact origin, including scheme and port                       |
-| Documentation build fails                        | Run `pnpm build:docs` and resolve the reported MDX or broken-link error                          |
-| Database connection fails                        | Check host, port, database, user, and password or secret-file configuration                      |
-| Health endpoint succeeds but data is unavailable | The current health check is process-only; inspect database and future map-data checks separately |
+| Symptom                        | Check                                                                                                      |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| Health returns 503             | PostgreSQL availability, `PG_*`, and Compose DB health.                                                    |
+| Health works but login fails   | Auth secret/URL, schema migrations, password, and approval status; health only runs `SELECT 1`.            |
+| Login returns 403              | Account approval and trusted origin. New accounts cannot create a session before approval.                 |
+| Admin page/API denied          | Current user must be both approved and an administrator.                                                   |
+| Browser CORS/auth origin error | `WEB_ORIGIN`, actual Vite/browser port, `VITE_API_URL`, and cookie credentials.                            |
+| Map layout fails               | API working directory, presence of `src/config/clusters.json`, and Zod validity.                           |
+| Map occupancy is empty         | Config ID must match DB `cluster.name`; migrate and seed a local demo DB if needed.                        |
+| Map stays stale                | DB/SSE errors, recovery requests, session validity, and proxy buffering/timeouts.                          |
+| Timestamp stops advancing      | Unchanged polls produce no delta or freshness timestamp; keepalive comments only check session/connection. |
+| Documentation build fails      | Run `pnpm build:docs` and fix reported MDX/link errors.                                                    |
 
-See the [Environment Variables reference](../reference/environment-variables.mdx) for configuration details and [Deployment](./deployment.mdx) for the currently supported runtime artifact.
+For containers, inspect `docker compose ps` and `docker compose logs api db`.
+The checked-in web proxy does not explicitly disable SSE buffering; validate
+stream delivery through the deployed proxy before relying on live-update timing.
+
+See [Environment Variables](../reference/environment-variables) and [Deployment](./deployment).
