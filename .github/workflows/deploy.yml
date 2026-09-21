@@ -3,7 +3,7 @@ on:
   workflow_run:
     workflows: [Publish]
     types: [completed]
-    branches: [main]
+    branches: [dev-cicd-deployment]
   workflow_dispatch:
     inputs:
       publish_run_id:
