@@ -1,4 +1,4 @@
- wo# Manual deployment steps
+wo# Manual deployment steps
 
 Complete these steps in order. The repository implements CI, publishing, digest promotion, Coolify deployment polling and public health checks. Infrastructure setup and the one-off migration are manual. No cloud resources have been provisioned by this change.
 
