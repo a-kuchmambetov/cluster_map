@@ -4,33 +4,55 @@ sidebar_position: 2
 
 # Testing and Simulation
 
-:::warning[Current status]
+## Implemented suites
 
-The repository does not currently contain project test scripts, test files, or a simulation-agent implementation. This page records the intended strategy, not an active test system.
+Run from the repository root after installing and building shared packages:
 
-:::
+```bash
+pnpm --filter @repo/api test
+pnpm --filter @repo/api test:integration
+pnpm --filter @repo/web test
+```
 
-## Planned Test Layers
+| Suite           | Coverage and tooling                                                                                                                  |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| API unit        | Vitest; auth service/controller, session middleware, health, logging, cluster schema/service/controller, SSE pool, and stream access. |
+| API integration | Vitest and Supertest; mounted routes, error behavior, logs, real layout configuration, and optional database auth flow.               |
+| Web             | Vitest with happy-dom; auth, administrator approvals, map model, snapshot ownership/cancellation, and SSE recovery.                   |
 
-| Layer                         | Intended scope                                                           | Candidate tooling              |
-| ----------------------------- | ------------------------------------------------------------------------ | ------------------------------ |
-| Frontend unit and integration | Components, hooks, map states, and failed refreshes                      | Vitest and Mock Service Worker |
-| API                           | Routes, validation, error responses, and repositories                    | Vitest and Supertest           |
-| End to end                    | Cluster selection, place details, accessibility, and stale-data behavior | Playwright                     |
-| Simulation                    | Demonstration traffic and repeatable occupancy scenarios                 | Simulation agent               |
+The normal API `test` script excludes `src/test/integration`; run the separate
+integration command as well. API and web expose `test:watch`. There is no root
+`test` script; `pnpm -r --if-present test` runs the workspace default suites.
+Playwright end-to-end tests and MSW are not currently configured.
 
-Tool names reflect the current project plan. They become authoritative only after the corresponding dependencies and scripts are added.
+## PostgreSQL auth integration
 
-## Simulation Agent
+The DB-backed auth test is skipped unless `AUTH_DB_TEST=1`. Configure `PG_*` for
+a disposable database, run `pnpm db:migrate`, then:
 
-The planned simulation agent represents user-like activity so the application can be demonstrated without depending on live production behavior. It may also provide deterministic scenarios for testing map refreshes and occupancy changes.
+```bash
+AUTH_DB_TEST=1 pnpm --filter @repo/api test:integration
+```
 
-The agent must:
+This exercises real account/session writes, current admin privileges, and
+single-use approval tokens. Other integration tests use mocked dependencies or
+the checked-in layout and do not establish full production DB coverage.
 
-- Run only in local, test, or explicitly designated demonstration environments.
-- Never connect to or modify the production database.
-- Use clearly synthetic identities and occupancy records.
-- Support repeatable scenarios rather than uncontrolled random changes.
-- Document how it starts, stops, resets, and selects a scenario once implemented.
+## Demo data and simulation
 
-The simulation agent must not be included in the production runtime.
+`pnpm db:seed` runs the API's demo seed after building `@repo/db`. It creates
+synthetic admin/member/pending accounts and occupancy aligned with the layout:
+cluster 1 partially occupied, cluster 2 free, and cluster 3 full. It updates demo
+positions when rerun and refuses `NODE_ENV=production`.
+
+See [Local Development](../getting-started/local-development) for demo logins.
+The seed is static fixture setup, not an ongoing simulation agent. No such agent
+is implemented. A future agent should use repeatable synthetic scenarios in
+local/test/designated demo environments and must not modify a live production
+occupancy source.
+
+## Other checks
+
+Use `pnpm typecheck`, `pnpm lint`, `pnpm fmt:check`, `pnpm build`, and
+`pnpm build:docs` as appropriate. GitHub Actions workflows are not checked in;
+these commands are available locally but are not yet enforced by repository CI.

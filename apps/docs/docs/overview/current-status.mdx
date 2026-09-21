@@ -4,76 +4,37 @@ sidebar_position: 1
 
 # Current Status
 
-Cluster Map is an early-stage application. The documentation describes both the checked-in implementation and the intended MVP, so proposed behavior is labelled explicitly.
+This page describes the checked-in implementation. Production deployment and
+release acceptance are separate from the presence of working source code.
 
-:::info[Keep this page current]
+## Implementation summary
 
-Update this status summary whenever a planned capability becomes available. Detailed requirements do not mean that a feature has been implemented.
+| Area            | Current state                                                                                                                                       |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Web             | Cluster map at `/`, email/password login and registration, session guards, responsive place details, and administrator approvals at `/admin/users`. |
+| API             | Public database health check; authenticated cluster list, layout, occupancy, configuration validation, and SSE endpoints.                           |
+| Authentication  | Better Auth sessions, administrator approval, current-role checks, logout, and rate limiting for login, registration, and approval.                 |
+| Database        | Drizzle auth and Hive schemas, three checked-in migrations, PostgreSQL Compose service, and a local demo seed.                                      |
+| Live updates    | Shared per-cluster database polling every 30 seconds while subscribed, SSE deltas, and frontend recovery snapshots.                                 |
+| Shared packages | Auth and cluster DTOs in `@repo/types`, application errors in `@repo/errors`; `@repo/validators` still contains example validation.                 |
+| Tests           | API unit and integration suites and frontend Vitest suites; optional PostgreSQL auth integration test.                                              |
+| Deployment      | Dockerfiles for API, web, DB, and docs; full-stack Compose; Nginx web/API proxy and docs hosting.                                                   |
+| Documentation   | Docusaurus site with separate development and build commands.                                                                                       |
 
-:::
+See [Local Development](../getting-started/local-development) to run the app and
+[API Reference](../reference/api) for the implemented contracts.
 
-## Implementation Summary
+## Remaining work
 
-| Area                      | Status     | Current state                                                                                             |
-| ------------------------- | ---------- | --------------------------------------------------------------------------------------------------------- |
-| Documentation             | Available  | Docusaurus site, architecture diagram, and initial product requirements                                   |
-| Web application           | Foundation | React, Vite, routing, theming, and the Untitled UI starter screen                                         |
-| API                       | Foundation | Express application, CORS, validation and error middleware, and `GET /api/health`                         |
-| Cluster and map endpoints | Planned    | No cluster, map, place, or occupancy endpoints are registered yet                                         |
-| Database                  | Foundation | Drizzle client and migration tooling are configured; the application schema is empty                      |
-| Shared packages           | Scaffolded | Error handling exists; validators and shared types currently contain examples                             |
-| Simulation agent          | Planned    | The intended behavior is documented, but no agent implementation is defined                               |
-| Deployment                | Partial    | The documentation site has a Dockerfile and Nginx configuration; full-stack deployment is not implemented |
-
-## MVP Direction
-
-The intended MVP lets a viewer select a cluster, inspect its physical layout, spot free and occupied places, and see limited information about the peer using an occupied place. Occupancy is read-only and comes from a production data source.
-
-See [Requirements and User Journeys](../product/requirements-and-user-journeys.mdx) for the product behavior and [Decisions](../architecture/decisions.mdx) for unresolved choices.
-
-## Backlog
-
-### Web
-
-- [ ] Sign up Page
-- [ ] Login Page
-    - [ ] Using email and password
-    - [ ] Using **HIVE Auth**
-- [ ] Profile Page
-- [ ] Cluster map Page
-    - [ ] Clear representation of free and taken places
-    - [ ] User info at taken place on hover, click, etc
-- [ ] Admin Page for aproving newly created users, not from **HIVE Auth**
-- [ ] Implement 10 React reusable components at least, as part of [Transcendence Points Requirements](./transcendence-requirements.mdx)
-
-### API
-
-- [x] Define API contract between Web and API (expected routes and in values, responses)
-- [x] Define API contract between API and DB (required data, function name and response data strcuture)
-- [x] Improve health check route to monitor DB too
-- [x] Setup auth with Better Auth
-    - [ ] Add support for OAuth 2.0
-    - [ ] Add support for 2FA (Two-Factor Authentication) system for the users
-- [x] Implement routes according to the contract
-- [x] Implement Server-Sent Events (SSE) [Read about SSE with Nodejs](https://itsfuad.medium.com/understanding-server-sent-events-sse-with-node-js-3e881c533081)
-- [x] Verify proper logs without any sensitive data
-- [x] Setup rate limiting
-
-### DB
-
-- [x] Design Database ER model
-- [x] Implement Drizzle schema. [Read about schema](https://orm.drizzle.team/docs/sql-schema-declaration)
-- [x] Implement functions for retrvieving data according to the contract
-
-### CI/CD and deployment
-
-- [x] Desing plan for CI/CD pipline
-- [ ] Implement Github Actions for development (testing, docker compose build)
-- [ ] Setup Secret Vault and Runtime secrets
-- [ ] Setup and automate deployment with docker compose
-
-### General
-
-- [ ] Verify that Docs are complete
-- [ ] Gather user feedback
-- [ ] Make improvements based on feedback
+- Hive OAuth, two-factor authentication, and a profile page.
+- Connect configuration-validation results to map warnings; the frontend currently
+  supplies an empty warnings array.
+- Define an age-based stale threshold and measurable performance/accessibility
+  acceptance criteria. Current stale behavior responds to failures, not data age.
+- Validate production occupancy integration and database privileges. The current
+  client is shared by occupancy reads and authentication writes.
+- Implement the simulation agent; the demo seed supplies static fixtures only.
+- Implement GitHub Actions, secrets-manager integration, WAF/TLS hardening,
+  environment-specific deployments, and backup/rollback procedures.
+- Verify the [Transcendence requirements](./transcendence-requirements) against
+  delivered behavior; the points table is a target, not an acceptance result.

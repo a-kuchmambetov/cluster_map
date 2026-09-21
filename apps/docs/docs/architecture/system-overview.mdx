@@ -7,67 +7,59 @@ import ThemeImage from "@site/src/components/ThemeImage";
 
 # System Overview
 
-Cluster Map is a pnpm monorepo containing a React web application, an Express API,
-a Docusaurus documentation site, and shared TypeScript packages.
+Cluster Map is a pnpm monorepo with a React/Vite frontend, Express API,
+Docusaurus documentation, and shared TypeScript packages.
 
-## Implementation status
+## Implemented request path
 
-The product architecture is mostly a target design. At present:
+1. The browser registers or signs in through the API. Better Auth persists
+   accounts and sessions in PostgreSQL; new accounts need administrator approval.
+2. An approved viewer loads the cluster list, layout, and occupancy. The API
+   checks the session and current approval for cluster requests.
+3. The API reads and validates `apps/api/src/config/clusters.json` for physical
+   layout and uses Drizzle to query occupied positions and peer fields.
+4. The frontend joins layout and occupancy by row/place number and calculates
+   free, occupied, and total counts.
+5. After the initial occupancy snapshot, an SSE connection delivers changes.
+   One polling pool per cluster and API process queries PostgreSQL every 30 seconds
+   while there are subscribers. Streams recheck access every 20 seconds.
+6. Approved administrators list pending users and approve them from `/admin/users`.
 
-- the API configures JSON parsing and CORS and implements `GET /api/health`;
-- `@repo/db` creates a Drizzle PostgreSQL client, but its source schema is empty;
-- the web application is an Untitled UI starter rather than the cluster map; and
-- the documentation site is independently buildable and configured for
-  `https://docs.map-hive.pp.ua/`.
+## Component responsibilities
 
-Cluster, layout, occupancy, peer-detail, polling, and configuration-validation
-features are not yet implemented.
+| Component            | Responsibility                                                                                                                   |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Web                  | Authentication screens, route guards, cluster map, place details, summaries, stale indicators, and user approvals.               |
+| API                  | Session/role enforcement, auth operations, layout validation, occupancy reads, SSE delivery, health checks, and request logging. |
+| Database package     | Shared PostgreSQL client, auth/Hive Drizzle schemas, and migrations.                                                             |
+| Layout configuration | Cluster/row/place identity, physical order, staggered positions, and gaps.                                                       |
+| Docs                 | Product, architecture, setup, reference, and operational guidance.                                                               |
+| Nginx                | Static web/docs hosting; the web container proxies `/api` to the API.                                                            |
 
-## Target architecture
+## Deployment boundaries
 
-The following diagram represents the intended production system, not necessarily
-the currently deployed topology.
+`docker-compose.yml` defines `db`, `api`, `web`, and `docs` services with matching
+Dockerfiles. The API and DB have health checks. The documentation site is
+configured for `https://docs.map-hive.pp.ua/`.
+
+The diagram describes the broader intended production topology. Cloudflare,
+TLS/WAF configuration, CI/CD, and secrets-manager integration are not provisioned
+by the checked-in Compose stack.
 
 <ThemeImage
   src="img/architecture/diagram-light.svg"
   darkSrc="img/architecture/diagram-dark.svg"
-  alt="Target Cluster Map architecture"
+  alt="Target Cluster Map production architecture"
 />
-
-The intended request path is:
-
-1. Cloudflare provides DNS, TLS termination, and proxying for the public domain.
-2. Nginx serves static web and documentation assets and forwards API requests.
-3. The React/Vite frontend requests read-only map data from the Express API.
-4. The API validates requests, merges layout configuration with current occupancy,
-   and returns a frontend-oriented map response.
-5. Drizzle accesses PostgreSQL using a read-only production database account.
-
-Only docs-specific `Dockerfile.docs` and `nginx.docs.conf` deployment files are
-currently present in the repository. The complete Nginx and container topology is
-therefore still proposed. The final choice between one domain with `/docs` and a
-dedicated documentation subdomain is tracked in
-[Architecture Decisions](./decisions#documentation-hosting).
-
-## Component responsibilities
-
-| Component            | Responsibility                                                         | Status                       |
-| -------------------- | ---------------------------------------------------------------------- | ---------------------------- |
-| Web                  | Render clusters, places, status, peer details, timestamps, and errors. | Starter only                 |
-| API                  | Apply HTTP policy and provide map-oriented read operations.            | Health route only            |
-| Database package     | Configure Drizzle and define database access types.                    | Client present; schema empty |
-| Layout configuration | Describe physical rows, places, and gaps independently of occupancy.   | Proposed                     |
-| Docs                 | Record product, architecture, development, and operational guidance.   | Implemented, evolving        |
-| Cloudflare and Nginx | Terminate and route public traffic.                                    | Target topology              |
-
-See [Domain Model and Data Flow](./domain-model-and-data-flow) for the proposed
-runtime data path and [Repository Structure](./repository-structure) for source
-ownership.
 
 ## Architectural boundaries
 
-- The production occupancy source is read-only from Cluster Map's perspective.
-- Physical layout configuration and live occupancy are separate inputs.
-- Refresh failures must not erase the last successfully rendered map.
-- Polling is the initial proposal; the design may later support server-sent events
-  or WebSockets without changing the domain model.
+- Browsers access PostgreSQL through the API.
+- Layout and live occupancy remain separate API responses; the frontend merges them.
+- Map routes read occupancy. Auth routes write accounts and sessions through the
+  same DB client. A globally read-only database connection is not implemented.
+- Snapshot refresh failures preserve previously loaded map data for that cluster.
+- Production source permissions and deployment hardening remain release work.
+
+See [Domain Model and Data Flow](./domain-model-and-data-flow),
+[Repository Structure](./repository-structure), and [Deployment](../operations/deployment).

@@ -5,121 +5,68 @@ title: Repository Structure
 
 # Repository Structure
 
-Cluster Map uses a pnpm workspace. Deployable applications live in `apps/`, and
-shared TypeScript modules live in `packages/`.
+Cluster Map uses a pnpm workspace. Applications live in `apps/`; shared
+TypeScript packages live in `packages/`.
 
 ```text
-/
-├── apps/
-│   ├── api/          # Express API
-│   ├── docs/         # Docusaurus documentation
-│   └── web/          # React/Vite frontend
-├── packages/
-│   ├── db/           # Drizzle client and schema
-│   ├── errors/       # Shared application error
-│   ├── types/        # Shared TypeScript types
-│   └── validators/   # Shared Zod schemas
-├── package.json
-├── pnpm-workspace.yaml
-└── tsconfig.base.json
+apps/
+  api/src/
+    config/          # Environment, Better Auth, clusters.json
+    features/auth/   # Routes, controllers, services, repository, validation
+    features/clusters/ # Map endpoints and shared SSE polling pool
+    middleware/      # Auth, request logs, validation, errors
+    routes/          # Router mounting and database health
+    scripts/         # Local demo seed
+    test/integration/ # API integration suites
+    app.ts           # Express setup
+    index.ts         # Server startup
+  web/src/
+    app/             # Route table and providers
+    features/admin/  # Pending-user approvals
+    features/auth/   # Auth screens, provider, API, and route guard
+    features/cluster-map/ # Components, hooks, models, API and SSE client
+    components/      # Reusable Untitled UI-based components
+    config/          # API base URL
+    hooks/           # Shared React hooks
+    pages/           # Home and not-found pages
+    styles/          # Global styles, theme tokens, typography
+    types/           # Vite declarations
+    utils/           # Helpers and static data
+    main.tsx         # React entry point
+  docs/
+    docs/            # MDX content and generated sidebar structure
+    src/             # Docusaurus components and styles
+    static/          # Public assets
+packages/
+  db/                # Drizzle client, auth/Hive schemas, migrations
+  errors/            # Shared AppError
+  types/             # Shared auth and cluster-map DTOs
+  validators/        # Starter/example Zod validation
+contracts/           # API and database contract documents
 ```
 
-## Root files
+## Tooling and deployment
 
-The root `package.json` coordinates workspace development, builds, type checks,
-and linting. `pnpm-workspace.yaml` defines workspace membership, and
-`tsconfig.base.json`, `eslint.config.js`, and `.prettierrc` provide shared tooling
-configuration.
+The root `package.json` coordinates workspace commands. `pnpm-workspace.yaml`
+defines membership; `tsconfig.base.json`, `.oxlintrc.json`, and `.oxfmtrc.json`
+configure TypeScript, Oxlint, and Oxfmt.
 
-`.env.example` documents starter environment values. `Dockerfile.docs` and
-`nginx.docs.conf` currently apply only to the documentation site; generalized or
-per-service deployment files described by the target architecture do not yet
-exist.
+`.env.example` provides runtime defaults. `docker-compose.yml` and
+`Dockerfile.api`, `Dockerfile.web`, `Dockerfile.db`, and `Dockerfile.docs` define
+the container stack. `nginx.web.conf` serves the frontend and proxies the API;
+`nginx.docs.conf` serves documentation.
 
-## Applications
+## Source ownership
 
-### `apps/web`
+API features colocate routes, controllers, services, repositories, schemas, and
+unit tests. Integration tests live under `apps/api/src/test/integration`.
+Database models belong in `@repo/db`; DTOs shared between API and web belong in
+`@repo/types`. Current auth and cluster Zod schemas are feature-local, not in
+`@repo/validators`.
 
-The frontend is organized by UI responsibility:
+Frontend features own their API calls, state hooks, models, and screens. Shared
+visual components live under `components/`, and application providers live under
+`app/providers/`. Tests are colocated with the code they exercise.
 
-```text
-apps/web/src/
-├── components/   # Reusable UI components
-├── hooks/        # Reusable React hooks
-├── pages/        # Page components
-├── providers/    # React providers, such as the router and theme
-├── styles/       # Global styles, theme, and typography
-├── types/        # Frontend-specific TypeScript types
-├── utils/        # Helper functions and static data
-└── main.tsx      # React application entry point
-```
-
-Types used by multiple applications should be placed in `@repo/types` instead
-of `apps/web/src/types`.
-
-### `apps/api`
-
-The API separates server startup, Express configuration, shared HTTP concerns,
-and feature-specific business logic:
-
-```text
-apps/api/src/
-├── config/       # Configuration, such as environment variables
-├── features/     # Feature-specific API code
-├── lib/          # Shared API helper code
-├── middleware/   # Express middleware, such as error handling and validation
-├── routes/       # API routers
-├── app.ts        # Express setup, CORS configuration, and router linking
-└── index.ts      # Node.js server entry point; starts the Express server only
-```
-
-Each domain inside `features/` colocates its routes, layers, and tests:
-
-```text
-features/<feature>/
-├── <feature>.routes.ts             # Defines endpoints and attaches middleware
-├── <feature>.routes.test.ts        # Route tests
-├── <feature>.controller.ts         # Router handlers that call services
-├── <feature>.controller.test.ts    # Controller tests
-├── <feature>.service.ts            # Main business logic
-├── <feature>.service.test.ts       # Service tests
-├── <feature>.repository.ts         # Database queries
-├── <feature>.repository.test.ts    # Repository tests when query behavior warrants them
-├── <feature>.model.ts              # Database structure definitions
-├── <feature>.schema.ts             # Data-validation schemas
-└── <feature>.types.ts              # Feature-local TypeScript types
-```
-
-Repository tests are expected for behavior involving filters, joins, pagination,
-sorting, transactions, duplicate checks, custom SQL, authorization-related
-queries, or database constraints. Simple repository operations do not require a
-dedicated test by default.
-
-In this workspace, database models are defined as Drizzle schemas in `@repo/db`,
-and shared validation schemas are defined with Zod in `@repo/validators`. Types
-that are shared by multiple applications belong in `@repo/types`; types used only
-by one API feature remain in its `<feature>.types.ts` file.
-
-The `features/` and `lib/` directories describe the convention to follow as the
-API grows; they are not present in the current starter structure yet.
-
-### `apps/docs`
-
-`docs/` contains MDX content, `src/` contains Docusaurus components and styles,
-and `static/` contains images and other public assets. The sidebar is generated
-from the documentation directory structure.
-
-## Shared packages
-
-| Package            | Intended ownership                            | Current state                                  |
-| ------------------ | --------------------------------------------- | ---------------------------------------------- |
-| `@repo/db`         | Drizzle configuration, client, and schemas    | PostgreSQL client present; source schema empty |
-| `@repo/errors`     | Shared application error primitives           | Basic package present                          |
-| `@repo/types`      | Types used by more than one application       | Starter/example source                         |
-| `@repo/validators` | Zod schemas used by more than one application | Starter/example source                         |
-
-Generated `dist/` output and installed `node_modules/` content are build artifacts,
-not architectural source areas.
-
-For component responsibilities and deployment boundaries, see
-[System Overview](./system-overview).
+Generated `dist/`, `build/`, `.docusaurus/`, and `node_modules/` are artifacts,
+not source ownership areas.

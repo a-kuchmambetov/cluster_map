@@ -4,49 +4,33 @@ sidebar_position: 2
 
 # Environment Variables
 
-This reference describes variables read by the current API and database code. The API loads the root `.env` file when it is started through its workspace script. The database package itself reads `process.env` and does not explicitly load a dotenv file.
+API and DB configuration load the root `.env` via their workspace-relative path.
+Vite uses the root as its environment directory. Existing process variables take
+precedence over dotenv values.
 
-| Variable           | Required                                           | Default                 | Current consumer and behavior                                                                                                                             |
-| ------------------ | -------------------------------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `NODE_ENV`         | No                                                 | Unset                   | API CORS and error middleware. Exactly `development` enables an additional development origin. Exactly `production` masks 5xx error messages and details. |
-| `API_PORT`         | No                                                 | `5000`                  | API listener port; coerced to a number.                                                                                                                   |
-| `WEB_ORIGIN`       | No                                                 | `http://localhost:5173` | Allowed browser origin for credentialed CORS. Use a complete origin such as `http://localhost:5173`.                                                      |
-| `PG_USER`          | Yes for DB package startup                         | None                    | Required by DB package validation and used to construct the database URL.                                                                                 |
-| `PG_DB`            | Yes for DB package startup                         | None                    | Required by DB package validation and used as the database name in the constructed URL.                                                                   |
-| `PG_PASSWORD`      | Yes for DB package startup unless supplied by file | None                    | Database password. Takes precedence over `PG_PASSWORD_FILE`.                                                                                              |
-| `PG_PASSWORD_FILE` | No                                                 | None                    | Path to a file whose trimmed contents become the password when `PG_PASSWORD` is absent. Read by database configuration. Used only for docker compose.     |
-| `PG_HOST`          | No                                                 | `localhost`             | PostgreSQL host.                                                                                                                                          |
-| `PG_PORT`          | No                                                 | `5432`                  | PostgreSQL port used by the database package. It is not part of the API's Zod schema but remains available through `process.env`.                         |
+| Variable                                                | Requirement / default                             | Consumer                            |
+| ------------------------------------------------------- | ------------------------------------------------- | ----------------------------------- |
+| `NODE_ENV`                                              | `production` in release images                    | API runtime behavior and seed guard |
+| `API_PORT`                                              | 5000 in Coolify                                   | API listener                        |
+| `WEB_ORIGIN`                                            | Exact public HTTPS frontend origin in production  | CORS and auth                       |
+| `BETTER_AUTH_URL`                                       | Public origin, default auth base path `/api/auth` | Better Auth                         |
+| `BETTER_AUTH_SECRET`                                    | At least 32 random characters                     | Better Auth                         |
+| `PG_HOST`, `PG_PORT`, `PG_USER`, `PG_PASSWORD`, `PG_DB` | Private environment-specific database             | API and migrations                  |
+| `INFISICAL_CLIENT_ID`, `INFISICAL_CLIENT_SECRET`        | Universal Auth bootstrap credentials              | API entrypoint                      |
+| `INFISICAL_PROJECT_ID`, `INFISICAL_ENV`                 | Project ID and environment slug                   | API entrypoint                      |
+| `INFISICAL_DOMAIN`                                      | Optional EU/self-hosted domain                    | Infisical CLI                       |
+| `INFISICAL_SECRET_PATH`                                 | `/api`; migration uses `/database`                | API entrypoint                      |
+| `API_UPSTREAM`                                          | Required private `hostname:port`                  | Web Nginx template                  |
+| `VITE_API_URL`                                          | Empty in Docker images                            | Same-origin API requests            |
+| `AUTH_DB_TEST`                                          | `1` only with a migrated disposable database      | Auth integration tests              |
 
-## Local example
+`PG_PASSWORD_FILE` and a `DATABASE_URL` environment override are not consumed by
+the current connection code. Secret-file delivery is future work, not an
+implemented alternative to `PG_PASSWORD`.
 
-```dotenv
-NODE_ENV=development
-API_PORT=5000
-WEB_ORIGIN=http://localhost:5173
+There are no environment settings for the layout file path, SSE poll interval,
+frontend recovery interval, or stale-data age threshold. Current polling and
+recovery use 30-second constants; stream access checks use 20 seconds.
 
-PG_USER=app
-PG_DB=app
-PG_PASSWORD=app
-PG_HOST=localhost
-PG_PORT=5432
-```
-
-## Secret-file example
-
-```dotenv
-PG_USER=app
-PG_DB=app
-PG_HOST=database
-PG_PASSWORD_FILE=/run/secrets/postgres_password
-```
-
-The password file is read synchronously during configuration initialization. A missing or unreadable file and missing PG_PASSWORD causes compose startup to fail.
-
-## Checked-in example coverage
-
-The current root `.env.example` contains `API_PORT`, `WEB_ORIGIN`, `PG_USER`, `PG_DB`, `PG_PASSWORD`, and `PG_HOST`. The code also recognizes `NODE_ENV`, `PG_PORT`, `PG_PASSWORD_FILE`; those variables are documented here even though they are absent from the checked-in template.
-
-For setup instructions and the current port alignment, see [Local development](../getting-started/local-development) and [Configuration](../getting-started/configuration).
-
-There is no current environment variable for a map-layout configuration file, polling interval, stale-data threshold, or frontend API base URL.
+See [Configuration](../getting-started/configuration) for a consistent local
+example and [Deployment](../operations/deployment) for release configuration.

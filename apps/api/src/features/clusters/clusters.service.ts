@@ -101,7 +101,7 @@ export function getClusterLayout(clusterNumber: number): ClusterLayoutResponse {
   const config = loadClusterConfig(clusterNumber);
   return {
     cluster: { id: config.id, number: config.number, label: config.label },
-    rows: [...config.rows].sort((a, b) => b.number - a.number),
+    rows: config.rows.toSorted((a, b) => b.number - a.number),
   };
 }
 
