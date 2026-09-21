@@ -69,6 +69,44 @@ export async function logoutHandler(
   }
 }
 
+export async function githubSignInHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const callbackURL =
+      typeof req.query.callbackURL === "string" ? req.query.callbackURL : "/";
+    const result = await service.initiateGitHubSignIn(
+      callbackURL,
+      fromNodeHeaders(req.headers),
+    );
+    for (const cookie of result.headers.getSetCookie())
+      res.append("Set-Cookie", cookie);
+    res.redirect(result.response.url!);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function githubCallbackHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const result = await service.handleGitHubCallback(
+      req.query as Record<string, string | undefined>,
+      fromNodeHeaders(req.headers),
+    );
+    for (const cookie of result.headers.getSetCookie())
+      res.append("Set-Cookie", cookie);
+    res.redirect(result.headers.get("Location") ?? "/");
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function pendingUsersHandler(
   req: Request,
   res: Response,

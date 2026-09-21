@@ -10,6 +10,8 @@ import {
   registerHandler,
   confirmHandler,
   loginHandler,
+  githubSignInHandler,
+  githubCallbackHandler,
 } from "./auth.controller";
 import { registerSchema, confirmSchema, loginSchema } from "./auth.schema";
 
@@ -31,6 +33,8 @@ authRouter.use((req, _res, next) => {
   }
   next();
 });
+authRouter.get("/sign-in/github", githubSignInHandler);
+authRouter.get("/callback/github", githubCallbackHandler);
 authRouter.get("/session", sessionHandler);
 authRouter.get("/pending-users", pendingUsersHandler);
 authRouter.post("/logout", logoutHandler);

@@ -98,6 +98,32 @@ export function getSession(headers: Headers) {
   });
 }
 
+export function initiateGitHubSignIn(callbackURL: string, headers: Headers) {
+  return callAuth(async () => {
+    const { auth } = await import("../../config/auth.js");
+    return auth.api.signInSocial({
+      body: { provider: "github", callbackURL },
+      headers,
+      returnHeaders: true,
+    });
+  });
+}
+
+export function handleGitHubCallback(
+  query: Record<string, string | undefined>,
+  headers: Headers,
+) {
+  return callAuth(async () => {
+    const { auth } = await import("../../config/auth.js");
+    return auth.api.callbackOAuth({
+      params: { id: "github" },
+      query,
+      headers,
+      asResponse: true,
+    });
+  });
+}
+
 export function logout(headers: Headers) {
   return callAuth(async () => {
     const { auth } = await import("../../config/auth.js");

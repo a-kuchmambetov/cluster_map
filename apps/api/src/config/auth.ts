@@ -22,6 +22,12 @@ export const auth = betterAuth({
     minPasswordLength: 8,
     maxPasswordLength: 128,
   },
+  socialProviders: {
+    github: {
+      clientId: config.GITHUB_CLIENT_ID,
+      clientSecret: config.GITHUB_CLIENT_SECRET,
+    },
+  },
   user: {
     additionalFields: {
       role: { type: ["user", "admin"], defaultValue: "user", input: false },
