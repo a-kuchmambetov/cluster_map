@@ -4,80 +4,55 @@ sidebar_position: 1
 
 # Deployment
 
-## Checked-in stack
+Release images are built by GitHub Actions, stored in GHCR, and pulled by Coolify.
+API runtime secrets are injected by Infisical at container startup. PostgreSQL is
+persistent infrastructure, separate from application releases.
 
-`docker-compose.yml` defines four services:
+Follow the repository's [manual deployment runbook](https://github.com/a-kuchmambetov/cluster_map/blob/main/manual.md)
+for the ordered infrastructure setup, environment gates, migration commands,
+promotion and recovery procedures.
 
-| Service | Artifact                                             | Default published port              |
-| ------- | ---------------------------------------------------- | ----------------------------------- |
-| `db`    | `Dockerfile.db`, PostgreSQL 17                       | 5432                                |
-| `api`   | `Dockerfile.api`, Node.js 24, non-root runtime       | 5000 (template sets host port 5001) |
-| `web`   | `Dockerfile.web`, Vite output served by Nginx        | 8080                                |
-| `docs`  | `Dockerfile.docs`, Docusaurus output served by Nginx | 8081                                |
+## Images and networking
 
-The DB persists in the `postgres_data` named volume. API startup depends on DB
-health; web startup depends on API health. Health is database connectivity only,
-not application schema readiness. Migrations and seeding are not automatic.
+| Application | Dockerfile             | Internal port |
+| ----------- | ---------------------- | ------------- |
+| API         | `apps/api/Dockerfile`  | 5000          |
+| Web         | `apps/web/Dockerfile`  | 80            |
+| Docs        | `apps/docs/Dockerfile` | 80            |
 
-## Local full-stack run
+Build using the repository root as context. Web requires runtime
+`API_UPSTREAM=private-api-hostname:5000`, on a verified private destination network.
+It uses same-origin `/api` requests, disables proxy buffering and supports SSE.
+The trusted Coolify HTTPS proxy must overwrite forwarded protocol headers.
+Docs has no runtime secrets and uses the canonical domain configured in Docusaurus.
 
-After `pnpm install`, copy `.env.example` to `.env`, set a random
-`BETTER_AUTH_SECRET`, and configure your local DB values. Keep `VITE_API_URL`
-empty for same-origin API access. Then:
+API requires Infisical Universal Auth bootstrap credentials plus project and
+environment selection. Actual authentication and database values live in `/api`.
+Secrets are refreshed only when the process restarts.
 
-```bash
-docker compose up -d db
-```
+## Release sequence
 
-Wait for DB health, then apply migrations from the host workspace:
+1. CI checks formatting, lint, types, tests, builds, and PostgreSQL integration.
+2. Publish builds all three images from trusted branches, with commit tags and digest artifacts.
+3. An operator runs the candidate API digest once using `scripts/deploy/migrate.sh`
+   with private networking and the environment's `/database` migration identity.
+4. The operator approves the GitHub Environment gate after migration succeeds.
+5. Deploy updates Coolify digest references, waits for completion and healthy status,
+   and checks public availability. API deploys before Web and Docs.
+6. Production promotes the exact successful staging artifacts from a main publication.
 
-```bash
-pnpm db:migrate
-pnpm db:seed
+`/api/health` checks connectivity; `/api/health/ready` also checks authentication
+configuration and every declared database column without reading user data.
+Authenticated login, cluster/occupancy reads, SSE reconnection and persistence are
+manual acceptance checks documented in the runbook.
 
-docker compose up --build -d
-```
+## Local development and recovery
 
-The optional seed is for local/demo data only. It uses the host `.env`, so
-`PG_HOST=localhost` and the published DB port must match. It also requires a valid
-host `BETTER_AUTH_URL`; see [Local Development](../getting-started/local-development).
+Root `docker-compose.yml` runs the local database only. Use `pnpm dev` for the
+applications; see [Local Development](../getting-started/local-development).
+Migrations are explicit; API replicas do not run migrations on startup.
 
-Open `http://localhost:8080` for the application and `http://localhost:8081` for
-docs. Compose sets the API's auth URL and trusted origin from `DOCKER_WEB_ORIGIN`
-(default `http://localhost:8080`); update it when changing `WEB_PORT` or hostname.
-
-`nginx.web.conf` serves SPA routes and forwards `/api/` to `api:5000`.
-`VITE_API_URL`, if set, is a build argument baked into the frontend. The API
-image includes `src/config/clusters.json` because the runtime reads that path.
-
-```bash
-docker compose ps
-docker compose logs api db
-docker compose down
-```
-
-Stopping the stack without `-v` retains the named DB volume.
-
-## Documentation image
-
-```bash
-docker build -f Dockerfile.docs -t cluster-map-docs .
-docker run --rm -p 8080:80 cluster-map-docs
-```
-
-Choose another host port if the web stack already uses 8080. The docs image runs
-`pnpm build:docs`; Docusaurus treats broken links as build failures. The site is
-configured for `https://docs.map-hive.pp.ua/`.
-
-## Production work still required
-
-Compose is a runnable baseline, not evidence of a deployed or hardened service.
-Remaining work includes TLS/Cloudflare/WAF configuration, secrets-manager
-integration, CI/CD, staging/production isolation, migration/backup ownership,
-and rollback/restore procedures. Auth needs DB write privileges; the current
-single connection cannot be replaced by a globally read-only account.
-
-Verify SSE behavior through Nginx: the checked-in proxy does not explicitly
-configure buffering or stream timeouts. There is no automatic migration job,
-production admin bootstrap workflow, or secret-file reader in the current stack.
-See the [CI/CD implementation plan](../development-and-testing/CI-CD-implementation).
+Archive each healthy image digest record. Rollback is an explicit Coolify
+redeployment of the last healthy references after checking database compatibility.
+Automatic rollback and schema reversal are not implemented. Test database restores
+and keep production credentials separate from CI and staging.

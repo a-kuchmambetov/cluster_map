@@ -19,6 +19,12 @@ RUN pnpm --filter @repo/api... build
 
 FROM base AS runtime
 ENV NODE_ENV=production
+ARG INFISICAL_CLI_VERSION=0.43.133
+RUN apk add --no-cache bash curl && \
+    curl -fsSL https://artifacts-cli.infisical.com/setup.apk.sh -o /tmp/infisical-setup.sh && \
+    sh /tmp/infisical-setup.sh && apk add --no-cache "infisical=${INFISICAL_CLI_VERSION}" && \
+    rm /tmp/infisical-setup.sh
+COPY --chmod=755 apps/api/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN pnpm --filter @repo/api... install --prod --frozen-lockfile
 COPY --from=builder /app/packages/db/dist ./packages/db/dist
 COPY --from=builder /app/packages/errors/dist ./packages/errors/dist
@@ -33,4 +39,6 @@ COPY apps/api/src/config/clusters.json ./apps/api/src/config/clusters.json
 WORKDIR /app/apps/api
 USER node
 EXPOSE 5000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s CMD curl -fsS http://localhost:5000/api/health/ready || exit 1
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["node", "dist/index.js"]

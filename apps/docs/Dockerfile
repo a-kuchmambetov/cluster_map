@@ -17,5 +17,6 @@ RUN pnpm build:docs
 FROM nginx:stable-alpine AS runtime
 COPY apps/docs/nginx.docs.conf /etc/nginx/conf.d/default.conf
 COPY --from=base /app/apps/docs/build /usr/share/nginx/html
+HEALTHCHECK CMD wget -q -O /dev/null http://127.0.0.1/ || exit 1
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
