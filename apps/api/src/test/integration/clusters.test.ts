@@ -2,6 +2,7 @@ import http from "node:http";
 import type { AddressInfo } from "node:net";
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AppError } from "@repo/errors";
 import { app } from "../../app";
 import { resetPool, writeSharedSnapshot } from "../../features/clusters/clusters.pool";
 import type { OccupancyRow } from "../../features/clusters/clusters.types";
@@ -21,10 +22,41 @@ const C1_R1_OCCUPANCY: OccupancyRow[] = [
 ];
 
 const getClusterOccupancyMock = vi.fn();
+// Pass-through by default. Use mockImplementationOnce in the auth-gate test to
+// simulate a real rejection without coupling every other test to auth logic.
+const requireAuthMock = vi.fn(
+    (_req: unknown, _res: unknown, next: unknown) => (next as () => void)(),
+);
 
 vi.mock("../../features/clusters/clusters.repository", () => ({
     getClusterOccupancy: (...args: unknown[]) => getClusterOccupancyMock(...args),
 }));
+
+// Cluster behaviour tests are not auth tests. Stub out requireAuth so that
+// every test exercises the cluster logic rather than the session gate.
+// requireAuth.test.ts owns the 401/403 contract for that middleware.
+vi.mock("@middleware/requireAuth", () => ({
+    requireAuth: (req: unknown, res: unknown, next: unknown) =>
+        requireAuthMock(req, res, next),
+}));
+
+// Auth gate: one test that the gate is actually present in the route chain.
+// The rest of the suite stubs requireAuth out; this one overrides it for a
+// single call so that a refactor removing clustersRouter.use(requireAuth)
+// would be caught here without touching Artem's requireAuth unit tests.
+describe("cluster auth gate", () => {
+    it("returns 401 for an unauthenticated request", async () => {
+        requireAuthMock.mockImplementationOnce(
+            (_req: unknown, _res: unknown, next: unknown) =>
+                (next as (err: unknown) => void)(
+                    AppError.unauthorized("Authentication required"),
+                ),
+        );
+        const response = await request(app).get("/api/clusters");
+        expect(response.status).toBe(401);
+        expect(response.body.code).toBe("UNAUTHORIZED");
+    });
+});
 
 describe("GET /api/clusters", () => {
     it("returns the cluster list", async () => {
