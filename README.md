@@ -96,6 +96,8 @@ pnpm db:migrate
 ```
 
 Releases use GitHub Actions → GHCR → Coolify, with API secrets loaded from
-Infisical at startup. Start with [manual.md](manual.md) for infrastructure setup,
+Infisical at startup. Pushes to `staging` deploy to staging; pushes to `main` deploy
+to production. Both build API, Web and Docs on GitHub-hosted runners and deploy
+the published GHCR digests after the environment approval gate. Start with [manual.md](manual.md) for infrastructure setup,
 required environment variables, one-off migrations, staging approval, production
-promotion, and rollback. Do not run demo seeding against production.
+branch releases, and rollback. Do not run demo seeding against production.

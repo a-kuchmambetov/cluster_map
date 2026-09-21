@@ -1,23 +1,26 @@
-wo# Manual deployment steps
+# Manual deployment steps
 
-Complete these steps in order. The repository implements CI, publishing, digest promotion, Coolify deployment polling and public health checks. Infrastructure setup and the one-off migration are manual. No cloud resources have been provisioned by this change.
+Complete these steps in order. The repository implements CI, branch-based publishing, Coolify deployment polling and public health checks. Infrastructure setup and the one-off migration are manual. No cloud resources have been provisioned by this change.
 
 ## 1. Protect the repository before enabling releases
 
 1. Merge these files into the default `main` branch. `workflow_run` requires the workflow on the default branch, and deployment deliberately checks out trusted `main` automation.
-2. Protect `main` and `dev-cicd-deployment`: require pull-request review and the CI `checks` job; restrict direct pushes. Review workflow changes carefully.
-3. Create GitHub Environments named **staging** and **production**. Require reviewers on **both**, disable self-review, and restrict deployment branches to `main`. The Deploy workflow runs from `main`, even when staging images were published from `dev-cicd-deployment`.
-4. The staging approval is also the migration gate. **Never approve Deploy before the exact candidate image migration succeeds.** Production additionally requires a successful staging Deploy for the same Publish run, and images published from `main`.
+2. Protect `main` and `staging`: require pull-request review and the CI `checks` job; restrict direct pushes. Review workflow changes carefully.
+3. Create GitHub Environments named **staging** and **production**. Require reviewers on **both**, disable self-review, and restrict deployment branches to `main`. The Deploy workflow runs from `main`, even when staging images were published from `staging`.
+4. Each environment approval is also its migration gate. **Never approve Deploy before the exact candidate image migration succeeds.** Production accepts only images published from `main`; staging accepts only images published from `staging`. Each branch builds its own release.
 5. PR checks run on GitHub-hosted runners with a disposable PostgreSQL 17 service. They receive no deployment credentials. Do not enable `pull_request_target` or route PRs to the release runner.
 
-## 2. Provision the build runner
+## 2. Enable GitHub-hosted builds
 
-1. Create a dedicated Linux amd64 VM separate from Coolify and its private database network.
-2. Install Docker Engine, Buildx, Git, and the GitHub runner dependencies.
-3. In repository Settings → Actions → Runners → New self-hosted runner, follow the generated commands. Add label `cluster-map-build` and register using `--ephemeral`.
-4. Arrange replacement VMs after jobs complete; the three-image matrix requires three jobs, so one one-shot runner alone cannot complete a release.
-5. Permit outbound GitHub, GHCR, npm, container registries, and Infisical CLI package repository traffic. Do not give the runner runtime or database credentials.
-6. Allow GitHub Actions to publish packages using the repository `GITHUB_TOKEN`. All images target `linux/amd64`.
+1. CI, image builds and deployment run on GitHub-hosted `ubuntu-latest` runners. No self-hosted build runner is required.
+2. Allow GitHub Actions to publish packages using the repository `GITHUB_TOKEN`. The Publish image jobs request `packages: write` and build API, Web and Docs for `linux/amd64`.
+3. Every push to `staging` or `main` runs Publish's reusable CI checks before building and pushing images to GHCR. Pull requests run CI independently. Build caches are separated by branch and application.
+4. Images use `sha-<full commit SHA>` tags; deployments use the recorded immutable digests. Successful publication automatically starts Deploy for the matching environment:
+
+   | Branch    | GitHub / Coolify environment | Infisical environment |
+   | --------- | ---------------------------- | --------------------- |
+   | `staging` | `staging`                    | `staging`             |
+   | `main`    | `production`                 | `prod`                |
 
 ## 3. Configure Infisical
 
@@ -54,7 +57,7 @@ Complete these steps in order. The repository implements CI, publishing, digest 
 4. Use the same private destination network for Web, API and PostgreSQL within each environment. Give API a stable, verified network hostname/alias, e.g. `cluster-map-api-staging`. Do not share staging and production database access.
 5. Configure Web runtime variable `API_UPSTREAM=cluster-map-api-staging:5000` (use your actual alias). It is required; there is no implicit `api` fallback. Only expose Web through Coolify's trusted HTTPS proxy, which must overwrite `X-Forwarded-Proto`.
 6. Configure API runtime-only variables `INFISICAL_PROJECT_ID`, `INFISICAL_ENV` (`staging` or `prod`), `INFISICAL_CLIENT_ID`, and sensitive `INFISICAL_CLIENT_SECRET`. Optionally set `INFISICAL_DOMAIN` for EU/self-hosted Infisical. Do not duplicate API secrets here.
-7. Configure Web/Docs public domains and DNS with HTTPS. Docs canonical URL is currently `https://docs.map-hive.pp.ua` with `/` base path, shared across promoted images; change the Docusaurus configuration before publishing if a different canonical domain is needed.
+7. Configure Web/Docs public domains and DNS with HTTPS. Docs canonical URL is currently `https://docs.map-hive.pp.ua` with `/` base path, shared across branch builds; change the Docusaurus configuration before publishing if a different canonical domain is needed.
 8. Disable automatic Git deployments. Enable rolling updates and configure API health check `/api/health/ready`, port 5000, with at least 40 seconds startup grace; Web/Docs use `/`, port 80. Check that a failed startup leaves the old healthy instance serving.
 9. Make GHCR packages public after the first publication, or configure a dedicated `read:packages` registry credential in the Docker context Coolify actually uses. Never use the release runner's publishing token.
 10. In each GitHub Environment add secrets `COOLIFY_URL` (HTTPS origin), `COOLIFY_TOKEN`, `COOLIFY_API_UUID`, `COOLIFY_WEB_UUID`, `COOLIFY_DOCS_UUID`. The token needs application read/update and deployment trigger/status permissions.
@@ -63,7 +66,7 @@ Complete these steps in order. The repository implements CI, publishing, digest 
 
 ## 5. Publish, migrate, and approve staging
 
-1. Push a reviewed change to `dev-cicd-deployment` or `main`. Publish runs its own complete CI checks before the trusted runner builds all three images. No build optimization is applied yet.
+1. Push a reviewed change to `staging`. Publish runs its own complete CI checks before GitHub-hosted runners build all three images. No build optimization is applied yet.
 2. In the successful **Publish** run, download `image-api`, `image-web`, and `image-docs`. Each JSON records commit SHA, image name and digest. Keep the Publish run ID.
 3. The automatic **Deploy** run waits for staging environment approval. Download `image-api` before approving it.
 4. Review pending SQL migrations for compatibility with the currently running application. Back up the database before risky schema changes. Use expand-and-contract releases for incompatible changes.
@@ -88,13 +91,13 @@ Complete these steps in order. The repository implements CI, publishing, digest 
 9. In staging, register a test user, approve it using an approved admin, log in through Web, and inspect Secure cookies. Verify cluster/occupancy reads, SSE events and reconnection after a redeploy, and database persistence. These authenticated and persistence checks remain manual; automated checks cover schema/auth configuration readiness and public availability.
 10. Verify actual running container image digests on the Coolify server using `docker inspect` and `docker image inspect`. The workflow checks configured image and Coolify health, but cannot independently inspect the remote Docker daemon.
 
-## 6. Promote production
+## 6. Deploy production and retry releases
 
-1. Use a successful **main** Publish run that has already passed staging Deploy and the manual acceptance checks.
-2. Actions → Deploy → Run workflow (branch `main`), choose `production`, enter that exact Publish run ID. It downloads the original artifacts without rebuilding.
-3. Run step 5's migration with the same API digest and **production** network and migrator identity; set `INFISICAL_ENV=prod`.
-4. Approve the production Environment only after migration succeeds and compatibility is reviewed. The workflow rejects feature-branch publications and candidates without successful staging deployment evidence.
-5. Verify HTTPS, authentication, core reads and monitoring after completion. Archive the healthy digest record.
+1. After staging acceptance checks pass, merge the reviewed changes into `main`. Publish runs CI and builds a separate production release on GitHub-hosted runners.
+2. Successful publication automatically starts Deploy for **production**. Download that main Publish run's API digest and run step 5's migration with the **production** network and migrator identity; set `INFISICAL_ENV=prod`.
+3. Approve the production Environment after migration succeeds and compatibility is reviewed. The workflow validates that the publication came from `main`. It does not require the main build to have been deployed to staging; staging has its own branch release.
+4. Verify HTTPS, authentication, core reads and monitoring after completion. Archive the healthy digest record.
+5. To retry a deployment, use Actions → Deploy → Run workflow on branch `main`, choose the target environment, and supply its successful Publish run ID. Staging only accepts `staging` publications; production only accepts `main` publications. Manual runs on other branches are skipped. Existing artifacts are reused without rebuilding.
 
 ## 7. Rollback and operations
 
@@ -106,4 +109,4 @@ Complete these steps in order. The repository implements CI, publishing, digest 
 6. Monitor failed deployments, restarts, database readiness, authentication errors, SSE disconnects, Infisical outages and backup failures. Test restoring backups and rollback regularly. Keep the old healthy API running if Infisical cannot start its replacement.
 7. Regularly review pinned GitHub Action commits and base image updates; Infisical CLI is pinned to the tested package version `0.43.133`. Image digests preserve release artifacts, but a future rebuild may include newer base images.
 
-References: [Infisical runtime installation and authentication](https://infisical.com/docs/cli/usage), [Coolify deployment API](https://coolify.io/docs/api/endpoints/deployments/deploy-by-tag-or-uuid), [Coolify digest handling implementation](https://github.com/coollabsio/coolify/blob/v4.x/app/Jobs/ApplicationDeploymentJob.php), [GitHub self-hosted runners](https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/add-runners).
+References: [Infisical runtime installation and authentication](https://infisical.com/docs/cli/usage), [Coolify deployment API](https://coolify.io/docs/api/endpoints/deployments/deploy-by-tag-or-uuid), [Coolify digest handling implementation](https://github.com/coollabsio/coolify/blob/v4.x/app/Jobs/ApplicationDeploymentJob.php), [GitHub workflow-run triggers](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run).

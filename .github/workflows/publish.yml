@@ -1,18 +1,19 @@
 name: Publish
+run-name: Publish ${{ github.ref_name }} · ${{ github.sha }}
 on:
   push:
-    branches: [dev-cicd-deployment]
+    branches: [staging, main]
 permissions:
   contents: read
 concurrency:
-  group: publish-${{ github.sha }}
+  group: publish-${{ github.ref_name }}
   cancel-in-progress: false
 jobs:
   checks:
     uses: ./.github/workflows/ci.yml
   images:
     needs: checks
-    runs-on: [self-hosted, linux, x64, coolify]
+    runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
       contents: read
@@ -42,8 +43,8 @@ jobs:
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
-          cache-from: type=gha,scope=${{ matrix.app }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.app }}
+          cache-from: type=gha,scope=${{ github.ref_name }}-${{ matrix.app }}
+          cache-to: type=gha,mode=max,scope=${{ github.ref_name }}-${{ matrix.app }}
       - name: Record digest
         env:
           DIGEST: ${{ steps.build.outputs.digest }}

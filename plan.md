@@ -1,5 +1,10 @@
 # Deployment plan: GitHub Actions + Infisical + GHCR + Coolify
 
+> Historical design proposal. The implemented branch pipelines and current setup
+> are documented in [manual.md](manual.md): `staging` → staging and `main` →
+> production, both built on GitHub-hosted runners. Earlier self-hosted runner
+> and cross-environment digest promotion proposals below are superseded.
+
 Target repository: [cluster_map / dev-cicd-deployment](https://github.com/a-kuchmambetov/cluster_map/tree/dev-cicd-deployment) 
 
 The deployment should separate CI, image distribution, deployment orchestration, and secret management.

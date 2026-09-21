@@ -2,8 +2,6 @@ name: CI
 on:
   pull_request:
     branches: [main, staging]
-  push:
-    branches: [main, dev-cicd-deployment]
   workflow_call:
 permissions:
   contents: read
