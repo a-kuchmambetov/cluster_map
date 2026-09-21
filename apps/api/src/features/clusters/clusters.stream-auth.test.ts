@@ -43,4 +43,26 @@ describe("stream session revalidation", () => {
     expect(res.write).not.toHaveBeenCalled();
     expect(vi.getTimerCount()).toBe(0);
   });
+
+  it("writes a keep-alive comment and keeps the connection open when the session is still valid", async () => {
+    vi.useFakeTimers();
+    const res = Object.assign(new EventEmitter(), {
+      setHeader: vi.fn(),
+      flushHeaders: vi.fn(),
+      write: vi.fn(),
+      end: vi.fn(),
+    });
+    vi.mocked(getSession).mockResolvedValue({
+      user: { id: "1", name: "Test", email: "test@example.com", emailVerified: false, image: null, role: "user" },
+    });
+    getClusterEventsHandler(
+      { params: { clusterNumber: "1" }, headers: {} } as unknown as Request,
+      res as unknown as Response,
+      vi.fn() as NextFunction,
+    );
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(res.write).toHaveBeenCalledWith(": keep-alive\n\n");
+    expect(res.end).not.toHaveBeenCalled();
+    expect(mocks.unsubscribe).not.toHaveBeenCalled();
+  });
 });
