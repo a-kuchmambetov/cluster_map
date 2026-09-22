@@ -147,7 +147,10 @@ describe("GitHub OAuth routes", () => {
   it("defaults callbackURL to / when the parameter is absent", async () => {
     vi.mocked(service.initiateGitHubSignIn).mockResolvedValue({
       headers: new Headers(),
-      response: { url: "https://github.com/login/oauth/authorize", redirect: true },
+      response: {
+        url: "https://github.com/login/oauth/authorize",
+        redirect: true,
+      },
     });
     await request(app).get("/api/auth/sign-in/github");
     expect(service.initiateGitHubSignIn).toHaveBeenCalledWith(

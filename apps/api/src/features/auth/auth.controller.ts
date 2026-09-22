@@ -113,7 +113,9 @@ export async function enableTwoFactorHandler(
   next: NextFunction,
 ) {
   try {
-    res.json(await service.enableTwoFactor(req.body, fromNodeHeaders(req.headers)));
+    res.json(
+      await service.enableTwoFactor(req.body, fromNodeHeaders(req.headers)),
+    );
   } catch (error) {
     next(error);
   }
@@ -125,7 +127,10 @@ export async function verifyTOTPHandler(
   next: NextFunction,
 ) {
   try {
-    const result = await service.verifyTOTP(req.body, fromNodeHeaders(req.headers));
+    const result = await service.verifyTOTP(
+      req.body,
+      fromNodeHeaders(req.headers),
+    );
     for (const cookie of result.headers.getSetCookie())
       res.append("Set-Cookie", cookie);
     res.json(result.body);

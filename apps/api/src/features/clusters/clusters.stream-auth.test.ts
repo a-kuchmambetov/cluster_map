@@ -53,7 +53,14 @@ describe("stream session revalidation", () => {
       end: vi.fn(),
     });
     vi.mocked(getSession).mockResolvedValue({
-      user: { id: "1", name: "Test", email: "test@example.com", emailVerified: false, image: null, role: "user" },
+      user: {
+        id: "1",
+        name: "Test",
+        email: "test@example.com",
+        emailVerified: false,
+        image: null,
+        role: "user",
+      },
     });
     getClusterEventsHandler(
       { params: { clusterNumber: "1" }, headers: {} } as unknown as Request,

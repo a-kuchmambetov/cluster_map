@@ -3,7 +3,14 @@ import { betterAuth } from "better-auth";
 import { APIError } from "better-auth/api";
 import { twoFactor } from "better-auth/plugins";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
-import { db, user, session, account, verification, twoFactor as twoFactorTable } from "@repo/db";
+import {
+  db,
+  user,
+  session,
+  account,
+  verification,
+  twoFactor as twoFactorTable,
+} from "@repo/db";
 import { getAuthEnv, env } from "./env";
 import { findAuthUser } from "@features/auth/auth.repository";
 

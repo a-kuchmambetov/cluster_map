@@ -236,7 +236,13 @@ describe("login with 2FA enabled", () => {
     mocks.signInEmail.mockResolvedValue({
       headers: new Headers(),
       response: {
-        user: { id: "1", name: "Test", email: "test@example.com", emailVerified: false, image: null },
+        user: {
+          id: "1",
+          name: "Test",
+          email: "test@example.com",
+          emailVerified: false,
+          image: null,
+        },
       },
     });
     mocks.findAuthUser.mockResolvedValue({ role: "admin" });
@@ -253,7 +259,8 @@ describe("2FA enable", () => {
   it("passes password and hardcoded totp method to enableTwoFactor", async () => {
     const totpResponse = {
       method: "totp",
-      totpURI: "otpauth://totp/Cluster%20Map:test@example.com?secret=SECRET&issuer=Cluster%20Map",
+      totpURI:
+        "otpauth://totp/Cluster%20Map:test@example.com?secret=SECRET&issuer=Cluster%20Map",
       backupCodes: ["code1", "code2"],
     };
     mocks.enableTwoFactor.mockResolvedValue(totpResponse);
@@ -272,12 +279,21 @@ describe("2FA enable", () => {
 describe("2FA TOTP verification", () => {
   it("returns a user object with role and forwards headers on successful verification", async () => {
     const sessionHeaders = new Headers();
-    sessionHeaders.append("set-cookie", "better-auth.session_token=tok; HttpOnly");
+    sessionHeaders.append(
+      "set-cookie",
+      "better-auth.session_token=tok; HttpOnly",
+    );
     mocks.verifyTOTP.mockResolvedValue({
       headers: sessionHeaders,
       response: {
         token: "tok",
-        user: { id: "1", name: "Test", email: "test@example.com", emailVerified: true, image: null },
+        user: {
+          id: "1",
+          name: "Test",
+          email: "test@example.com",
+          emailVerified: true,
+          image: null,
+        },
       },
     });
     mocks.findAuthUser.mockResolvedValue({ role: "user" });
@@ -295,12 +311,18 @@ describe("2FA TOTP verification", () => {
 describe("2FA disable", () => {
   it("forwards password and returns headers with updated session cookie", async () => {
     const sessionHeaders = new Headers();
-    sessionHeaders.append("set-cookie", "better-auth.session_token=new; HttpOnly");
+    sessionHeaders.append(
+      "set-cookie",
+      "better-auth.session_token=new; HttpOnly",
+    );
     mocks.disableTwoFactor.mockResolvedValue({
       headers: sessionHeaders,
       response: { status: true },
     });
-    const result = await disableTwoFactor({ password: "my-password" }, new Headers());
+    const result = await disableTwoFactor(
+      { password: "my-password" },
+      new Headers(),
+    );
     expect(mocks.disableTwoFactor).toHaveBeenCalledWith({
       body: { password: "my-password" },
       headers: expect.any(Headers),

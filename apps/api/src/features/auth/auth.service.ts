@@ -114,23 +114,31 @@ export function verifyTOTP(
 ) {
   return callAuth(async () => {
     const { auth } = await import("../../config/auth.js");
-    const result = await auth.api.verifyTOTP({ body, headers, returnHeaders: true });
+    const result = await auth.api.verifyTOTP({
+      body,
+      headers,
+      returnHeaders: true,
+    });
     const { findAuthUser } = await import("./auth.repository.js");
     const actor = await findAuthUser(result.response.user.id);
     const { id, name, email, emailVerified, image } = result.response.user;
     return {
       headers: result.headers,
       body: {
-        user: { id, name, email, emailVerified, image, role: actor?.role ?? "user" },
+        user: {
+          id,
+          name,
+          email,
+          emailVerified,
+          image,
+          role: actor?.role ?? "user",
+        },
       },
     };
   });
 }
 
-export function disableTwoFactor(
-  body: { password: string },
-  headers: Headers,
-) {
+export function disableTwoFactor(body: { password: string }, headers: Headers) {
   return callAuth(async () => {
     const { auth } = await import("../../config/auth.js");
     return auth.api.disableTwoFactor({ body, headers, returnHeaders: true });
