@@ -21,11 +21,11 @@ The API must also be running for live data. See the [root README](../../README.m
 
 Vite reads environment files from the repository root (`envDir` in `vite.config.ts`). Copy the root `.env.example` to `.env` when setting up the repository; never commit credentials.
 
-- `API_PORT` controls the development `/api` proxy target, defaulting to `5001`.
-- `VITE_API_URL` optionally sets the API origin for local development. The client appends `/api`; leave it empty to use Vite's development proxy.
-- The Docker image requires runtime `API_URL`, for example `https://api.example.com`. It writes this public origin to `/config.js` at startup, so the same image can be deployed with different API domains.
-- `VITE_` variables are public build-time values. Runtime `API_URL` is also public because `/config.js` serves it to browsers.
-- The Web container serves the SPA and sends browser API requests directly to `${API_URL}/api`. Its Nginx configuration has an `index.html` fallback for client routes.
+- `VITE_API_URL` sets the public API origin at build time, for example `https://api.example.com`. The client appends `/api`. Leave it empty only when `/api` is routed to the API on the same origin.
+- For local development with a separate API server, set `VITE_API_URL=http://localhost:5001` in the root `.env`.
+- Docker builds accept `--build-arg VITE_API_URL=https://api.example.com`. GitHub Actions reads the `VITE_API_URL` variable from the staging or production environment (or repository variables).
+- `VITE_` values are public and bundled into the frontend. Changing the API origin requires rebuilding the image; container runtime environment variables do not change it.
+- The Web container serves the SPA with an `index.html` fallback for client routes. It does not proxy API requests.
 
 ## Structure and ownership
 

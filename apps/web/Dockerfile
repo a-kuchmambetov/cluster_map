@@ -14,12 +14,11 @@ RUN pnpm --filter @repo/web install --frozen-lockfile
 COPY tsconfig.base.json ./
 COPY packages/types ./packages/types
 COPY apps/web ./apps/web
-ENV VITE_API_URL=
+ARG VITE_API_URL=
 RUN pnpm --filter @repo/web build
 
 FROM nginx:stable-alpine AS runtime
 COPY apps/web/nginx.web.conf /etc/nginx/conf.d/default.conf
-COPY --chmod=755 apps/web/docker-entrypoint.d/19-configure-api.sh /docker-entrypoint.d/19-configure-api.sh
 COPY --from=base /app/apps/web/dist /usr/share/nginx/html
 HEALTHCHECK CMD wget -q -O /dev/null http://127.0.0.1/ || exit 1
 EXPOSE 80
