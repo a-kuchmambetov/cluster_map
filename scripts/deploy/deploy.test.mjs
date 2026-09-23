@@ -86,7 +86,7 @@ test("failed API deployment prevents Web/Docs updates and preserves rollback fie
   }
 });
 
-test("first release deploys Web before same-origin API smoke checks", async () => {
+test("first release deploys Web before public API smoke checks", async () => {
   const original = process.cwd();
   const dir = mkdtempSync(join(tmpdir(), "cluster-map-first-release-"));
   const updated = [];

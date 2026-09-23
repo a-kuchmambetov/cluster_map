@@ -1,5 +1,5 @@
 import { apiRequest, ApiError } from "@/lib/http";
-import { API_BASE_URL } from "@/config/api";
+import { API_URL } from "@/config/api";
 import type { OccupancyDelta, OccupancyStreamError } from "@repo/types";
 
 // Used for both DB recovery retries and SSE reconnect retries.
@@ -135,10 +135,9 @@ export const subscribeClusterEvents = ({
       return;
     }
 
-    source = new EventSource(
-      `${API_BASE_URL}/clusters/${clusterNumber}/events`,
-      { withCredentials: true },
-    );
+    source = new EventSource(`${API_URL}/clusters/${clusterNumber}/events`, {
+      withCredentials: true,
+    });
 
     /**
      * Normal realtime update.

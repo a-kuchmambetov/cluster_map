@@ -90,13 +90,14 @@ Run it manually with:
 
 ```bash
 pnpm db:up
+pnpm --filter @repo/worker... build
 pnpm worker:start
 ```
 
 Build and run the one-shot worker container from the repository root:
 
 ```bash
-docker build -f Dockerfile.worker -t cluster-map-worker .
+docker build -f apps/worker/Dockerfile -t cluster-map-worker .
 docker run --rm --network host --env-file .env cluster-map-worker
 ```
 

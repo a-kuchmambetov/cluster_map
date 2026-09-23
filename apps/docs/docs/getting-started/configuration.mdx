@@ -65,11 +65,13 @@ Other modes expose more diagnostic error information. See the
 
 ## Frontend configuration
 
-`VITE_API_URL` is an optional API origin without `/api`. An empty value makes
-requests use same-origin `/api`; local Vite proxies this to
-`http://localhost:API_PORT` (default 5000). The web Nginx container proxies `/api`
-to the API service. An explicit origin is baked into the frontend at build time.
-Browser HTTP requests and EventSource connections include credentials.
+`VITE_API_URL` is an optional API origin without `/api` for local Vite development.
+An empty value makes requests use same-origin `/api`, which Vite proxies to
+`http://localhost:API_PORT` (default 5001). The Web container requires `API_URL`
+at startup, such as `https://api.example.com`; it serves that origin through
+`/config.js`, and browser requests go directly to `${API_URL}/api`. Browser HTTP
+requests and EventSource connections include credentials. Set API `WEB_ORIGIN` to
+the public Web origin and `BETTER_AUTH_URL` to the public API origin.
 
 ## Container configuration
 

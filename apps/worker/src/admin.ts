@@ -28,7 +28,6 @@ export async function createAdminIfRequested(): Promise<void> {
   const auth = betterAuth({
     secret: env.BETTER_AUTH_SECRET!,
     baseURL: env.BETTER_AUTH_URL!,
-    // trustedOrigins: [env.BETTER_AUTH_URL!],
     database: drizzleAdapter(db, {
       provider: "pg",
       schema: { user, session, account, verification },
@@ -66,10 +65,17 @@ export async function createAdminIfRequested(): Promise<void> {
     },
   });
 
-  await db
+  const [created] = await db
     .update(user)
     .set({ role: "admin", approved: true, approvalToken: null })
-    .where(eq(user.id, result.user.id));
+    .where(eq(user.id, result.user.id))
+    .returning({ id: user.id });
+
+  if (!created) {
+    throw new Error(
+      `Admin account ${env.ADMIN_EMAIL} could not be provisioned.`,
+    );
+  }
 
   console.log(`Created admin account ${env.ADMIN_EMAIL}.`);
 }

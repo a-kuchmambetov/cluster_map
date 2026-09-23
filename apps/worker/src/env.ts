@@ -4,6 +4,8 @@ import { z } from "zod";
 
 dotenv.config({ path: resolve(process.cwd(), "../../.env") });
 
+const emptyToUndefined = (value: unknown) => (value === "" ? undefined : value);
+
 const envSchema = z
   .object({
     PG_USER: z.string().default("app"),
@@ -11,11 +13,23 @@ const envSchema = z
     PG_HOST: z.string().default("localhost"),
     PG_PORT: z.string().default("5432"),
     PG_PASSWORD: z.string().default("app"),
-    ADMIN_EMAIL: z.string().email().optional(),
-    ADMIN_PASSWORD: z.string().min(8).optional(),
+    ADMIN_EMAIL: z.preprocess(
+      emptyToUndefined,
+      z.string().email().toLowerCase().optional(),
+    ),
+    ADMIN_PASSWORD: z.preprocess(
+      emptyToUndefined,
+      z.string().min(8).max(128).optional(),
+    ),
     ADMIN_NAME: z.string().min(1).default("Administrator"),
-    BETTER_AUTH_SECRET: z.string().min(32).optional(),
-    BETTER_AUTH_URL: z.string().url().optional(),
+    BETTER_AUTH_SECRET: z.preprocess(
+      emptyToUndefined,
+      z.string().min(32).optional(),
+    ),
+    BETTER_AUTH_URL: z.preprocess(
+      emptyToUndefined,
+      z.string().url().optional(),
+    ),
   })
   .superRefine((data, ctx) => {
     const hasEmail = !!data.ADMIN_EMAIL;

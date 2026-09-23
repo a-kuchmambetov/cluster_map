@@ -16,23 +16,33 @@ const MIGRATIONS_FOLDER = new URL(
 const DB_PING_TIMEOUT_MS = 2000;
 const DB_RETRY_MS = 1000;
 const DB_MAX_RETRIES = 30;
+const DB_SHUTDOWN_TIMEOUT_MS = 5000;
+
+// Bound connection acquisition, including PostgreSQL's initial handshake.
+db.$client.options.connectionTimeoutMillis = DB_PING_TIMEOUT_MS;
 
 async function pingDatabase(): Promise<boolean> {
-  let timeoutHandle: NodeJS.Timeout;
-  const timeout = new Promise<never>((_resolve, reject) => {
-    timeoutHandle = setTimeout(
-      () => reject(new Error("Database ping timed out")),
-      DB_PING_TIMEOUT_MS,
-    );
-  });
-
   try {
-    await Promise.race([db.execute("SELECT 1"), timeout]);
+    const client = await db.$client.connect();
+    let timeoutHandle: NodeJS.Timeout | undefined;
+    try {
+      await Promise.race([
+        client.query("SELECT 1"),
+        new Promise<never>((_resolve, reject) => {
+          timeoutHandle = setTimeout(
+            () => reject(new Error("Database ping timed out")),
+            DB_PING_TIMEOUT_MS,
+          );
+        }),
+      ]);
+    } finally {
+      clearTimeout(timeoutHandle);
+      // Destroy the probe connection so a timed-out query cannot retain it.
+      client.release(true);
+    }
     return true;
   } catch {
     return false;
-  } finally {
-    clearTimeout(timeoutHandle!);
   }
 }
 
@@ -74,6 +84,11 @@ main()
     process.exitCode = 1;
   })
   .finally(async () => {
+    const shutdownTimeout = setTimeout(() => {
+      console.error("Database shutdown timed out.");
+      process.exit(1);
+    }, DB_SHUTDOWN_TIMEOUT_MS);
     await db.$client.end().catch(() => {});
+    clearTimeout(shutdownTimeout);
     process.exit(process.exitCode ?? 0);
   });

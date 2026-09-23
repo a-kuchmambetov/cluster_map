@@ -106,7 +106,7 @@ export async function deploy({
     )
       throw new Error(`${app} image or health mismatch`);
   }
-  // Same-origin API checks need Web running, including on the first release.
+  // Check public URLs after all applications are running, including on the first release.
   for (const app of apps) {
     const base = env[`${app.toUpperCase()}_URL`].replace(/\/$/, "");
     const paths = app === "api" ? ["/api/health", "/api/health/ready"] : ["/"];
