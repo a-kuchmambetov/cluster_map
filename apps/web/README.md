@@ -21,10 +21,11 @@ The API must also be running for live data. See the [root README](../../README.m
 
 Vite reads environment files from the repository root (`envDir` in `vite.config.ts`). Copy the root `.env.example` to `.env` when setting up the repository; never commit credentials.
 
-- `API_PORT` controls the development `/api` proxy target, defaulting to `5000`.
-- `VITE_API_URL` optionally sets the API origin. The client appends `/api`; leave it empty to use the same origin.
-- Only `VITE_` variables are exposed to client code. They are public, build-time values.
-- Production hosting must route `/api` to the API or provide `VITE_API_URL` at build time; Vite's development proxy is not a production proxy. SPA hosting also needs an `index.html` fallback for client routes.
+- `API_PORT` controls the development `/api` proxy target, defaulting to `5001`.
+- `VITE_API_URL` optionally sets the API origin for local development. The client appends `/api`; leave it empty to use Vite's development proxy.
+- The Docker image requires runtime `API_URL`, for example `https://api.example.com`. It writes this public origin to `/config.js` at startup, so the same image can be deployed with different API domains.
+- `VITE_` variables are public build-time values. Runtime `API_URL` is also public because `/config.js` serves it to browsers.
+- The Web container serves the SPA and sends browser API requests directly to `${API_URL}/api`. Its Nginx configuration has an `index.html` fallback for client routes.
 
 ## Structure and ownership
 
@@ -88,11 +89,11 @@ failures show retry UI; `401` redirects to login and `403` hides private content
 Logout clears the server session before removing local auth state. Tokens are not
 stored in local/session storage. HTTP and SSE include cookie credentials.
 
-Prefer a same-origin `/api` reverse proxy in production. Set `WEB_ORIGIN` to the
-actual web origin and `BETTER_AUTH_URL` to the externally reachable auth API
-origin. Use HTTPS in production. If `VITE_API_URL` points to another origin,
-verify credentialed CORS and cookie SameSite/domain behavior in the deployed
-browser; arbitrary cross-site cookie deployments are not configured by the web app.
+Set `WEB_ORIGIN` to the actual web origin and `BETTER_AUTH_URL` to the public API
+origin. Use HTTPS in production. The API must allow credentialed CORS from
+`WEB_ORIGIN`. Keep Web and API on the same site (for example, subdomains of the
+same domain) so the default session cookie can accompany cross-origin requests.
+Verify login and EventSource in a deployed browser.
 
 Smoke checks: register and verify the pending result; approve the account via the
 existing administrator flow; sign in; reload `/`; sign out; attempt direct API

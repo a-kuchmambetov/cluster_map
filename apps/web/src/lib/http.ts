@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "@/config/api";
+import { API_URL } from "@/config/api";
 
 export class ApiError extends Error {
   constructor(
@@ -20,7 +20,7 @@ export async function apiRequest<T>(
   options: RequestInit = {},
   notify = true,
 ): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(`${API_URL}${path}`, {
     ...options,
     credentials: "include",
   });

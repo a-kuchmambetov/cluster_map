@@ -18,9 +18,8 @@ ENV VITE_API_URL=
 RUN pnpm --filter @repo/web build
 
 FROM nginx:stable-alpine AS runtime
-ENV NGINX_ENVSUBST_FILTER=API_UPSTREAM
-COPY apps/web/nginx.web.conf /etc/nginx/templates/default.conf.template
-COPY --chmod=755 apps/web/docker-entrypoint.d/19-validate-upstream.sh /docker-entrypoint.d/19-validate-upstream.sh
+COPY apps/web/nginx.web.conf /etc/nginx/conf.d/default.conf
+COPY --chmod=755 apps/web/docker-entrypoint.d/19-configure-api.sh /docker-entrypoint.d/19-configure-api.sh
 COPY --from=base /app/apps/web/dist /usr/share/nginx/html
 HEALTHCHECK CMD wget -q -O /dev/null http://127.0.0.1/ || exit 1
 EXPOSE 80
