@@ -104,7 +104,7 @@ jobs:
         run: |
           : "${WEBHOOK:?Set COOLIFY_STAGING_WEBHOOK to deploy all four staging services}"
           : "${TOKEN:?Set COOLIFY_TOKEN}"
-          curl --fail-with-body --silent --show-error \
+          curl --fail --silent --show-error \
             --connect-timeout 10 --max-time 60 \
             --request POST "$WEBHOOK" \
             --header "Authorization: Bearer $TOKEN"
