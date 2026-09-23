@@ -33,7 +33,7 @@ per-event signal. Metrics, alerting, and distributed tracing are not configured.
 | Health works but login fails   | Auth secret/URL, schema migrations, password, and approval status; health only runs `SELECT 1`.            |
 | Login returns 403              | Account approval and trusted origin. New accounts cannot create a session before approval.                 |
 | Admin page/API denied          | Current user must be both approved and an administrator.                                                   |
-| Browser CORS/auth origin error | `WEB_ORIGIN`, public Web `API_URL` (or local `VITE_API_URL`), and cookie credentials.                      |
+| Browser CORS/auth origin error | `WEB_ORIGIN`, actual Vite/browser port, `VITE_API_URL`, and cookie credentials.                            |
 | Map layout fails               | API working directory, presence of `src/config/clusters.json`, and Zod validity.                           |
 | Map occupancy is empty         | Config ID must match DB `cluster.name`; migrate and seed a local demo DB if needed.                        |
 | Map stays stale                | DB/SSE errors, recovery requests, session validity, and proxy buffering/timeouts.                          |

@@ -69,6 +69,94 @@ export async function logoutHandler(
   }
 }
 
+export async function githubSignInHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const callbackURL =
+      typeof req.query.callbackURL === "string" ? req.query.callbackURL : "/";
+    const result = await service.initiateGitHubSignIn(
+      callbackURL,
+      fromNodeHeaders(req.headers),
+    );
+    for (const cookie of result.headers.getSetCookie())
+      res.append("Set-Cookie", cookie);
+    res.redirect(result.response.url!);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function githubCallbackHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const result = await service.handleGitHubCallback(
+      req.query as Record<string, string | undefined>,
+      fromNodeHeaders(req.headers),
+    );
+    for (const cookie of result.headers.getSetCookie())
+      res.append("Set-Cookie", cookie);
+    res.redirect(result.headers.get("Location") ?? "/");
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function enableTwoFactorHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    res.json(
+      await service.enableTwoFactor(req.body, fromNodeHeaders(req.headers)),
+    );
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function verifyTOTPHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const result = await service.verifyTOTP(
+      req.body,
+      fromNodeHeaders(req.headers),
+    );
+    for (const cookie of result.headers.getSetCookie())
+      res.append("Set-Cookie", cookie);
+    res.json(result.body);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function disableTwoFactorHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const result = await service.disableTwoFactor(
+      req.body,
+      fromNodeHeaders(req.headers),
+    );
+    for (const cookie of result.headers.getSetCookie())
+      res.append("Set-Cookie", cookie);
+    res.json(result.response);
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function pendingUsersHandler(
   req: Request,
   res: Response,

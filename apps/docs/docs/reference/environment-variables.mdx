@@ -8,21 +8,21 @@ API and DB configuration load the root `.env` via their workspace-relative path.
 Vite uses the root as its environment directory. Existing process variables take
 precedence over dotenv values.
 
-| Variable                                                | Requirement / default                              | Consumer                            |
-| ------------------------------------------------------- | -------------------------------------------------- | ----------------------------------- |
-| `NODE_ENV`                                              | `production` in release images                     | API runtime behavior and seed guard |
-| `API_PORT`                                              | 5000 in Coolify                                    | API listener                        |
-| `WEB_ORIGIN`                                            | Exact public HTTPS frontend origin in production   | CORS and auth                       |
-| `BETTER_AUTH_URL`                                       | Public origin, default auth base path `/api/auth`  | Better Auth                         |
-| `BETTER_AUTH_SECRET`                                    | At least 32 random characters                      | Better Auth                         |
-| `PG_HOST`, `PG_PORT`, `PG_USER`, `PG_PASSWORD`, `PG_DB` | Private environment-specific database              | API and migrations                  |
-| `INFISICAL_CLIENT_ID`, `INFISICAL_CLIENT_SECRET`        | Universal Auth bootstrap credentials               | API entrypoint                      |
-| `INFISICAL_PROJECT_ID`, `INFISICAL_ENV`                 | Project ID and environment slug                    | API entrypoint                      |
-| `INFISICAL_DOMAIN`                                      | Optional EU/self-hosted domain                     | Infisical CLI                       |
-| `INFISICAL_SECRET_PATH`                                 | `/api`; migration uses `/database`                 | API entrypoint                      |
-| `API_URL`                                               | Public HTTPS API origin, required in Web container | Browser runtime configuration       |
-| `VITE_API_URL`                                          | Optional local development API origin              | Vite client build                   |
-| `AUTH_DB_TEST`                                          | `1` only with a migrated disposable database       | Auth integration tests              |
+| Variable                                                | Requirement / default                             | Consumer                            |
+| ------------------------------------------------------- | ------------------------------------------------- | ----------------------------------- |
+| `NODE_ENV`                                              | `production` in release images                    | API runtime behavior and seed guard |
+| `API_PORT`                                              | 5000 in Coolify                                   | API listener                        |
+| `WEB_ORIGIN`                                            | Exact public HTTPS frontend origin in production  | CORS and auth                       |
+| `BETTER_AUTH_URL`                                       | Public origin, default auth base path `/api/auth` | Better Auth                         |
+| `BETTER_AUTH_SECRET`                                    | At least 32 random characters                     | Better Auth                         |
+| `PG_HOST`, `PG_PORT`, `PG_USER`, `PG_PASSWORD`, `PG_DB` | Private environment-specific database             | API and migrations                  |
+| `INFISICAL_CLIENT_ID`, `INFISICAL_CLIENT_SECRET`        | Universal Auth bootstrap credentials              | API entrypoint                      |
+| `INFISICAL_PROJECT_ID`, `INFISICAL_ENV`                 | Project ID and environment slug                   | API entrypoint                      |
+| `INFISICAL_DOMAIN`                                      | Optional EU/self-hosted domain                    | Infisical CLI                       |
+| `INFISICAL_SECRET_PATH`                                 | `/api`; migration uses `/database`                | API entrypoint                      |
+| `API_UPSTREAM`                                          | Required private `hostname:port`                  | Web Nginx template                  |
+| `VITE_API_URL`                                          | Empty in Docker images                            | Same-origin API requests            |
+| `AUTH_DB_TEST`                                          | `1` only with a migrated disposable database      | Auth integration tests              |
 
 `PG_PASSWORD_FILE` and a `DATABASE_URL` environment override are not consumed by
 the current connection code. Secret-file delivery is future work, not an

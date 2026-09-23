@@ -5,7 +5,7 @@ import { z } from "zod";
 dotenv.config({ path: resolve(process.cwd(), "../../.env") });
 
 const envSchema = z.object({
-  API_PORT: z.coerce.number().default(5001),
+  API_PORT: z.coerce.number().default(5001), // 5000 is occupied by AirPlay Receiver on macOS
   WEB_ORIGIN: z.string().default("http://localhost:5173"),
   //
   PG_USER: z.string().default("app"),
@@ -28,6 +28,8 @@ export const DATABASE_URL = `postgres://${encodeURIComponent(pgUser)}:${encodeUR
 const authEnvSchema = z.object({
   BETTER_AUTH_SECRET: z.string().min(32),
   BETTER_AUTH_URL: z.string().url(),
+  GITHUB_CLIENT_ID: z.string().min(1),
+  GITHUB_CLIENT_SECRET: z.string().min(1),
 });
 export type AuthEnv = z.infer<typeof authEnvSchema>;
 export function getAuthEnv(): AuthEnv {

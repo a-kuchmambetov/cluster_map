@@ -21,10 +21,9 @@ promotion and recovery procedures.
 | Docs        | `apps/docs/Dockerfile` | 80            |
 
 Build using the repository root as context. Web requires runtime
-`API_URL=https://api.example.com`, the public HTTPS API origin. It writes this
-value to `/config.js` at startup; browser requests and SSE connect directly to
-the public API. Configure API credentialed CORS for the public Web origin and
-keep both origins on the same site for session cookies.
+`API_UPSTREAM=private-api-hostname:5000`, on a verified private destination network.
+It uses same-origin `/api` requests, disables proxy buffering and supports SSE.
+The trusted Coolify HTTPS proxy must overwrite forwarded protocol headers.
 Docs has no runtime secrets and uses the canonical domain configured in Docusaurus.
 
 API requires Infisical Universal Auth bootstrap credentials plus project and
