@@ -24,13 +24,13 @@ Cluster Map is a pnpm workspace containing applications in `apps/` and reusable 
 
 Run these commands from the repository root.
 
-| Command           | Purpose                                                                                       |
-| ----------------- | --------------------------------------------------------------------------------------------- |
-| `pnpm dev`        | Start workspace development scripts in parallel                                               |
-| `pnpm build`      | Build every workspace except the documentation site                                           |
-| `pnpm build:docs` | Build the documentation site                                                                  |
-| `pnpm typecheck`  | Run workspace type checks                                                                     |
-| `pnpm lint`       | Invoke recursive workspace linting; coverage depends on the scripts exposed by each workspace |
+| Command           | Purpose                                             |
+| ----------------- | --------------------------------------------------- |
+| `pnpm dev`        | Start workspace development scripts in parallel     |
+| `pnpm build`      | Build every workspace except the documentation site |
+| `pnpm build:docs` | Build the documentation site                        |
+| `pnpm typecheck`  | Run workspace type checks                           |
+| `pnpm lint`       | Run Oxlint from the repository root                 |
 
 To work on one application, use a filter:
 
@@ -77,4 +77,4 @@ As can be seen, all "in development" have shared prefix - dev. To get latest dev
 4. Run the relevant type check and build.
 5. Update the documentation and [current status](../overview/current-status.mdx) when the public behavior or architecture changes.
 
-Automated tests are not configured yet. Until they are, do not describe a test suite as an enforced project check. See [Testing and Simulation](./testing-and-simulation.mdx).
+API and frontend Vitest suites are configured, including a separate API integration command. GitHub Actions workflows are not checked in, so local checks are not yet enforced by CI. See [Testing and Simulation](./testing-and-simulation.mdx).

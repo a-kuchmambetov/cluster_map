@@ -64,11 +64,11 @@ so the demo occupancy appears in `apps/web`: cluster 1 is mixed, cluster 2 is em
 and cluster 3 is full. It creates enough demo members for the occupied seats
 and these accounts through Better Auth:
 
-| Email                                                             | State                            |
-| ----------------------------------------------------------------- | -------------------------------- |
-| `demo-admin@example.test`                                         | Approved administrator           |
+| Email                               | State                            |
+| ----------------------------------- | -------------------------------- |
+| `demo-admin@example.test`           | Approved administrator           |
 | `demo-member-<number>@example.test` | Approved members                 |
-| `demo-pending@example.test`                                       | Pending approval; cannot sign in |
+| `demo-pending@example.test`         | Pending approval; cannot sign in |
 
 New accounts share the development password `Demo-password-123!`.
 Run this only against a development database; `NODE_ENV=production` is rejected.
@@ -84,3 +84,20 @@ Automated integration tests should use their own migrated, disposable database
 and create scenario-specific fixtures rather than depending on this demo seed.
 
 - Pnpm (mono-repo)
+
+## Docker and deployment
+
+Application Dockerfiles live in `apps/api`, `apps/web`, and `apps/docs`; build
+with the repository root as context. Root Compose runs the local database only.
+
+```bash
+docker compose up -d db
+pnpm db:migrate
+```
+
+Releases use GitHub Actions → GHCR → Coolify, with API secrets loaded from
+Infisical at startup. Pushes to `staging` deploy to staging; pushes to `main` deploy
+to production. Both build API, Web and Docs on GitHub-hosted runners and deploy
+the published GHCR digests after the environment approval gate. Start with [manual.md](manual.md) for infrastructure setup,
+required environment variables, one-off migrations, staging approval, production
+branch releases, and rollback. Do not run demo seeding against production.

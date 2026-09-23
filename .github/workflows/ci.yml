@@ -1,0 +1,52 @@
+name: CI
+on:
+  pull_request:
+    branches: [main, staging]
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: disposable-ci-password
+          POSTGRES_DB: cluster_map_ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci -d cluster_map_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PG_HOST: localhost
+      PG_PORT: "5432"
+      PG_USER: ci
+      PG_PASSWORD: disposable-ci-password
+      PG_DB: cluster_map_ci
+      BETTER_AUTH_SECRET: disposable-ci-auth-secret-at-least-32-characters
+      BETTER_AUTH_URL: http://localhost:5000
+      WEB_ORIGIN: http://localhost:5173
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+      - run: npm install --global pnpm@11.5.2
+        working-directory: /tmp
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm fmt:check
+      - run: pnpm lint
+      - run: pnpm --filter @repo/api... build
+      - run: pnpm typecheck
+      - run: pnpm --filter @repo/api test
+      - run: pnpm db:migrate
+      - run: pnpm --filter @repo/api test:integration
+        env:
+          AUTH_DB_TEST: "1"
+      - run: pnpm --filter @repo/web test
+      - run: node --test scripts/deploy/*.test.mjs
+      - run: pnpm build
+      - run: pnpm build:docs
