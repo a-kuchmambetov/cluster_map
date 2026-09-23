@@ -1,0 +1,24 @@
+{
+  "name": "@repo/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@better-auth/drizzle-adapter": "^1.7.4",
+    "@repo/db": "workspace:*",
+    "better-auth": "^1.7.4",
+    "dotenv": "^16.4.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "25.5.0",
+    "tsx": "^4.19.0",
+    "typescript": "7.0.1-rc"
+  }
+}

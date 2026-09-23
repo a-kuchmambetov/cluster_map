@@ -74,6 +74,39 @@ New accounts share the development password `Demo-password-123!`.
 Run this only against a development database; `NODE_ENV=production` is rejected.
 The script uses the same `PG_*` settings as the application.
 
+## Database worker
+
+`apps/worker` is a one-shot startup job that:
+
+1. Waits for PostgreSQL to become reachable.
+2. Applies Drizzle migrations from `packages/db/migrations`.
+3. Optionally creates an approved administrator when `ADMIN_EMAIL` and
+   `ADMIN_PASSWORD` are provided (requires `BETTER_AUTH_SECRET` and
+   `BETTER_AUTH_URL`). Reruns are safe: an existing admin is left unchanged,
+   and a conflicting non-admin email causes the worker to fail instead of
+   promoting the account.
+
+Run it manually with:
+
+```bash
+pnpm db:up
+pnpm worker:start
+```
+
+Build and run the one-shot worker container from the repository root:
+
+```bash
+docker build -f Dockerfile.worker -t cluster-map-worker .
+docker run --rm --network host --env-file .env cluster-map-worker
+```
+
+The run command uses host networking on Linux to reach the PostgreSQL port
+published by `pnpm db:up`. Set `PG_HOST` and `PG_PORT` in `.env` to the reachable
+database address. For a container network, replace `--network host` with that
+network and pass `-e PG_HOST=db -e PG_PORT=5432` when using the Compose database.
+The container exits after completing the job, with a nonzero status on failure.
+Environment values are supplied at runtime and are not baked into the image.
+
 Reruns insert missing records and preserve existing passwords, approval states,
 roles, and seat occupancy. The `demo-*` logins/emails are reserved for this dataset.
 If you ran the older seed with `Demo: *` clusters, rerun `pnpm db:seed` to add
