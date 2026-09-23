@@ -60,6 +60,25 @@ export function login(body: LoginInput, headers: Headers) {
       headers,
       returnHeaders: true,
     });
+    // twoFactor hook intercepts the credential check when 2FA is enabled:
+    // it deletes the session, sets a short-lived 2FA challenge cookie, and
+    // returns { twoFactorRedirect: true, twoFactorMethods } instead of a user.
+    if (
+      "twoFactorRedirect" in result.response &&
+      result.response.twoFactorRedirect === true
+    ) {
+      const challenge = result.response as unknown as {
+        twoFactorRedirect: true;
+        twoFactorMethods: string[];
+      };
+      return {
+        headers: result.headers,
+        body: {
+          twoFactorRedirect: true as const,
+          twoFactorMethods: challenge.twoFactorMethods,
+        },
+      };
+    }
     const { findAuthUser } = await import("./auth.repository.js");
     const actor = await findAuthUser(result.response.user.id);
     const { id, name, email, emailVerified, image } = result.response.user;
@@ -79,6 +98,53 @@ export function login(body: LoginInput, headers: Headers) {
   });
 }
 
+export function enableTwoFactor(
+  body: { password: string; method: "totp" },
+  headers: Headers,
+) {
+  return callAuth(async () => {
+    const { auth } = await import("../../config/auth.js");
+    return auth.api.enableTwoFactor({ body, headers });
+  });
+}
+
+export function verifyTOTP(
+  body: { code: string; trustDevice?: boolean },
+  headers: Headers,
+) {
+  return callAuth(async () => {
+    const { auth } = await import("../../config/auth.js");
+    const result = await auth.api.verifyTOTP({
+      body,
+      headers,
+      returnHeaders: true,
+    });
+    const { findAuthUser } = await import("./auth.repository.js");
+    const actor = await findAuthUser(result.response.user.id);
+    const { id, name, email, emailVerified, image } = result.response.user;
+    return {
+      headers: result.headers,
+      body: {
+        user: {
+          id,
+          name,
+          email,
+          emailVerified,
+          image,
+          role: actor?.role ?? "user",
+        },
+      },
+    };
+  });
+}
+
+export function disableTwoFactor(body: { password: string }, headers: Headers) {
+  return callAuth(async () => {
+    const { auth } = await import("../../config/auth.js");
+    return auth.api.disableTwoFactor({ body, headers, returnHeaders: true });
+  });
+}
+
 export function getSession(headers: Headers) {
   return callAuth(async () => {
     const { auth } = await import("../../config/auth.js");
@@ -95,6 +161,32 @@ export function getSession(headers: Headers) {
     return {
       user: { id, name, email, emailVerified, image, role: actor.role },
     };
+  });
+}
+
+export function initiateGitHubSignIn(callbackURL: string, headers: Headers) {
+  return callAuth(async () => {
+    const { auth } = await import("../../config/auth.js");
+    return auth.api.signInSocial({
+      body: { provider: "github", callbackURL },
+      headers,
+      returnHeaders: true,
+    });
+  });
+}
+
+export function handleGitHubCallback(
+  query: Record<string, string | undefined>,
+  headers: Headers,
+) {
+  return callAuth(async () => {
+    const { auth } = await import("../../config/auth.js");
+    return auth.api.callbackOAuth({
+      params: { id: "github" },
+      query,
+      headers,
+      asResponse: true,
+    });
   });
 }
 

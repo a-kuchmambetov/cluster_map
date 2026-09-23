@@ -13,6 +13,11 @@ vi.mock("./auth.service", () => ({
   register: vi.fn(),
   confirm: vi.fn(),
   login: vi.fn(),
+  initiateGitHubSignIn: vi.fn(),
+  handleGitHubCallback: vi.fn(),
+  enableTwoFactor: vi.fn(),
+  verifyTOTP: vi.fn(),
+  disableTwoFactor: vi.fn(),
 }));
 const app = express()
   .use(express.json())
@@ -109,6 +114,72 @@ describe("custom auth routes", () => {
     const result = results.at(-1);
     expect(result!.status).toBe(429);
     expect(result!.body.code).toBe("TOO_MANY_REQUESTS");
+  });
+});
+
+describe("GitHub OAuth routes", () => {
+  it("redirects to GitHub and forwards the state cookie", async () => {
+    const stateHeaders = new Headers();
+    stateHeaders.append("set-cookie", "better-auth.state=s; HttpOnly; Path=/");
+    vi.mocked(service.initiateGitHubSignIn).mockResolvedValue({
+      headers: stateHeaders,
+      response: {
+        url: "https://github.com/login/oauth/authorize?state=s",
+        redirect: true,
+      },
+    });
+    const result = await request(app).get(
+      "/api/auth/sign-in/github?callbackURL=/dashboard",
+    );
+    expect(result.status).toBe(302);
+    expect(result.headers["location"]).toBe(
+      "https://github.com/login/oauth/authorize?state=s",
+    );
+    expect(result.headers["set-cookie"]).toContain(
+      "better-auth.state=s; HttpOnly; Path=/",
+    );
+    expect(service.initiateGitHubSignIn).toHaveBeenCalledWith(
+      "/dashboard",
+      expect.any(Headers),
+    );
+  });
+
+  it("defaults callbackURL to / when the parameter is absent", async () => {
+    vi.mocked(service.initiateGitHubSignIn).mockResolvedValue({
+      headers: new Headers(),
+      response: {
+        url: "https://github.com/login/oauth/authorize",
+        redirect: true,
+      },
+    });
+    await request(app).get("/api/auth/sign-in/github");
+    expect(service.initiateGitHubSignIn).toHaveBeenCalledWith(
+      "/",
+      expect.any(Headers),
+    );
+  });
+
+  it("sets the session cookie and redirects to callbackURL after a successful callback", async () => {
+    const callbackResponse = new Response(null, {
+      status: 302,
+      headers: {
+        Location: "http://localhost:5173/dashboard",
+        "Set-Cookie": "better-auth.session_token=tok; HttpOnly; Path=/",
+      },
+    });
+    vi.mocked(service.handleGitHubCallback).mockResolvedValue(callbackResponse);
+    const result = await request(app).get(
+      "/api/auth/callback/github?code=abc&state=xyz",
+    );
+    expect(result.status).toBe(302);
+    expect(result.headers["location"]).toBe("http://localhost:5173/dashboard");
+    expect(result.headers["set-cookie"][0]).toContain(
+      "better-auth.session_token=tok",
+    );
+    expect(service.handleGitHubCallback).toHaveBeenCalledWith(
+      { code: "abc", state: "xyz" },
+      expect.any(Headers),
+    );
   });
 });
 

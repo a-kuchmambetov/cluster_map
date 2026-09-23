@@ -1,113 +1,370 @@
+import http from "node:http";
+import type { AddressInfo } from "node:net";
+import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AppError } from "@repo/errors";
+import { app } from "../../app";
 import {
-  diffSnapshots,
-  getSharedSnapshot,
   resetPool,
-  subscribe,
   writeSharedSnapshot,
 } from "../../features/clusters/clusters.pool";
-import type { OccupiedEntry } from "../../features/clusters/clusters.types";
+import type { OccupancyRow } from "../../features/clusters/clusters.types";
 
-// The pool calls getClusterOccupancy from the repository.
-// Mock the entire repository module so no DB connection is required.
+// Captured before vi.useFakeTimers() runs so it always refers to the real
+// implementation — used in openSSE's timeout guard and the "no event" race.
+const realSetTimeout = setTimeout;
+
+// Cluster 1, row 1 layout: places 1–8, a gap, then places 9–11.
+// Two occupied seats exercise the two peer shapes the contract describes:
+//   place 2 — full peer (intraName + displayName both present)
+//   place 5 — guest peer (null intraName, displayName only)
+// Everything else in the row is free, and the gap is present.
+const C1_R1_OCCUPANCY: OccupancyRow[] = [
+  { row: 1, place: 2, intraName: "jdoe", displayName: "John Doe", photo: null },
+  { row: 1, place: 5, intraName: null, displayName: "Guest User", photo: null },
+];
+
 const getClusterOccupancyMock = vi.fn();
+// Pass-through by default. Use mockImplementationOnce in the auth-gate test to
+// simulate a real rejection without coupling every other test to auth logic.
+const requireAuthMock = vi.fn((_req: unknown, _res: unknown, next: unknown) =>
+  (next as () => void)(),
+);
+
 vi.mock("../../features/clusters/clusters.repository", () => ({
   getClusterOccupancy: (...args: unknown[]) => getClusterOccupancyMock(...args),
 }));
 
-// ---------------------------------------------------------------------------
-// diffSnapshots
-// ---------------------------------------------------------------------------
+// Cluster behaviour tests are not auth tests. Stub out requireAuth so that
+// every test exercises the cluster logic rather than the session gate.
+// requireAuth.test.ts owns the 401/403 contract for that middleware.
+vi.mock("@middleware/requireAuth", () => ({
+  requireAuth: (req: unknown, res: unknown, next: unknown) =>
+    requireAuthMock(req, res, next),
+}));
 
-const entry = (
-  row: number,
-  place: number,
-  overrides?: Partial<OccupiedEntry["peer"]>,
-): OccupiedEntry => ({
-  row,
-  place,
-  peer: { intraName: null, displayName: null, photo: null, ...overrides },
-});
-
-describe("diffSnapshots", () => {
-  it("reports a newly occupied place in occupied[]", () => {
-    const delta = diffSnapshots([], [entry(1, 2, { intraName: "jdoe" })]);
-    expect(delta.occupied).toHaveLength(1);
-    expect(delta.occupied[0]).toMatchObject({ row: 1, place: 2 });
-    expect(delta.freed).toHaveLength(0);
-  });
-
-  it("reports a vacated place in freed[]", () => {
-    const delta = diffSnapshots([entry(1, 2)], []);
-    expect(delta.freed).toHaveLength(1);
-    expect(delta.freed[0]).toEqual({ row: 1, place: 2 });
-    expect(delta.occupied).toHaveLength(0);
-  });
-
-  it("reports a peer data change in occupied[] (not in freed[])", () => {
-    const prev = [entry(1, 2, { intraName: "alice" })];
-    const next = [entry(1, 2, { intraName: "bob" })];
-    const delta = diffSnapshots(prev, next);
-    expect(delta.occupied).toHaveLength(1);
-    expect(delta.occupied[0].peer.intraName).toBe("bob");
-    expect(delta.freed).toHaveLength(0);
-  });
-
-  it("emits nothing when nothing changed", () => {
-    const snapshot = [entry(1, 2, { intraName: "jdoe" }), entry(1, 5)];
-    const delta = diffSnapshots(snapshot, snapshot);
-    expect(delta.occupied).toHaveLength(0);
-    expect(delta.freed).toHaveLength(0);
-  });
-
-  it("handles simultaneous occupy and free in one diff", () => {
-    const prev = [entry(1, 1), entry(1, 2)];
-    const next = [entry(1, 2), entry(1, 3)];
-    const delta = diffSnapshots(prev, next);
-    expect(delta.freed).toEqual([{ row: 1, place: 1 }]);
-    expect(delta.occupied).toHaveLength(1);
-    expect(delta.occupied[0]).toMatchObject({ row: 1, place: 3 });
+// Auth gate: one test that the gate is actually present in the route chain.
+// The rest of the suite stubs requireAuth out; this one overrides it for a
+// single call so that a refactor removing clustersRouter.use(requireAuth)
+// would be caught here without touching Artem's requireAuth unit tests.
+describe("cluster auth gate", () => {
+  it("returns 401 for an unauthenticated request", async () => {
+    requireAuthMock.mockImplementationOnce(
+      (_req: unknown, _res: unknown, next: unknown) =>
+        (next as (err: unknown) => void)(
+          AppError.unauthorized("Authentication required"),
+        ),
+    );
+    const response = await request(app).get("/api/clusters");
+    expect(response.status).toBe(401);
+    expect(response.body.code).toBe("UNAUTHORIZED");
   });
 });
 
-// ---------------------------------------------------------------------------
-// subscribe / pool behaviour
-// ---------------------------------------------------------------------------
+describe("GET /api/clusters", () => {
+  it("returns the cluster list", async () => {
+    const response = await request(app).get("/api/clusters");
 
-describe("subscribe", () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-    resetPool();
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      clusters: [
+        { id: "c1", number: 1, label: "Cluster 1" },
+        { id: "c2", number: 2, label: "Cluster 2" },
+        { id: "c3", number: 3, label: "Cluster 3" },
+      ],
+    });
+  });
+});
+
+describe("GET /api/clusters/:clusterNumber/layout", () => {
+  it("returns cluster info, rows sorted top to bottom (highest number first), cells with no status or peer", async () => {
+    const response = await request(app).get("/api/clusters/1/layout");
+
+    expect(response.status).toBe(200);
+    expect(response.body.cluster).toEqual({
+      id: "c1",
+      number: 1,
+      label: "Cluster 1",
+    });
+
+    const { rows } = response.body;
+    expect(rows.length).toBeGreaterThan(0);
+    // rows are sorted descending by number: first is the topmost physical row
+    expect(rows[0].number).toBeGreaterThan(rows[rows.length - 1].number);
+
+    // spot-check row 1 (last in the sorted array for cluster 1)
+    const r1 = rows.find((r: { number: number }) => r.number === 1);
+    expect(r1).toBeDefined();
+    expect(r1.cells).toContainEqual({ kind: "gap" });
+    expect(r1.cells).toContainEqual(
+      expect.objectContaining({
+        kind: "place",
+        id: expect.any(String),
+        number: expect.any(Number),
+      }),
+    );
+    // cells carry no occupancy data
+    for (const cell of r1.cells) {
+      expect(cell).not.toHaveProperty("status");
+      expect(cell).not.toHaveProperty("peer");
+    }
+  });
+
+  it("returns 404 CLUSTER_NOT_FOUND for an unknown cluster number", async () => {
+    const response = await request(app).get("/api/clusters/999/layout");
+
+    expect(response.status).toBe(404);
+    expect(response.body.code).toBe("CLUSTER_NOT_FOUND");
+  });
+
+  it("returns 422 for a non-numeric cluster number", async () => {
+    const response = await request(app).get("/api/clusters/abc/layout");
+
+    expect(response.status).toBe(422);
+    expect(response.body.code).toBe("VALIDATION_ERROR");
+  });
+});
+
+describe("GET /api/clusters/:clusterNumber/occupancy", () => {
+  afterEach(() => {
     getClusterOccupancyMock.mockReset();
   });
 
+  it("returns occupied entries with full and guest peer shapes, and a lastUpdated timestamp", async () => {
+    getClusterOccupancyMock.mockResolvedValueOnce(C1_R1_OCCUPANCY);
+
+    const response = await request(app).get("/api/clusters/1/occupancy");
+
+    expect(response.status).toBe(200);
+    // full peer: both name fields present
+    expect(response.body.occupied).toContainEqual({
+      row: 1,
+      place: 2,
+      peer: { intraName: "jdoe", displayName: "John Doe", photo: null },
+    });
+    // guest peer: intraName is null
+    expect(response.body.occupied).toContainEqual({
+      row: 1,
+      place: 5,
+      peer: { intraName: null, displayName: "Guest User", photo: null },
+    });
+    expect(typeof response.body.lastUpdated).toBe("string");
+  });
+
+  it("returns an empty occupied array when no places are occupied", async () => {
+    getClusterOccupancyMock.mockResolvedValueOnce([]);
+
+    const response = await request(app).get("/api/clusters/1/occupancy");
+
+    expect(response.status).toBe(200);
+    expect(response.body.occupied).toEqual([]);
+  });
+
+  // The "all-null peer" test that existed here has been removed.
+  // Valentine's position_occupancy_consistent check constraint rejects
+  // occupied = true with no holder at the DB level, so the shape can no
+  // longer reach the API. See contracts/API-contract.md §5 for the history.
+
+  it("returns 404 CLUSTER_NOT_FOUND for an unknown cluster number", async () => {
+    const response = await request(app).get("/api/clusters/999/occupancy");
+
+    expect(response.status).toBe(404);
+    expect(response.body.code).toBe("CLUSTER_NOT_FOUND");
+  });
+
+  it("returns 422 for a non-numeric cluster number", async () => {
+    const response = await request(app).get("/api/clusters/abc/occupancy");
+
+    expect(response.status).toBe(422);
+    expect(response.body.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("returns 500 when the database is unavailable", async () => {
+    getClusterOccupancyMock.mockRejectedValueOnce(
+      new Error("connection refused"),
+    );
+
+    const response = await request(app).get("/api/clusters/1/occupancy");
+
+    expect(response.status).toBe(500);
+  });
+});
+
+describe("GET /api/clusters/:clusterNumber/config-validation", () => {
   afterEach(() => {
-    vi.useRealTimers();
+    getClusterOccupancyMock.mockReset();
+  });
+
+  it("returns valid: true when all occupancy records match the config", async () => {
+    // row 1, place 1 exists in cluster 1
+    getClusterOccupancyMock.mockResolvedValueOnce([
+      {
+        row: 1,
+        place: 1,
+        intraName: "jdoe",
+        displayName: "John Doe",
+        photo: null,
+      },
+    ]);
+
+    const response = await request(app).get(
+      "/api/clusters/1/config-validation",
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      clusterNumber: 1,
+      valid: true,
+      errors: [],
+    });
+  });
+
+  it("returns valid: false with ORPHANED_OCCUPANCY when a DB record has no matching place in the config", async () => {
+    // row 99, place 99 does not exist in any cluster
+    getClusterOccupancyMock.mockResolvedValueOnce([
+      { row: 99, place: 99, intraName: null, displayName: null, photo: null },
+    ]);
+
+    const response = await request(app).get(
+      "/api/clusters/1/config-validation",
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.body.valid).toBe(false);
+    expect(response.body.errors).toContainEqual(
+      expect.objectContaining({ code: "ORPHANED_OCCUPANCY" }),
+    );
+  });
+
+  it("returns 404 CLUSTER_NOT_FOUND for an unknown cluster number", async () => {
+    const response = await request(app).get(
+      "/api/clusters/999/config-validation",
+    );
+
+    expect(response.status).toBe(404);
+    expect(response.body.code).toBe("CLUSTER_NOT_FOUND");
+  });
+
+  it("returns 422 for a non-numeric cluster number", async () => {
+    const response = await request(app).get(
+      "/api/clusters/abc/config-validation",
+    );
+
+    expect(response.status).toBe(422);
+    expect(response.body.code).toBe("VALIDATION_ERROR");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SSE helper
+// ---------------------------------------------------------------------------
+
+// Opens an SSE connection and waits for the response headers before resolving.
+// This guarantees the subscriber is registered in the pool before the caller
+// advances any fake timers to trigger a poll.
+//
+// setTimeout/clearTimeout are faked in SSE tests (see beforeEach). realSetTimeout
+// (module-level, captured before any faking) is used for the 5 s guard so that
+// vi.advanceTimersByTimeAsync can't fire it prematurely.
+function openSSE(
+  port: number,
+  path: string,
+): Promise<{
+  nextEvent: () => Promise<{ type: string; data: unknown }>;
+  close: () => void;
+}> {
+  return new Promise((connected, connectErr) => {
+    let eventResolve: ((v: { type: string; data: unknown }) => void) | null =
+      null;
+    let buffer = "";
+
+    const req = http.get(`http://localhost:${port}${path}`, (res) => {
+      res.setEncoding("utf-8");
+      res.on("data", (chunk: string) => {
+        buffer += chunk;
+        // SSE events are separated by a blank line.
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() ?? "";
+        for (const part of parts) {
+          if (!part.startsWith("event:")) continue;
+          const lines = part.split("\n");
+          const type = lines[0].replace("event: ", "").trim();
+          const raw = lines[1]?.replace("data: ", "").trim() ?? "{}";
+          const data: unknown = JSON.parse(raw);
+          if (eventResolve) {
+            const r = eventResolve;
+            eventResolve = null;
+            r({ type, data });
+          }
+        }
+      });
+
+      // Headers received — the stream is open and the subscriber is registered.
+      connected({
+        nextEvent: () =>
+          new Promise((res, rej) => {
+            eventResolve = res;
+            // realSetTimeout (captured before vi.useFakeTimers) so
+            // advancing the fake clock can't fire this guard early.
+            realSetTimeout(() => rej(new Error("SSE event timeout")), 5_000);
+          }),
+        close: () => req.destroy(),
+      });
+    });
+
+    req.on("error", connectErr);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/clusters/:clusterNumber/events
+// ---------------------------------------------------------------------------
+
+describe("GET /api/clusters/:clusterNumber/events — pre-stream errors", () => {
+  it("returns 422 for a non-numeric cluster number", async () => {
+    const response = await request(app)
+      .get("/api/clusters/abc/events")
+      .set("Accept", "text/event-stream");
+
+    expect(response.status).toBe(422);
+    expect(response.body.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("returns 404 CLUSTER_NOT_FOUND for an unknown cluster number", async () => {
+    const response = await request(app)
+      .get("/api/clusters/999/events")
+      .set("Accept", "text/event-stream");
+
+    expect(response.status).toBe(404);
+    expect(response.body.code).toBe("CLUSTER_NOT_FOUND");
+  });
+});
+
+describe("GET /api/clusters/:clusterNumber/events — stream", () => {
+  let server: http.Server;
+  let port: number;
+
+  beforeEach(async () => {
+    // Fake setTimeout/clearTimeout — what the pool uses for the poll chain.
+    // realSetTimeout (module-level) keeps the openSSE guard and the "no event"
+    // race on the real clock so vi.advanceTimersByTimeAsync can't fire them.
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     resetPool();
+    getClusterOccupancyMock.mockReset();
+
+    server = http.createServer(app);
+    await new Promise<void>((res) => server.listen(0, res));
+    port = (server.address() as AddressInfo).port;
   });
 
-  it("starts a poll timer on the first subscriber and fires it after 30 s", async () => {
-    getClusterOccupancyMock.mockResolvedValue([]);
-    const emit = vi.fn();
-
-    subscribe("c1", emit);
-    expect(getClusterOccupancyMock).not.toHaveBeenCalled();
-
-    await vi.advanceTimersByTimeAsync(30_000);
-    expect(getClusterOccupancyMock).toHaveBeenCalledWith("c1");
+  afterEach(async () => {
+    resetPool();
+    vi.useRealTimers();
+    await new Promise<void>((res) => server.close(() => res()));
+    getClusterOccupancyMock.mockReset();
   });
 
-  it("does not start a second timer for a second subscriber on the same cluster", async () => {
-    getClusterOccupancyMock.mockResolvedValue([]);
-    subscribe("c1", vi.fn());
-    subscribe("c1", vi.fn());
-
-    await vi.advanceTimersByTimeAsync(30_000);
-    // One poll per interval regardless of subscriber count.
-    expect(getClusterOccupancyMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("emits occupancy-delta to all subscribers when something changed", async () => {
+  it("sends occupancy-delta when a place becomes occupied", async () => {
     getClusterOccupancyMock.mockResolvedValue([
       {
         row: 1,
@@ -118,158 +375,123 @@ describe("subscribe", () => {
       },
     ]);
 
-    const emit1 = vi.fn();
-    const emit2 = vi.fn();
-    subscribe("c1", emit1);
-    subscribe("c1", emit2);
-
+    const { nextEvent, close } = await openSSE(port, "/api/clusters/1/events");
+    const eventPromise = nextEvent();
     await vi.advanceTimersByTimeAsync(30_000);
+    const event = await eventPromise;
+    close();
 
-    for (const emit of [emit1, emit2]) {
-      expect(emit).toHaveBeenCalledOnce();
-      const [event, data] = emit.mock.calls[0];
-      expect(event).toBe("occupancy-delta");
-      const parsed = JSON.parse(data as string);
-      expect(parsed.occupied).toHaveLength(1);
-      expect(parsed.occupied[0]).toMatchObject({ row: 1, place: 2 });
-    }
+    expect(event.type).toBe("occupancy-delta");
+    const delta = event.data as { occupied: unknown[]; freed: unknown[] };
+    expect(delta.occupied).toHaveLength(1);
+    expect(delta.occupied[0]).toMatchObject({ row: 1, place: 2 });
+    expect(delta.freed).toHaveLength(0);
   });
 
-  it("emits nothing when the snapshot is unchanged", async () => {
-    // Pre-populate the shared snapshot with the same data the DB will return.
-    writeSharedSnapshot("c1", [entry(1, 2)]);
+  it("sends occupancy-delta when a place becomes free", async () => {
+    // Seed: place 3 is occupied.
+    writeSharedSnapshot("c1", [
+      {
+        row: 1,
+        place: 3,
+        peer: { intraName: null, displayName: null, photo: null },
+      },
+    ]);
+    // Poll: place 3 is now gone.
+    getClusterOccupancyMock.mockResolvedValue([]);
+
+    const { nextEvent, close } = await openSSE(port, "/api/clusters/1/events");
+    const eventPromise = nextEvent();
+    await vi.advanceTimersByTimeAsync(30_000);
+    const event = await eventPromise;
+    close();
+
+    expect(event.type).toBe("occupancy-delta");
+    const delta = event.data as { occupied: unknown[]; freed: unknown[] };
+    expect(delta.freed).toContainEqual({ row: 1, place: 3 });
+    expect(delta.occupied).toHaveLength(0);
+  });
+
+  it("sends occupancy-delta when peer data changes on an already-occupied place", async () => {
+    writeSharedSnapshot("c1", [
+      {
+        row: 1,
+        place: 2,
+        peer: { intraName: "alice", displayName: "Alice", photo: null },
+      },
+    ]);
     getClusterOccupancyMock.mockResolvedValue([
-      { row: 1, place: 2, intraName: null, displayName: null, photo: null },
+      { row: 1, place: 2, intraName: "bob", displayName: "Bob", photo: null },
     ]);
 
-    const emit = vi.fn();
-    subscribe("c1", emit);
+    const { nextEvent, close } = await openSSE(port, "/api/clusters/1/events");
+    const eventPromise = nextEvent();
     await vi.advanceTimersByTimeAsync(30_000);
+    const event = await eventPromise;
+    close();
 
-    expect(emit).not.toHaveBeenCalled();
+    expect(event.type).toBe("occupancy-delta");
+    const delta = event.data as {
+      occupied: { peer: { intraName: string } }[];
+      freed: unknown[];
+    };
+    expect(delta.occupied[0].peer.intraName).toBe("bob");
+    expect(delta.freed).toHaveLength(0);
   });
 
-  it("emits an error event when the DB call fails, then keeps the connection open", async () => {
+  it("sends no event when nothing changed", async () => {
+    writeSharedSnapshot("c1", [
+      {
+        row: 1,
+        place: 2,
+        peer: { intraName: "jdoe", displayName: "John Doe", photo: null },
+      },
+    ]);
+    getClusterOccupancyMock.mockResolvedValue([
+      {
+        row: 1,
+        place: 2,
+        intraName: "jdoe",
+        displayName: "John Doe",
+        photo: null,
+      },
+    ]);
+
+    const { nextEvent, close } = await openSSE(port, "/api/clusters/1/events");
+
+    // Register the event handler BEFORE triggering the poll. If nextEvent()
+    // were called after advanceTimersByTimeAsync, the delta would land while
+    // eventResolve is still null and be silently dropped — the race would
+    // always time out regardless of what the mock returns.
+    const eventPromise = nextEvent();
+    await vi.advanceTimersByTimeAsync(30_000);
+    // realSetTimeout (real clock) gives I/O 200 ms to deliver any event that
+    // was emitted. If eventPromise is still pending after 200 ms, nothing was
+    // sent. If a wrong mock causes an event to arrive, it wins the race first.
+    const result = await Promise.race([
+      eventPromise.then(() => "got-event" as const),
+      new Promise<"timeout">((res) =>
+        realSetTimeout(() => res("timeout"), 200),
+      ),
+    ]);
+    close();
+
+    expect(result).toBe("timeout");
+  });
+
+  it("sends an error event when the DB is unavailable", async () => {
     getClusterOccupancyMock.mockRejectedValue(new Error("connection refused"));
 
-    const emit = vi.fn();
-    subscribe("c1", emit);
+    const { nextEvent, close } = await openSSE(port, "/api/clusters/1/events");
+    const eventPromise = nextEvent();
     await vi.advanceTimersByTimeAsync(30_000);
+    const event = await eventPromise;
+    close();
 
-    expect(emit).toHaveBeenCalledOnce();
-    const [event, data] = emit.mock.calls[0];
-    expect(event).toBe("error");
-    expect(JSON.parse(data as string)).toEqual({
+    expect(event.type).toBe("error");
+    expect(event.data).toEqual({
       code: "DB_UNAVAILABLE",
       message: "Occupancy data temporarily unavailable",
     });
-
-    // Connection is still live: a second poll goes through.
-    getClusterOccupancyMock.mockResolvedValue([]);
-    await vi.advanceTimersByTimeAsync(30_000);
-    // Nothing changed (empty → empty), so no occupancy-delta is emitted.
-    // emit was only called once (the error event above).
-    expect(emit).toHaveBeenCalledTimes(1);
-    expect(getClusterOccupancyMock).toHaveBeenCalledTimes(2);
-  });
-
-  it("stops the timer when the last subscriber leaves but keeps the shared snapshot", async () => {
-    writeSharedSnapshot("c1", [entry(1, 2)]);
-    getClusterOccupancyMock.mockResolvedValue([]);
-
-    const emit = vi.fn();
-    const unsubscribe = subscribe("c1", emit);
-
-    // Trigger one poll so the snapshot gets overwritten to [].
-    await vi.advanceTimersByTimeAsync(30_000);
-    expect(getClusterOccupancyMock).toHaveBeenCalledTimes(1);
-
-    unsubscribe();
-
-    // After unsubscribe the timer is gone: advancing time triggers no more polls.
-    getClusterOccupancyMock.mockClear();
-    await vi.advanceTimersByTimeAsync(60_000);
-    expect(getClusterOccupancyMock).not.toHaveBeenCalled();
-
-    // Snapshot is still there (the pool wrote [] from the first poll).
-    expect(getSharedSnapshot("c1")).toBeDefined();
-  });
-
-  it("seeds from the shared snapshot so the first poll diffs against what /occupancy returned", async () => {
-    // Simulate /occupancy having written a snapshot.
-    writeSharedSnapshot("c1", [entry(1, 2, { intraName: "jdoe" })]);
-
-    // DB returns the same state → no delta expected.
-    getClusterOccupancyMock.mockResolvedValue([
-      { row: 1, place: 2, intraName: "jdoe", displayName: null, photo: null },
-    ]);
-
-    const emit = vi.fn();
-    subscribe("c1", emit);
-    await vi.advanceTimersByTimeAsync(30_000);
-
-    expect(emit).not.toHaveBeenCalled();
-  });
-
-  it("a slow poll does not produce a second concurrent query before it finishes", async () => {
-    // First DB call hangs until we manually resolve it.
-    let resolveFirst!: (value: unknown[]) => void;
-    getClusterOccupancyMock
-      .mockImplementationOnce(
-        () =>
-          new Promise<unknown[]>((resolve) => {
-            resolveFirst = resolve;
-          }),
-      )
-      .mockResolvedValue([]);
-
-    subscribe("c1", vi.fn());
-
-    // First poll fires and is now in flight.
-    await vi.advanceTimersByTimeAsync(30_000);
-    expect(getClusterOccupancyMock).toHaveBeenCalledTimes(1);
-
-    // Another 30 s passes — no second poll because the chained timeout
-    // isn't scheduled until the first one resolves.
-    await vi.advanceTimersByTimeAsync(30_000);
-    expect(getClusterOccupancyMock).toHaveBeenCalledTimes(1);
-
-    // Let the first poll finish; .finally() should now schedule the next timeout.
-    resolveFirst([]);
-    await vi.advanceTimersByTimeAsync(0);
-
-    // Advance 30 s more: the second poll fires.
-    await vi.advanceTimersByTimeAsync(30_000);
-    expect(getClusterOccupancyMock).toHaveBeenCalledTimes(2);
-  });
-
-  it("a cluster removed during an in-flight poll does not restart the poller", async () => {
-    // DB call hangs so we can control exactly when it resolves.
-    let resolveOccupancy!: (value: unknown[]) => void;
-    getClusterOccupancyMock.mockImplementationOnce(
-      () =>
-        new Promise<unknown[]>((resolve) => {
-          resolveOccupancy = resolve;
-        }),
-    );
-
-    const emit = vi.fn();
-    const unsubscribe = subscribe("c1", emit);
-
-    // Fire the first poll (now in flight).
-    await vi.advanceTimersByTimeAsync(30_000);
-    expect(getClusterOccupancyMock).toHaveBeenCalledTimes(1);
-
-    // Last subscriber leaves while the poll is still awaiting the DB.
-    unsubscribe();
-
-    // Let the in-flight poll resolve — .finally() must not schedule another timeout.
-    resolveOccupancy([]);
-    await vi.advanceTimersByTimeAsync(0);
-
-    // Advancing time should produce no further polls.
-    getClusterOccupancyMock.mockClear();
-    await vi.advanceTimersByTimeAsync(60_000);
-    expect(getClusterOccupancyMock).not.toHaveBeenCalled();
   });
 });

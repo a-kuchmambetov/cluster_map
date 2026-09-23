@@ -181,7 +181,7 @@ Field meanings:
   - **`intraName` is not always present** — guest accounts (registered directly on the site, without Hive login) may lack it. Same for `displayName`.
   - `photo` — avatar URL or `null`; frontend uses a default photo when null. Added per the call with Valentine (2026-08-06), matching what the 42/Hive cluster map shows.
   - No `email` — explicitly excluded per privacy rules.
-  - **A place can appear in `occupied[]` with all three peer fields `null`.** Valentine's schema has a separate `occupied` boolean and a nullable `holderId` FK; the query filters on `occupied = true` and left-joins the holder. A seat marked occupied with no holder produces a valid record with no peer data. The frontend should render it as occupied (seat is taken) but with no name or photo to display.
+  - **A place cannot appear in `occupied[]` with all three peer fields `null`.** Valentine's original schema had a separate `occupied` boolean and a nullable `holderId` FK, which could drift apart: a seat marked occupied with no holder would produce a valid record with no peer data, and the contract previously required the frontend to handle it. Valentine added the check constraint `position_occupancy_consistent`, which rejects that combination at the DB level, so the shape is no longer reachable. Clients do not need to handle the all-null peer case.
 - Places are identified by `row`/`place` numbers rather than config IDs. The frontend already holds the layout from /layout and joining two numbers against it is trivial.
 - `lastUpdated` — ISO 8601 time of the last **successful** DB read; `null` if never.
 
