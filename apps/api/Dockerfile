@@ -38,7 +38,7 @@ COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY apps/api/src/config/clusters.json ./apps/api/src/config/clusters.json
 WORKDIR /app/apps/api
 USER node
-EXPOSE 5000
-HEALTHCHECK --interval=30s --timeout=5s --start-period=40s CMD curl -fsS http://localhost:5000/api/health/ready || exit 1
+EXPOSE 5001
+# HEALTHCHECK --interval=30s --timeout=5s --start-period=40s CMD curl -fsS http://localhost:5000/api/health/ready || exit 1
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["node", "dist/index.js"]
