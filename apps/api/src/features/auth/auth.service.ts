@@ -92,6 +92,7 @@ export function login(body: LoginInput, headers: Headers) {
           emailVerified,
           image,
           role: actor?.role ?? "user",
+          twoFactorEnabled: result.response.user.twoFactorEnabled ?? false,
         },
       },
     };
@@ -132,6 +133,7 @@ export function verifyTOTP(
           emailVerified,
           image,
           role: actor?.role ?? "user",
+          twoFactorEnabled: result.response.user.twoFactorEnabled ?? false,
         },
       },
     };
@@ -159,7 +161,15 @@ export function getSession(headers: Headers) {
       throw AppError.forbidden("Account access has not been approved");
     const { id, name, email, emailVerified, image } = session.user;
     return {
-      user: { id, name, email, emailVerified, image, role: actor.role },
+      user: {
+        id,
+        name,
+        email,
+        emailVerified,
+        image,
+        role: actor.role,
+        twoFactorEnabled: session.user.twoFactorEnabled ?? false,
+      },
     };
   });
 }

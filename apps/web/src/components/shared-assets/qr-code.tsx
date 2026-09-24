@@ -85,7 +85,11 @@ export const QRCode = ({
     });
 
     setQrCode(qrCode);
-    qrCode.append(ref.current);
+    const container = ref.current;
+    qrCode.append(container);
+    return () => {
+      container.replaceChildren();
+    };
   }, [options, size, value]);
 
   useEffect(() => {

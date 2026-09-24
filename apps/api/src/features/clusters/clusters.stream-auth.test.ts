@@ -59,6 +59,7 @@ describe("stream session revalidation", () => {
         email: "test@example.com",
         emailVerified: false,
         image: null,
+        twoFactorEnabled: false,
         role: "user",
       },
     });

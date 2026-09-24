@@ -83,6 +83,7 @@ describe("custom auth routes", () => {
           emailVerified: true,
           role: "user",
           image: null,
+          twoFactorEnabled: false,
         },
       },
     });
@@ -193,6 +194,7 @@ describe("session lifecycle routes", () => {
         emailVerified: false,
         role: "user",
         image: null,
+        twoFactorEnabled: false,
       },
     });
     const results = await Promise.all(

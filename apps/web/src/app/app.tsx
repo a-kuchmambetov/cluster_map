@@ -1,5 +1,10 @@
 import { UserApprovalsScreen } from "@/features/admin";
-import { AuthProvider, AuthScreen, RequireAuth } from "@/features/auth";
+import {
+  AuthProvider,
+  AuthScreen,
+  RequireAuth,
+  SecurityScreen,
+} from "@/features/auth";
 import { BrowserRouter, Route, Routes } from "react-router";
 import { HomeScreen } from "@/pages/home-screen";
 import { NotFound } from "@/pages/not-found";
@@ -18,6 +23,7 @@ export const App = () => (
               element={<AuthScreen key="register" registration />}
             />
             <Route element={<RequireAuth />}>
+              <Route path="/settings/security" element={<SecurityScreen />} />
               <Route path="/" element={<HomeScreen />} />
               <Route path="/admin/users" element={<UserApprovalsScreen />} />
             </Route>

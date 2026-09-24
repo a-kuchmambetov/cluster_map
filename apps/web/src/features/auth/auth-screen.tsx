@@ -4,6 +4,7 @@ import { Form } from "@/components/base/form/form";
 import { Input } from "@/components/base/input/input";
 import { Button } from "@/components/base/buttons/button";
 import { useAuth } from "./auth-provider";
+import { TOTPForm } from "./totp-form";
 import { register } from "./api";
 
 export function safeReturnPath(value: string | null) {
@@ -27,6 +28,7 @@ export function AuthScreen({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const challenge = auth.status === "two-factor";
   if (auth.status === "authenticated")
     return <Navigate to={safeReturnPath(params.get("returnTo"))} replace />;
   return (
@@ -43,15 +45,27 @@ export function AuthScreen({
           <span>Cluster Map</span>
         </div>
         <h1 className="text-3xl font-semibold">
-          {registration ? "Request an account" : "Sign in"}
+          {challenge
+            ? "Two-factor authentication"
+            : registration
+              ? "Request an account"
+              : "Sign in"}
         </h1>
         <p className="mt-2 text-tertiary">
-          {registration
-            ? "Accounts require administrator approval before signing in."
-            : "Sign in to view the cluster map."}
+          {challenge
+            ? "Enter the 6-digit code from your authenticator app to finish signing in."
+            : registration
+              ? "Accounts require administrator approval before signing in."
+              : "Sign in to view the cluster map."}
         </p>
       </div>
-      {message ? (
+      {challenge ? (
+        <TOTPForm
+          allowTrust
+          onVerify={auth.verifyTwoFactor}
+          onCancel={auth.cancelTwoFactor}
+        />
+      ) : message ? (
         <p role="status">{message}</p>
       ) : (
         <Form
@@ -123,12 +137,14 @@ export function AuthScreen({
           </Button>
         </Form>
       )}
-      <Link
-        className="underline"
-        to={`${registration ? "/login" : "/register"}${params.get("returnTo") ? `?returnTo=${encodeURIComponent(safeReturnPath(params.get("returnTo")))}` : ""}`}
-      >
-        {registration ? "Back to sign in" : "Request an account"}
-      </Link>
+      {!challenge && (
+        <Link
+          className="underline"
+          to={`${registration ? "/login" : "/register"}${params.get("returnTo") ? `?returnTo=${encodeURIComponent(safeReturnPath(params.get("returnTo")))}` : ""}`}
+        >
+          {registration ? "Back to sign in" : "Request an account"}
+        </Link>
+      )}
     </main>
   );
 }
