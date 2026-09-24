@@ -161,19 +161,28 @@ describe("GitHub sign-in", () => {
   });
 
   it.each([
+    ["/admin/users", "/admin/users"],
     ["/?cluster=2#map", "/?cluster=2#map"],
     ["https://evil.example", "/"],
     ["//evil.example", "/"],
     ["/login", "/"],
   ])(
-    "uses the API redirect with a safe callback for %s",
+    "navigates the browser to the API with a safe callback for %s",
     async (returnTo, expected) => {
+      const assign = vi
+        .spyOn(window.location, "assign")
+        .mockImplementation(() => {});
       await renderSignIn(returnTo);
-      const link = Array.from(container.querySelectorAll("a")).find((element) =>
-        element.textContent?.includes("Sign in with GitHub"),
+      const button = Array.from(container.querySelectorAll("button")).find(
+        (element) => element.textContent?.includes("Sign in with GitHub"),
       );
-      expect(link).toBeDefined();
-      const url = new URL(link!.href);
+      expect(button).toBeDefined();
+      await act(async () => button!.click());
+      expect(assign).toHaveBeenCalledTimes(1);
+      const url = new URL(
+        String(assign.mock.calls[0][0]),
+        window.location.origin,
+      );
       const endpoint = new URL(
         `${API_URL}/auth/sign-in/github`,
         window.location.origin,
@@ -184,6 +193,7 @@ describe("GitHub sign-in", () => {
       expect(url.searchParams.get("callbackURL")).toBe(
         `${window.location.origin}${expected}`,
       );
+      assign.mockRestore();
     },
   );
 

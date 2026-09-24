@@ -78,9 +78,14 @@ export function AuthScreen({
             color="secondary"
             iconLeading={<GitHub aria-hidden="true" data-icon="leading" />}
             isDisabled={busy}
-            href={`${API_URL}/auth/sign-in/github?${new URLSearchParams({
-              callbackURL: `${window.location.origin}${safeReturnPath(params.get("returnTo"))}`,
-            })}`}
+            onClick={() => {
+              // OAuth must reach the server, bypassing client-side routing.
+              window.location.assign(
+                `${API_URL}/auth/sign-in/github?${new URLSearchParams({
+                  callbackURL: `${window.location.origin}${safeReturnPath(params.get("returnTo"))}`,
+                })}`,
+              );
+            }}
           >
             Sign in with GitHub
           </Button>
