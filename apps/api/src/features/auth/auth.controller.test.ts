@@ -8,6 +8,8 @@ import { authRouter } from "./auth.routes";
 import { env } from "@config/env";
 
 vi.mock("./auth.service", () => ({
+  getUsers: vi.fn(),
+  deleteUser: vi.fn(),
   getSession: vi.fn(),
   getPendingUsers: vi.fn(),
   logout: vi.fn(),
@@ -239,4 +241,28 @@ describe("session lifecycle routes", () => {
       ).status,
     ).toBe(403);
   });
+});
+
+it("lists users through the admin service", async () => {
+  vi.mocked(service.getUsers).mockResolvedValue({ users: [] });
+  const result = await request(app).get("/api/auth/users");
+  expect(result.status).toBe(200);
+  expect(result.body).toEqual({ users: [] });
+  expect(service.getUsers).toHaveBeenCalledWith(expect.any(Headers));
+});
+it("deletes the specified account and rejects cross-site deletion", async () => {
+  const rejected = await request(app)
+    .delete("/api/auth/users/target")
+    .set("Origin", "https://untrusted.example");
+  expect(rejected.status).toBe(403);
+  expect(service.deleteUser).not.toHaveBeenCalled();
+  vi.mocked(service.deleteUser).mockResolvedValue({ message: "User deleted" });
+  const result = await request(app)
+    .delete("/api/auth/users/target")
+    .set("Origin", new URL(env.WEB_ORIGIN).origin);
+  expect(result.status).toBe(200);
+  expect(service.deleteUser).toHaveBeenCalledWith(
+    "target",
+    expect.any(Headers),
+  );
 });

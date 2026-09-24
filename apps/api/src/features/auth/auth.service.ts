@@ -216,6 +216,7 @@ async function requireAdmin(headers: Headers) {
   const actor = await findAuthUser(session.user.id);
   if (!actor?.approved || actor.role !== "admin")
     throw AppError.forbidden("Administrator access required");
+  return session.user.id;
 }
 
 export function getPendingUsers(headers: Headers) {
@@ -223,5 +224,25 @@ export function getPendingUsers(headers: Headers) {
     await requireAdmin(headers);
     const { listPendingUsers } = await import("./auth.repository.js");
     return { users: await listPendingUsers() };
+  });
+}
+
+export function getUsers(headers: Headers) {
+  return callAuth(async () => {
+    await requireAdmin(headers);
+    const { listUsers } = await import("./auth.repository.js");
+    return { users: await listUsers() };
+  });
+}
+
+export function deleteUser(id: string, headers: Headers) {
+  return callAuth(async () => {
+    const actorId = await requireAdmin(headers);
+    if (actorId === id)
+      throw AppError.forbidden("You cannot delete your own account");
+    const repository = await import("./auth.repository.js");
+    if (!(await repository.deleteUser(id)))
+      throw AppError.notFound("User not found");
+    return { message: "User deleted" };
   });
 }

@@ -93,7 +93,7 @@ export function RequireAuth() {
             {auth.user?.role === "admin" && (
               <NavLink to="/admin/users" className={navigationClassName}>
                 <Users01 aria-hidden="true" className="size-4 shrink-0" />
-                User approvals
+                Users
               </NavLink>
             )}
           </nav>

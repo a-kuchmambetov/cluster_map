@@ -35,3 +35,11 @@ export interface TwoFactorSetupResponse {
   totpURI: string;
   backupCodes: string[];
 }
+
+export interface AdminUser extends PendingUser {
+  role: "user" | "admin";
+  approved: boolean;
+}
+export interface AdminUsersResponse {
+  users: AdminUser[];
+}

@@ -181,3 +181,29 @@ export async function pendingUsersHandler(
     next(error);
   }
 }
+
+export async function usersHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    res.json(await service.getUsers(fromNodeHeaders(req.headers)));
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteUserHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    res.json(
+      await service.deleteUser(req.params.id, fromNodeHeaders(req.headers)),
+    );
+  } catch (error) {
+    next(error);
+  }
+}

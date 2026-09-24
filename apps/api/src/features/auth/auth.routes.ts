@@ -4,6 +4,8 @@ import { AppError } from "@repo/errors";
 import { env } from "@config/env";
 import { validateRequest } from "@middleware/validateRequest";
 import {
+  usersHandler,
+  deleteUserHandler,
   sessionHandler,
   pendingUsersHandler,
   logoutHandler,
@@ -34,7 +36,7 @@ authRouter.use((_req, res, next) => {
 authRouter.use((req, _res, next) => {
   // Non-browser clients may omit Origin. Reject explicit untrusted browser origins.
   if (
-    req.method === "POST" &&
+    ["POST", "DELETE", "PATCH", "PUT"].includes(req.method) &&
     ((req.headers.origin &&
       req.headers.origin !== new URL(env.WEB_ORIGIN).origin) ||
       (req.headers["sec-fetch-site"] === "cross-site" && !req.headers.origin))
@@ -47,6 +49,12 @@ authRouter.get("/sign-in/github", githubSignInHandler);
 authRouter.get("/callback/github", githubCallbackHandler);
 authRouter.get("/session", sessionHandler);
 authRouter.get("/pending-users", pendingUsersHandler);
+authRouter.get("/users", usersHandler);
+authRouter.delete(
+  "/users/:id",
+  validateRequest({ params: confirmSchema }),
+  deleteUserHandler,
+);
 authRouter.post("/logout", logoutHandler);
 authRouter.use(
   rateLimit({

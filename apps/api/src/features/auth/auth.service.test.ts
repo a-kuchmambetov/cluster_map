@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  getUsers,
+  deleteUser,
   confirm,
   register,
   login,
@@ -24,6 +26,8 @@ const mocks = vi.hoisted(() => ({
   findAuthUser: vi.fn(),
   approveUser: vi.fn(),
   listPendingUsers: vi.fn(),
+  listUsers: vi.fn(),
+  deleteUser: vi.fn(),
 }));
 vi.mock("../../config/auth.js", () => ({
   auth: {
@@ -43,6 +47,8 @@ vi.mock("./auth.repository.js", () => ({
   findAuthUser: mocks.findAuthUser,
   approveUser: mocks.approveUser,
   listPendingUsers: mocks.listPendingUsers,
+  listUsers: mocks.listUsers,
+  deleteUser: mocks.deleteUser,
 }));
 beforeEach(() => vi.resetAllMocks());
 describe("registration errors", () => {
@@ -330,5 +336,56 @@ describe("2FA disable", () => {
     });
     expect(result.response).toEqual({ status: true });
     expect(result.headers).toBe(sessionHeaders);
+  });
+});
+
+describe("admin user management", () => {
+  it("requires authentication for listing and deletion", async () => {
+    mocks.getSession.mockResolvedValue(null);
+    await expect(getUsers(new Headers())).rejects.toMatchObject({
+      statusCode: 401,
+    });
+    await expect(deleteUser("target", new Headers())).rejects.toMatchObject({
+      statusCode: 401,
+    });
+    expect(mocks.listUsers).not.toHaveBeenCalled();
+    expect(mocks.deleteUser).not.toHaveBeenCalled();
+  });
+  it.each([
+    { role: "user", approved: true },
+    { role: "admin", approved: false },
+    undefined,
+  ])("rejects unauthorized actors: %j", async (actor) => {
+    mocks.getSession.mockResolvedValue({ user: { id: "actor" } });
+    mocks.findAuthUser.mockResolvedValue(actor);
+    await expect(getUsers(new Headers())).rejects.toMatchObject({
+      statusCode: 403,
+    });
+    await expect(deleteUser("target", new Headers())).rejects.toMatchObject({
+      statusCode: 403,
+    });
+    expect(mocks.listUsers).not.toHaveBeenCalled();
+    expect(mocks.deleteUser).not.toHaveBeenCalled();
+  });
+  it("lists accounts and deletes another user for an approved admin", async () => {
+    mocks.getSession.mockResolvedValue({ user: { id: "actor" } });
+    mocks.findAuthUser.mockResolvedValue({ role: "admin", approved: true });
+    mocks.listUsers.mockResolvedValue([{ id: "target" }]);
+    expect(await getUsers(new Headers())).toEqual({
+      users: [{ id: "target" }],
+    });
+    await expect(deleteUser("actor", new Headers())).rejects.toMatchObject({
+      statusCode: 403,
+    });
+    expect(mocks.deleteUser).not.toHaveBeenCalled();
+    mocks.deleteUser.mockResolvedValue({ id: "target" });
+    expect(await deleteUser("target", new Headers())).toEqual({
+      message: "User deleted",
+    });
+    expect(mocks.deleteUser).toHaveBeenCalledWith("target");
+    mocks.deleteUser.mockResolvedValue(undefined);
+    await expect(deleteUser("missing", new Headers())).rejects.toMatchObject({
+      statusCode: 404,
+    });
   });
 });
