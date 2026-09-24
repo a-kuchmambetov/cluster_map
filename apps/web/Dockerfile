@@ -18,8 +18,9 @@ ARG VITE_API_URL=
 RUN pnpm --filter @repo/web build
 
 FROM owasp/modsecurity-crs:4.29.0-nginx-alpine-202609180209 AS runtime
-# Removed NGINX_ENVSUBST_FILTER as CRS image needs more env var and this filter
-# is no longer valid.
+# Removed NGINX_ENVSUBST_FILTER as the CRS base image renders its own
+# configuration through the same envsubst hook, so a filter would leave its
+# templates unsubstituted and Nginx would fail to start.
 COPY apps/web/nginx.web.conf /etc/nginx/templates/conf.d/default.conf.template
 COPY apps/web/waf-rules/ /opt/owasp-crs/rules/
 COPY --chmod=755 apps/web/docker-entrypoint.d/19-validate-upstream.sh /docker-entrypoint.d/19-validate-upstream.sh

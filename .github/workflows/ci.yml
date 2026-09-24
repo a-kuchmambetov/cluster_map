@@ -53,3 +53,39 @@ jobs:
       - run: node --test scripts/deploy/*.test.mjs
       - run: pnpm build
       - run: pnpm build:docs
+  waf:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - run: docker build -f apps/web/Dockerfile -t cluster-map-web:ci .
+      - name: Start the stub backend behind the WAF
+        run: |
+          docker network create --subnet 172.31.67.0/24 waf-ci
+          docker run -d --name stub --network waf-ci \
+            -v "$PWD/scripts/waf/stub-backend.mjs:/stub-backend.mjs:ro" \
+            node:24-alpine node /stub-backend.mjs
+          docker run -d --name waf --network waf-ci -p 8080:8080 \
+            -e API_UPSTREAM=stub:8081 \
+            -e REAL_IP_HEADER=X-Forwarded-For \
+            -e REAL_IP_RECURSIVE=on \
+            -e SET_REAL_IP_FROM=172.31.67.0/24 \
+            -e MODSEC_RULE_ENGINE=On \
+            -e BLOCKING_PARANOIA=1 \
+            -e DETECTION_PARANOIA=2 \
+            cluster-map-web:ci
+      - name: Wait for nginx to accept requests
+        run: |
+          for _ in $(seq 40); do
+            curl -sf http://localhost:8080/healthz >/dev/null && exit 0
+            sleep 2
+          done
+          echo "WAF did not become ready" >&2
+          exit 1
+      - run: docker exec waf nginx -t
+      - run: sh scripts/waf/smoke.sh --stub
+        env:
+          BASE_URL: http://localhost:8080
+      - name: Container logs
+        if: failure()
+        run: docker logs waf && docker logs stub
