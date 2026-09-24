@@ -102,9 +102,5 @@ jobs:
           WEBHOOK: ${{ secrets.COOLIFY_PRODUCTION_WEBHOOK }}
           TOKEN: ${{ secrets.COOLIFY_TOKEN }}
         run: |
-          : "${WEBHOOK:?Set COOLIFY_PRODUCTION_WEBHOOK to deploy all four production services}"
-          : "${TOKEN:?Set COOLIFY_TOKEN}"
-          curl --fail --silent --show-error \
-            --connect-timeout 10 --max-time 60 \
-            --request POST "$WEBHOOK" \
-            --header "Authorization: Bearer $TOKEN"
+          curl -fsS -X POST "$WEBHOOK" \
+            -H "Authorization: Bearer $TOKEN"
