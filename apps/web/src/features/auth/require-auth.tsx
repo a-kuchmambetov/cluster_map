@@ -29,7 +29,7 @@ export function RequireAuth() {
       setBusy(false);
     }
   };
-  if (auth.status === "anonymous")
+  if (auth.status === "anonymous" || auth.status === "two-factor")
     return (
       <Navigate
         to={`/login?returnTo=${encodeURIComponent(location.pathname + location.search + location.hash)}`}
@@ -87,10 +87,13 @@ export function RequireAuth() {
               <Dataflow03 aria-hidden="true" className="size-4 shrink-0" />
               Cluster map
             </NavLink>
+            <NavLink to="/settings/security" className={navigationClassName}>
+              Security
+            </NavLink>
             {auth.user?.role === "admin" && (
               <NavLink to="/admin/users" className={navigationClassName}>
                 <Users01 aria-hidden="true" className="size-4 shrink-0" />
-                User approvals
+                Users
               </NavLink>
             )}
           </nav>

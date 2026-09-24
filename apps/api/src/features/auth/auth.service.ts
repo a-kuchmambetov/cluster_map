@@ -92,6 +92,7 @@ export function login(body: LoginInput, headers: Headers) {
           emailVerified,
           image,
           role: actor?.role ?? "user",
+          twoFactorEnabled: result.response.user.twoFactorEnabled ?? false,
         },
       },
     };
@@ -132,6 +133,7 @@ export function verifyTOTP(
           emailVerified,
           image,
           role: actor?.role ?? "user",
+          twoFactorEnabled: result.response.user.twoFactorEnabled ?? false,
         },
       },
     };
@@ -159,7 +161,15 @@ export function getSession(headers: Headers) {
       throw AppError.forbidden("Account access has not been approved");
     const { id, name, email, emailVerified, image } = session.user;
     return {
-      user: { id, name, email, emailVerified, image, role: actor.role },
+      user: {
+        id,
+        name,
+        email,
+        emailVerified,
+        image,
+        role: actor.role,
+        twoFactorEnabled: session.user.twoFactorEnabled ?? false,
+      },
     };
   });
 }
@@ -206,6 +216,7 @@ async function requireAdmin(headers: Headers) {
   const actor = await findAuthUser(session.user.id);
   if (!actor?.approved || actor.role !== "admin")
     throw AppError.forbidden("Administrator access required");
+  return session.user.id;
 }
 
 export function getPendingUsers(headers: Headers) {
@@ -213,5 +224,25 @@ export function getPendingUsers(headers: Headers) {
     await requireAdmin(headers);
     const { listPendingUsers } = await import("./auth.repository.js");
     return { users: await listPendingUsers() };
+  });
+}
+
+export function getUsers(headers: Headers) {
+  return callAuth(async () => {
+    await requireAdmin(headers);
+    const { listUsers } = await import("./auth.repository.js");
+    return { users: await listUsers() };
+  });
+}
+
+export function deleteUser(id: string, headers: Headers) {
+  return callAuth(async () => {
+    const actorId = await requireAdmin(headers);
+    if (actorId === id)
+      throw AppError.forbidden("You cannot delete your own account");
+    const repository = await import("./auth.repository.js");
+    if (!(await repository.deleteUser(id)))
+      throw AppError.notFound("User not found");
+    return { message: "User deleted" };
   });
 }

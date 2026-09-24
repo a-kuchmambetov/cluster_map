@@ -3,7 +3,10 @@ import { Link, Navigate, useSearchParams } from "react-router";
 import { Form } from "@/components/base/form/form";
 import { Input } from "@/components/base/input/input";
 import { Button } from "@/components/base/buttons/button";
+import GitHub from "@/components/foundations/social-icons/github";
+import { API_URL } from "@/config/api";
 import { useAuth } from "./auth-provider";
+import { TOTPForm } from "./totp-form";
 import { register } from "./api";
 
 export function safeReturnPath(value: string | null) {
@@ -27,6 +30,13 @@ export function AuthScreen({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const challenge = auth.status === "two-factor";
+  const githubError =
+    params.get("error") === "github_access_denied"
+      ? "Your account does not have access yet. Ask an administrator to approve your account, then sign in again."
+      : params.get("error") === "github_sign_in_failed"
+        ? "GitHub sign-in failed. Please try again."
+        : "";
   if (auth.status === "authenticated")
     return <Navigate to={safeReturnPath(params.get("returnTo"))} replace />;
   return (
@@ -43,15 +53,51 @@ export function AuthScreen({
           <span>Cluster Map</span>
         </div>
         <h1 className="text-3xl font-semibold">
-          {registration ? "Request an account" : "Sign in"}
+          {challenge
+            ? "Two-factor authentication"
+            : registration
+              ? "Request an account"
+              : "Sign in"}
         </h1>
         <p className="mt-2 text-tertiary">
-          {registration
-            ? "Accounts require administrator approval before signing in."
-            : "Sign in to view the cluster map."}
+          {challenge
+            ? "Enter the 6-digit code from your authenticator app to finish signing in."
+            : registration
+              ? "Accounts require administrator approval before signing in."
+              : "Sign in to view the cluster map."}
         </p>
       </div>
-      {message ? (
+      {!challenge && githubError && (
+        <p role="alert" className="text-sm text-error-primary">
+          {githubError}
+        </p>
+      )}
+      {!registration && !challenge && (
+        <>
+          <Button
+            color="secondary"
+            iconLeading={<GitHub aria-hidden="true" data-icon="leading" />}
+            isDisabled={busy}
+            href={`${API_URL}/auth/sign-in/github?${new URLSearchParams({
+              callbackURL: `${window.location.origin}${safeReturnPath(params.get("returnTo"))}`,
+            })}`}
+          >
+            Sign in with GitHub
+          </Button>
+          <div className="flex items-center gap-3 text-sm text-tertiary">
+            <span className="h-px flex-1 bg-border-secondary" />
+            <span>or sign in with email</span>
+            <span className="h-px flex-1 bg-border-secondary" />
+          </div>
+        </>
+      )}
+      {challenge ? (
+        <TOTPForm
+          allowTrust
+          onVerify={auth.verifyTwoFactor}
+          onCancel={auth.cancelTwoFactor}
+        />
+      ) : message ? (
         <p role="status">{message}</p>
       ) : (
         <Form
@@ -123,12 +169,14 @@ export function AuthScreen({
           </Button>
         </Form>
       )}
-      <Link
-        className="underline"
-        to={`${registration ? "/login" : "/register"}${params.get("returnTo") ? `?returnTo=${encodeURIComponent(safeReturnPath(params.get("returnTo")))}` : ""}`}
-      >
-        {registration ? "Back to sign in" : "Request an account"}
-      </Link>
+      {!challenge && (
+        <Link
+          className="underline"
+          to={`${registration ? "/login" : "/register"}${params.get("returnTo") ? `?returnTo=${encodeURIComponent(safeReturnPath(params.get("returnTo")))}` : ""}`}
+        >
+          {registration ? "Back to sign in" : "Request an account"}
+        </Link>
+      )}
     </main>
   );
 }

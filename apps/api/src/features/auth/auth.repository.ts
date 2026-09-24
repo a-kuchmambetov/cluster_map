@@ -33,3 +33,27 @@ export async function listPendingUsers() {
     .where(eq(user.approved, false))
     .orderBy(asc(user.createdAt), asc(user.id));
 }
+
+export async function listUsers() {
+  return db
+    .select({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      approved: user.approved,
+      approvalToken: user.approvalToken,
+      createdAt: user.createdAt,
+    })
+    .from(user)
+    .orderBy(asc(user.name), asc(user.id));
+}
+
+export async function deleteUser(id: string) {
+  // Foreign keys cascade deletion to sessions, accounts, and two-factor secrets.
+  const [record] = await db
+    .delete(user)
+    .where(eq(user.id, id))
+    .returning({ id: user.id });
+  return record;
+}

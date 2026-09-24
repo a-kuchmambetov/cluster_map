@@ -74,6 +74,7 @@ describe("2FA routes", () => {
           email: "test@example.com",
           emailVerified: true,
           image: null,
+          twoFactorEnabled: false,
           role: "user",
         },
       },

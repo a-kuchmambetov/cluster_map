@@ -5,8 +5,11 @@ import { AppError } from "@repo/errors";
 import { errorMiddleware } from "@middleware/error";
 import * as service from "./auth.service";
 import { authRouter } from "./auth.routes";
+import { env } from "@config/env";
 
 vi.mock("./auth.service", () => ({
+  getUsers: vi.fn(),
+  deleteUser: vi.fn(),
   getSession: vi.fn(),
   getPendingUsers: vi.fn(),
   logout: vi.fn(),
@@ -83,6 +86,7 @@ describe("custom auth routes", () => {
           emailVerified: true,
           role: "user",
           image: null,
+          twoFactorEnabled: false,
         },
       },
     });
@@ -144,7 +148,7 @@ describe("GitHub OAuth routes", () => {
     );
   });
 
-  it("defaults callbackURL to / when the parameter is absent", async () => {
+  it("defaults callbackURL to the web app when the parameter is absent", async () => {
     vi.mocked(service.initiateGitHubSignIn).mockResolvedValue({
       headers: new Headers(),
       response: {
@@ -154,10 +158,28 @@ describe("GitHub OAuth routes", () => {
     });
     await request(app).get("/api/auth/sign-in/github");
     expect(service.initiateGitHubSignIn).toHaveBeenCalledWith(
-      "/",
+      new URL("/", env.WEB_ORIGIN).href,
       expect.any(Headers),
     );
   });
+
+  it.each([403, 500, 200])(
+    "returns callback failures (%s) to the web login page",
+    async (status) => {
+      vi.mocked(service.handleGitHubCallback).mockResolvedValue(
+        new Response(null, { status }),
+      );
+      const result = await request(app).get(
+        "/api/auth/callback/github?code=abc&state=xyz",
+      );
+      const location = new URL(result.headers.location);
+      expect(location.origin).toBe(new URL(env.WEB_ORIGIN).origin);
+      expect(location.pathname).toBe("/login");
+      expect(location.searchParams.get("error")).toBe(
+        status === 403 ? "github_access_denied" : "github_sign_in_failed",
+      );
+    },
+  );
 
   it("sets the session cookie and redirects to callbackURL after a successful callback", async () => {
     const callbackResponse = new Response(null, {
@@ -193,6 +215,7 @@ describe("session lifecycle routes", () => {
         emailVerified: false,
         role: "user",
         image: null,
+        twoFactorEnabled: false,
       },
     });
     const results = await Promise.all(
@@ -218,4 +241,28 @@ describe("session lifecycle routes", () => {
       ).status,
     ).toBe(403);
   });
+});
+
+it("lists users through the admin service", async () => {
+  vi.mocked(service.getUsers).mockResolvedValue({ users: [] });
+  const result = await request(app).get("/api/auth/users");
+  expect(result.status).toBe(200);
+  expect(result.body).toEqual({ users: [] });
+  expect(service.getUsers).toHaveBeenCalledWith(expect.any(Headers));
+});
+it("deletes the specified account and rejects cross-site deletion", async () => {
+  const rejected = await request(app)
+    .delete("/api/auth/users/target")
+    .set("Origin", "https://untrusted.example");
+  expect(rejected.status).toBe(403);
+  expect(service.deleteUser).not.toHaveBeenCalled();
+  vi.mocked(service.deleteUser).mockResolvedValue({ message: "User deleted" });
+  const result = await request(app)
+    .delete("/api/auth/users/target")
+    .set("Origin", new URL(env.WEB_ORIGIN).origin);
+  expect(result.status).toBe(200);
+  expect(service.deleteUser).toHaveBeenCalledWith(
+    "target",
+    expect.any(Headers),
+  );
 });
