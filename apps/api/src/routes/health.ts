@@ -4,15 +4,14 @@ export const healthRouter: Router = Router();
 
 const DB_PING_TIMEOUT_MS = 2000;
 
-// Dynamic import: @repo/db builds its DATABASE_URL from PG_* env vars that
-// aren't configured anywhere yet, and connects lazily. A static import would
-// still be safe today, but would tie server boot to that module resolving at
-// all (e.g. before it's ever built). Keeping it dynamic + try/caught means a
-// missing/broken DB dependency degrades this endpoint instead of crashing
-// the process.
+// Keep module loading inside the health check so import failures also degrade
+// health instead of crashing the process.
 export async function isDatabaseReachable(): Promise<boolean> {
+  const startedAt = Date.now();
+  let phase = "import";
   try {
     const { db } = await import("@repo/db");
+    phase = "query";
 
     let timeoutHandle: NodeJS.Timeout;
     const timeout = new Promise<never>((_resolve, reject) => {
@@ -28,7 +27,41 @@ export async function isDatabaseReachable(): Promise<boolean> {
     } finally {
       clearTimeout(timeoutHandle!);
     }
-  } catch {
+  } catch (error) {
+    // Drizzle wraps driver failures in `cause`. Log only diagnostic fields,
+    // never the full error, query parameters, or connection configuration.
+    const errors: Array<{ name: string; message: string; code?: string }> = [];
+    let current: unknown = error;
+    for (let depth = 0; current instanceof Error && depth < 5; depth++) {
+      let message = current.message.replace(
+        /postgres(?:ql)?:\/\/[^\s]+/gi,
+        "[REDACTED_DATABASE_URL]",
+      );
+      const password = process.env.PG_PASSWORD;
+      if (password) {
+        message = message.split(password).join("[REDACTED]");
+        message = message
+          .split(encodeURIComponent(password))
+          .join("[REDACTED]");
+      }
+      const code = "code" in current ? current.code : undefined;
+      errors.push({
+        name: current.name,
+        message,
+        ...(typeof code === "string" ? { code } : {}),
+      });
+      current = current.cause;
+    }
+    console.error(
+      JSON.stringify({
+        timestamp: new Date().toISOString(),
+        event: "database_health_check_failed",
+        phase,
+        elapsedMs: Date.now() - startedAt,
+        timeoutMs: DB_PING_TIMEOUT_MS,
+        errors,
+      }),
+    );
     return false;
   }
 }

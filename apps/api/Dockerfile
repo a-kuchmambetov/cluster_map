@@ -39,6 +39,7 @@ COPY apps/api/src/config/clusters.json ./apps/api/src/config/clusters.json
 WORKDIR /app/apps/api
 USER node
 EXPOSE 5001
-HEALTHCHECK --interval=30s --timeout=5s --start-period=40s CMD curl -fsS http://localhost:${API_PORT}/api/health || exit 1
+# The entrypoint records the port after Infisical injects API_PORT.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s CMD port="$(cat /tmp/cluster-map-api-port)" && curl --fail --silent --show-error --max-time 4 "http://127.0.0.1:${port}/api/health" || exit 1
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["node", "dist/index.js"]
