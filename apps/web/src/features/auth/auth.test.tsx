@@ -4,7 +4,8 @@ import { MemoryRouter, Routes, Route } from "react-router";
 import { beforeEach, afterEach, describe, it, expect, vi } from "vitest";
 import { AuthProvider, useAuth } from "./auth-provider";
 import { RequireAuth } from "./require-auth";
-import { safeReturnPath } from "./auth-screen";
+import { AuthScreen, safeReturnPath } from "./auth-screen";
+import { API_URL } from "@/config/api";
 import { ApiError, apiRequest } from "@/lib/http";
 import * as api from "./api";
 vi.mock("./api", () => ({
@@ -126,6 +127,76 @@ it.each([
 });
 it("preserves a local return path with query and fragment", () => {
   expect(safeReturnPath("/?cluster=2#map")).toBe("/?cluster=2#map");
+});
+
+describe("GitHub sign-in", () => {
+  async function renderSignIn(returnTo = "/", errorCode = "") {
+    vi.mocked(api.getSession).mockRejectedValue(
+      new ApiError(401, "Authentication required"),
+    );
+    await act(async () => {
+      root.render(
+        <MemoryRouter
+          initialEntries={[
+            `/login?returnTo=${encodeURIComponent(returnTo)}&error=${encodeURIComponent(errorCode)}`,
+          ]}
+        >
+          <AuthProvider>
+            <Capture />
+            <AuthScreen />
+          </AuthProvider>
+        </MemoryRouter>,
+      );
+    });
+  }
+
+  it.each([
+    ["github_access_denied", "Ask an administrator to approve your account"],
+    ["github_sign_in_failed", "GitHub sign-in failed. Please try again."],
+  ])("explains callback failure %s", async (code, message) => {
+    await renderSignIn("/", code);
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+      message,
+    );
+  });
+
+  it.each([
+    ["/?cluster=2#map", "/?cluster=2#map"],
+    ["https://evil.example", "/"],
+    ["//evil.example", "/"],
+    ["/login", "/"],
+  ])(
+    "uses the API redirect with a safe callback for %s",
+    async (returnTo, expected) => {
+      await renderSignIn(returnTo);
+      const link = Array.from(container.querySelectorAll("a")).find((element) =>
+        element.textContent?.includes("Sign in with GitHub"),
+      );
+      expect(link).toBeDefined();
+      const url = new URL(link!.href);
+      const endpoint = new URL(
+        `${API_URL}/auth/sign-in/github`,
+        window.location.origin,
+      );
+      expect(url.origin + url.pathname).toBe(
+        endpoint.origin + endpoint.pathname,
+      );
+      expect(url.searchParams.get("callbackURL")).toBe(
+        `${window.location.origin}${expected}`,
+      );
+    },
+  );
+
+  it("hides GitHub sign-in during an email two-factor challenge", async () => {
+    await renderSignIn();
+    vi.mocked(api.login).mockResolvedValue({
+      twoFactorRedirect: true,
+      twoFactorMethods: ["totp"],
+    });
+    await act(async () => auth.signIn("test@example.com", "password"));
+    expect(container.textContent).toContain("Two-factor authentication");
+    expect(container.textContent).not.toContain("Sign in with GitHub");
+  });
 });
 
 it("keeps private routes blocked until a 2FA challenge is verified", async () => {

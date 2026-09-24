@@ -5,6 +5,7 @@ import { AppError } from "@repo/errors";
 import { errorMiddleware } from "@middleware/error";
 import * as service from "./auth.service";
 import { authRouter } from "./auth.routes";
+import { env } from "@config/env";
 
 vi.mock("./auth.service", () => ({
   getSession: vi.fn(),
@@ -145,7 +146,7 @@ describe("GitHub OAuth routes", () => {
     );
   });
 
-  it("defaults callbackURL to / when the parameter is absent", async () => {
+  it("defaults callbackURL to the web app when the parameter is absent", async () => {
     vi.mocked(service.initiateGitHubSignIn).mockResolvedValue({
       headers: new Headers(),
       response: {
@@ -155,10 +156,28 @@ describe("GitHub OAuth routes", () => {
     });
     await request(app).get("/api/auth/sign-in/github");
     expect(service.initiateGitHubSignIn).toHaveBeenCalledWith(
-      "/",
+      new URL("/", env.WEB_ORIGIN).href,
       expect.any(Headers),
     );
   });
+
+  it.each([403, 500, 200])(
+    "returns callback failures (%s) to the web login page",
+    async (status) => {
+      vi.mocked(service.handleGitHubCallback).mockResolvedValue(
+        new Response(null, { status }),
+      );
+      const result = await request(app).get(
+        "/api/auth/callback/github?code=abc&state=xyz",
+      );
+      const location = new URL(result.headers.location);
+      expect(location.origin).toBe(new URL(env.WEB_ORIGIN).origin);
+      expect(location.pathname).toBe("/login");
+      expect(location.searchParams.get("error")).toBe(
+        status === 403 ? "github_access_denied" : "github_sign_in_failed",
+      );
+    },
+  );
 
   it("sets the session cookie and redirects to callbackURL after a successful callback", async () => {
     const callbackResponse = new Response(null, {
