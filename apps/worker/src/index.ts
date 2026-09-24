@@ -4,8 +4,7 @@ import { resolve } from "node:path";
 dotenv.config({ path: resolve(process.cwd(), "../../.env") });
 
 const { db, migrate } = await import("@repo/db");
-// Import for side effects: validate environment before proceeding.
-await import("./env.js");
+const { env } = await import("./env.js");
 const { createAdminIfRequested } = await import("./admin.js");
 
 const MIGRATIONS_FOLDER = new URL(
@@ -21,9 +20,12 @@ const DB_SHUTDOWN_TIMEOUT_MS = 5000;
 // Bound connection acquisition, including PostgreSQL's initial handshake.
 db.$client.options.connectionTimeoutMillis = DB_PING_TIMEOUT_MS;
 
-async function pingDatabase(): Promise<boolean> {
+async function pingDatabase(attempt: number): Promise<boolean> {
+  const startedAt = Date.now();
+  let phase = "connect";
   try {
     const client = await db.$client.connect();
+    phase = "query";
     let timeoutHandle: NodeJS.Timeout | undefined;
     try {
       await Promise.race([
@@ -41,7 +43,22 @@ async function pingDatabase(): Promise<boolean> {
       client.release(true);
     }
     return true;
-  } catch {
+  } catch (error: unknown) {
+    console.error(
+      "Database connection probe failed.",
+      {
+        attempt,
+        maxAttempts: DB_MAX_RETRIES,
+        phase,
+        host: env.PG_HOST,
+        port: env.PG_PORT,
+        database: env.PG_DB,
+        user: env.PG_USER,
+        timeoutMs: DB_PING_TIMEOUT_MS,
+        elapsedMs: Date.now() - startedAt,
+      },
+      error,
+    );
     return false;
   }
 }
@@ -49,7 +66,7 @@ async function pingDatabase(): Promise<boolean> {
 async function waitForDatabase(): Promise<void> {
   for (let attempt = 1; attempt <= DB_MAX_RETRIES; attempt++) {
     // eslint-disable-next-line no-await-in-loop -- Sequential retry with backoff.
-    if (await pingDatabase()) {
+    if (await pingDatabase(attempt)) {
       console.log("Database is reachable.");
       return;
     }
