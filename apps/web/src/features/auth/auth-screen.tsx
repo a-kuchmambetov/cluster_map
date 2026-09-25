@@ -66,6 +66,19 @@ export function AuthScreen({
               ? "Accounts require administrator approval before signing in."
               : "Sign in to view the cluster map."}
         </p>
+        {!challenge && (
+          <p className="mt-3 text-sm leading-6 text-tertiary">
+            Read our{" "}
+            <Link className="underline" to="/privacy">
+              Privacy Policy
+            </Link>
+            {" and "}
+            <Link className="underline" to="/terms">
+              Terms of Service
+            </Link>
+            {" before requesting an account or signing in."}
+          </p>
+        )}
       </div>
       {!challenge && githubError && (
         <p role="alert" className="text-sm text-error-primary">

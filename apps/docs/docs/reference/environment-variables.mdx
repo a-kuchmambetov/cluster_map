@@ -4,33 +4,52 @@ sidebar_position: 2
 
 # Environment Variables
 
-API and DB configuration load the root `.env` via their workspace-relative path.
-Vite uses the root as its environment directory. Existing process variables take
-precedence over dotenv values.
+API, worker, and DB configuration load the root `.env` via workspace-relative
+paths. Vite uses the root as its environment directory. Existing process
+variables take precedence over dotenv values.
 
-| Variable                                                | Requirement / default                             | Consumer                            |
-| ------------------------------------------------------- | ------------------------------------------------- | ----------------------------------- |
-| `NODE_ENV`                                              | `production` in release images                    | API runtime behavior and seed guard |
-| `API_PORT`                                              | 5000 in Coolify                                   | API listener                        |
-| `WEB_ORIGIN`                                            | Exact public HTTPS frontend origin in production  | CORS and auth                       |
-| `BETTER_AUTH_URL`                                       | Public origin, default auth base path `/api/auth` | Better Auth                         |
-| `BETTER_AUTH_SECRET`                                    | At least 32 random characters                     | Better Auth                         |
-| `PG_HOST`, `PG_PORT`, `PG_USER`, `PG_PASSWORD`, `PG_DB` | Private environment-specific database             | API and migrations                  |
-| `INFISICAL_CLIENT_ID`, `INFISICAL_CLIENT_SECRET`        | Universal Auth bootstrap credentials              | API entrypoint                      |
-| `INFISICAL_PROJECT_ID`, `INFISICAL_ENV`                 | Project ID and environment slug                   | API entrypoint                      |
-| `INFISICAL_DOMAIN`                                      | Optional EU/self-hosted domain                    | Infisical CLI                       |
-| `INFISICAL_SECRET_PATH`                                 | `/api`; migration uses `/database`                | API entrypoint                      |
-| `API_UPSTREAM`                                          | Required private `hostname:port`                  | Web Nginx template                  |
-| `VITE_API_URL`                                          | Empty in Docker images                            | Same-origin API requests            |
-| `AUTH_DB_TEST`                                          | `1` only with a migrated disposable database      | Auth integration tests              |
+| Variable                                         | Requirement / default                                                                  | Consumer                                                                       |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `NODE_ENV`                                       | `production` in API/worker release images                                              | Error masking, request logs, seed guard                                        |
+| `API_PORT`                                       | 5001                                                                                   | API listener; Docker health check reads the injected port                      |
+| `TRUST_PROXY_HOPS`                               | `0` for direct runs; API image defaults to `1` for Coolify. Match the trusted proxy chain and keep the API port private. | API client IP resolution and auth rate limiting |
+| `WEB_ORIGIN`                                     | `http://localhost:5173`; set to the actual frontend origin                             | API CORS and trusted auth origin                                               |
+| `BETTER_AUTH_URL`                                | Required URL; example `http://localhost:5001`                                          | Better Auth; worker admin bootstrap                                            |
+| `BETTER_AUTH_SECRET`                             | Required, at least 32 characters                                                       | Better Auth; worker admin bootstrap                                            |
+| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`       | Non-empty values required by API auth configuration, including password login and seed | GitHub OAuth                                                                   |
+| `PG_HOST`                                        | `localhost`                                                                            | API, DB tooling, worker                                                        |
+| `PG_PORT`                                        | `5432`; also development Compose host port                                             | API, DB tooling, worker, Compose                                               |
+| `PG_USER`, `PG_PASSWORD`, `PG_DB`                | Each defaults to `app`                                                                 | API, DB tooling, worker, Compose                                               |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD`                  | Optional pair; password 8–128 characters; email normalized to lowercase                | Worker initial admin creation                                                  |
+| `ADMIN_NAME`                                     | `Administrator`                                                                        | Worker initial admin name                                                      |
+| `INFISICAL_CLIENT_ID`, `INFISICAL_CLIENT_SECRET` | Required Universal Auth bootstrap credentials in containers                            | API and worker entrypoints                                                     |
+| `INFISICAL_PROJECT_ID`, `INFISICAL_ENV`          | Required project ID and environment slug in containers                                 | API and worker entrypoints                                                     |
+| `INFISICAL_DOMAIN`                               | Optional domain selection passed to the installed CLI                                  | Infisical CLI                                                                  |
+| `INFISICAL_SECRET_PATH`                          | `/api` for API, `/worker` for worker                                                   | Infisical runtime secret injection                                             |
+| `VITE_API_URL`                                   | Empty by default; use `http://localhost:5001` for direct local access                  | Vite frontend; web Docker build argument and GitHub Environment build variable |
+| `AUTH_DB_TEST`                                   | `1` enables tests that write to a migrated disposable DB                               | API auth integration suite                                                     |
 
-`PG_PASSWORD_FILE` and a `DATABASE_URL` environment override are not consumed by
-the current connection code. Secret-file delivery is future work, not an
-implemented alternative to `PG_PASSWORD`.
+Worker admin bootstrap requires `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` when
+both admin credentials are set. Empty admin credentials are treated as omitted.
+The worker does not require GitHub credentials. API auth does, even when only
+password login is used; dummy values are suitable only for local password-only
+testing and do not enable GitHub sign-in.
+
+The API readiness endpoint also validates the auth variables, requires
+`WEB_ORIGIN` to equal its parsed origin (no path or trailing slash), and requires
+HTTPS for `WEB_ORIGIN` and `BETTER_AUTH_URL` in production. A successful database
+health probe does not establish that these checks pass.
+
+`PG_PASSWORD_FILE`, a `DATABASE_URL` environment override, `API_UPSTREAM`,
+`DOCKER_WEB_ORIGIN`, `WEB_PORT`, and `DOCS_PORT` are not consumed by the current
+application/container configuration. The API and web ports are not connected
+automatically: configure `VITE_API_URL` or external `/api` routing.
 
 There are no environment settings for the layout file path, SSE poll interval,
 frontend recovery interval, or stale-data age threshold. Current polling and
 recovery use 30-second constants; stream access checks use 20 seconds.
 
-See [Configuration](../getting-started/configuration) for a consistent local
-example and [Deployment](../operations/deployment) for release configuration.
+See [Configuration](../getting-started/configuration) for local examples,
+[Deployment](../operations/deployment) for container setup, and
+[CI/CD Implementation](../development-and-testing/CI-CD-implementation) for
+GitHub webhook secrets.

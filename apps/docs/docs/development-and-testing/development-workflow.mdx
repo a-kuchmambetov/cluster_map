@@ -10,27 +10,28 @@ Cluster Map is a pnpm workspace containing applications in `apps/` and reusable 
 
 ## Workspaces
 
-| Workspace          | Purpose                                       |
-| ------------------ | --------------------------------------------- |
-| `@repo/web`        | React and Vite frontend                       |
-| `@repo/api`        | Express API                                   |
-| `@repo/docs`       | Docusaurus documentation                      |
-| `@repo/db`         | Drizzle client, schema, and migration tooling |
-| `@repo/errors`     | Shared application error type                 |
-| `@repo/types`      | Shared TypeScript types                       |
-| `@repo/validators` | Shared Zod schemas                            |
+| Workspace          | Purpose                                                             |
+| ------------------ | ------------------------------------------------------------------- |
+| `@repo/web`        | React and Vite frontend                                             |
+| `@repo/api`        | Express API                                                         |
+| `@repo/worker`     | One-shot migrations and optional administrator bootstrap            |
+| `@repo/docs`       | Docusaurus documentation                                            |
+| `@repo/db`         | Drizzle client, schema, and migration tooling                       |
+| `@repo/errors`     | Shared application error type                                       |
+| `@repo/types`      | Shared TypeScript types                                             |
+| `@repo/validators` | Starter/example Zod schema; feature schemas are currently API-local |
 
 ## Common Commands
 
 Run these commands from the repository root.
 
-| Command           | Purpose                                             |
-| ----------------- | --------------------------------------------------- |
-| `pnpm dev`        | Start workspace development scripts in parallel     |
-| `pnpm build`      | Build every workspace except the documentation site |
-| `pnpm build:docs` | Build the documentation site                        |
-| `pnpm typecheck`  | Run workspace type checks                           |
-| `pnpm lint`       | Run Oxlint from the repository root                 |
+| Command           | Purpose                                                     |
+| ----------------- | ----------------------------------------------------------- |
+| `pnpm dev`        | Start web/API development and run the migration worker once |
+| `pnpm build`      | Build every workspace except the documentation site         |
+| `pnpm build:docs` | Build the documentation site                                |
+| `pnpm typecheck`  | Run workspace type checks                                   |
+| `pnpm lint`       | Run Oxlint from the repository root                         |
 
 To work on one application, use a filter:
 
@@ -40,34 +41,41 @@ pnpm --filter @repo/api dev
 pnpm --filter @repo/docs start
 ```
 
+The worker is also available through `pnpm worker:dev`, `pnpm worker:build`, and
+`pnpm worker:start`. It exits after migrations and optional admin creation.
+`pnpm dev` does not start Docusaurus; use `pnpm start:docs`.
+
 ## Git Flow
 
-All **Commits** and **Pull requests** must follow [Conventional commits](https://www.conventionalcommits.org/en/v1.0.0/#summary).
+Project convention: commits and pull request titles follow [Conventional commits](https://www.conventionalcommits.org/en/v1.0.0/#summary).
 
-Pull request must be presented as description of one "big feature" (Squash Merge Request), rather than bunch minor of commits. Again, following Conventional commits.
+Describe each pull request as one coherent change suitable for squash merging.
 
-:::info[Use this branches]
+:::info[Development branches]
 
-Next 4 branches are permanent and prefered for certain scope of features:
+The documented branch convention uses four long-lived development branches:
 
 - dev-api
 - dev-web
 - dev-db
 - dev-docs
 
-For fetures out of this scope, new branch can be created.
+Create another branch for work outside these areas.
 
 :::
 
-After successful Pull request this and other branches are not deleted and stored for task tracking purpose.
+Under this convention, keep the long-lived development branches after merging.
+Repository settings, rather than these docs, control branch protection and deletion.
 
 <ThemeImage
   src="img/development-and-testing/git-flow-light.svg"
   darkSrc="img/development-and-testing/git-flow-dark.svg"
-  alt="Target Cluster Map architecture"
+  alt="Cluster Map development branch flow"
 />
 
-As can be seen, all "in development" have shared prefix - dev. To get latest development state pull from staging branch, as it stores latest "safe" in progress features.
+Development branches use the `dev-` prefix. Integrate through `staging` before
+`main`; the checked-in workflows deploy those branches to their corresponding
+environments.
 
 ## Suggested Change Flow
 
@@ -77,4 +85,7 @@ As can be seen, all "in development" have shared prefix - dev. To get latest dev
 4. Run the relevant type check and build.
 5. Update the documentation and [current status](../overview/current-status.mdx) when the public behavior or architecture changes.
 
-API and frontend Vitest suites are configured, including a separate API integration command. GitHub Actions workflows are not checked in, so local checks are not yet enforced by CI. See [Testing and Simulation](./testing-and-simulation.mdx).
+GitHub Actions runs the checks described in
+[Testing and Simulation](./testing-and-simulation.mdx) for pull requests to
+`main` and `staging`. Deployment workflows run separately; see
+[CI/CD Implementation](./CI-CD-implementation).

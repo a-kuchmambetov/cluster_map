@@ -12,14 +12,17 @@ and product policies. Record future accepted decisions in linked ADRs.
 
 ### Authentication and access
 
-Viewers register and sign in with email/password through Better Auth. New
+Viewers register and sign in with email/password or GitHub through Better Auth. New
 accounts require administrator approval before session creation. The API checks
 current approval for cluster requests and rechecks open SSE streams every
 20 seconds. Health checks are public.
 
 Approved administrators use `/admin/users`, `GET /api/auth/pending-users`, and
 `POST /api/auth/confirm/:id` to approve accounts. `:id` is a single-use approval
-token, not the user's ID. Hive OAuth and 2FA remain unimplemented.
+token, not the user's ID. Administrators can also list all users and delete other
+accounts. TOTP setup, login verification, and disabling are implemented, with
+settings at `/settings/security`. Backup codes are displayed but cannot currently
+be submitted through an app route. Hive OAuth remains unimplemented.
 
 ### Layout and occupancy
 
@@ -36,8 +39,9 @@ constants, not environment settings or guaranteed maximum data age.
 
 ### Documentation hosting
 
-Docusaurus is configured for `https://docs.map-hive.pp.ua/`. Compose serves docs
-separately on port 8081 by default; production DNS/TLS setup is external.
+Docusaurus is configured for `https://docs.map-hive.pp.ua/`. Its Docker image
+serves static files on port 80; local development uses port 3000. There is no
+docs Compose service. Production DNS/TLS setup is external.
 
 ## Open decisions
 
@@ -73,4 +77,4 @@ Define measurable page-load, interaction, API-response, supported-map-size, and
 accessibility acceptance criteria. Test browser compatibility before claiming it.
 
 See [Privacy and Quality Requirements](../product/privacy-and-quality-requirements)
-and the [CI/CD plan](../development-and-testing/CI-CD-implementation).
+and the [CI/CD implementation](../development-and-testing/CI-CD-implementation).

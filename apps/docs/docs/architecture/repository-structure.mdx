@@ -15,24 +15,27 @@ apps/
     features/auth/   # Routes, controllers, services, repository, validation
     features/clusters/ # Map endpoints and shared SSE polling pool
     middleware/      # Auth, request logs, validation, errors
-    routes/          # Router mounting and database health
+    routes/          # Public database health and application readiness
     scripts/         # Local demo seed
     test/integration/ # API integration suites
     app.ts           # Express setup
     index.ts         # Server startup
   web/src/
     app/             # Route table and providers
-    features/admin/  # Pending-user approvals
+    features/admin/  # User listing, approvals, deletion
     features/auth/   # Auth screens, provider, API, and route guard
     features/cluster-map/ # Components, hooks, models, API and SSE client
     components/      # Reusable Untitled UI-based components
     config/          # API base URL
     hooks/           # Shared React hooks
-    pages/           # Home and not-found pages
+    pages/           # Home, public privacy/terms drafts, and not-found pages
     styles/          # Global styles, theme tokens, typography
     types/           # Vite declarations
     utils/           # Helpers and static data
     main.tsx         # React entry point
+  worker/
+    src/             # One-shot migrations and initial admin bootstrap
+    test/            # Node test-runner suite
   docs/
     docs/            # MDX content and generated sidebar structure
     src/             # Docusaurus components and styles
@@ -42,7 +45,8 @@ packages/
   errors/            # Shared AppError
   types/             # Shared auth and cluster-map DTOs
   validators/        # Starter/example Zod validation
-contracts/           # API and database contract documents
+.github/workflows/   # PR checks and staging/production image deployments
+scripts/deploy/      # Changed-app selection and its tests
 ```
 
 ## Tooling and deployment
@@ -51,10 +55,14 @@ The root `package.json` coordinates workspace commands. `pnpm-workspace.yaml`
 defines membership; `tsconfig.base.json`, `.oxlintrc.json`, and `.oxfmtrc.json`
 configure TypeScript, Oxlint, and Oxfmt.
 
-`.env.example` provides runtime defaults. `docker-compose.yml` and
-`Dockerfile.api`, `Dockerfile.web`, `Dockerfile.db`, and `Dockerfile.docs` define
-the container stack. `nginx.web.conf` serves the frontend and proxies the API;
-`nginx.docs.conf` serves documentation.
+`.env.example` provides runtime defaults. `docker-compose.dev.yml` runs the
+local database. Each of `apps/api`, `apps/web`, `apps/docs`, and `apps/worker`
+contains its own `Dockerfile`. API and worker have Infisical entrypoints.
+`apps/web/nginx.web.conf` serves the frontend without API proxying;
+`apps/docs/nginx.docs.conf` serves documentation.
+
+Historical API and DB agreements live under `apps/docs/docs/archive/`; current
+behavior is documented in the reference and architecture sections.
 
 ## Source ownership
 

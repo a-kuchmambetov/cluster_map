@@ -1,24 +1,37 @@
 ---
-sidebar_position: 1
+sidebar_position: 2
 ---
 
 # Transcendence Points Requirements
 
 This table records target modules and points, not verified completion. See
 [Current Status](./current-status) for implemented features and remaining work.
-Session-cookie authentication is implemented; the secured API-key module, OAuth,
-2FA, and WAF/secrets-manager requirements are not established by that alone.
 
-| Module                                                                                                                                                | Points |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| Major: Use a framework for both the frontend and.                                                                                                     | 2      |
-| Major: A public API to interact with the database with a secured API key, rate limiting, documentation, and at least 5 endpoints:                     | 2      |
-| Major: Implement real-time features using WebSockets or similar technology.                                                                           | 2      |
-| Major: Implement WAF/ModSecurity (hardened) + HashiCorp Vault for secrets:                                                                            | 2      |
-| Minor: Use an ORM for the database.                                                                                                                   | 1      |
-| Minor: Support for additional browsers.                                                                                                               | 1      |
-| Minor: Custom-made design system with reusable components, including a proper color palette, typography, and icons (minimum: 10 reusable components). | 1      |
-| Minor: Implement a complete 2FA (Two-Factor Authentication) system for the users.                                                                     | 1      |
-| Minor: Implement remote authentication with OAuth 2.0 (Google, GitHub, 42, etc.).                                                                     | 1      |
-| Minor: Custom Docusaurus documentation platform                                                                                                       | 1      |
-| **Total**                                                                                                                                             | **14** |
+| Module                                                                                                                                                                             | Points |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| Major: Use a framework for both the frontend and backend (React + Express).                                                                                                        | 2      |
+| Major: Automated deployment to Coolify using GitHub Actions, including automated tests and build checks, secure secret management, deployment on successful checks, health checks. | 2      |
+| Major: Implement real-time features using WebSockets or similar technology (SSE).                                                                                                  | 2      |
+| Major: Implement WAF/ModSecurity (hardened) + HashiCorp Vault for secrets.                                                                                                         | 2      |
+| Minor: Use an ORM for the database.                                                                                                                                                | 1      |
+| Minor: Support for additional browsers.                                                                                                                                            | 1      |
+| Minor: Custom-made design system with reusable components, including a proper color palette, typography, and icons (minimum: 10 reusable components).                              | 1      |
+| Minor: Implement a complete 2FA (Two-Factor Authentication) system for the users.                                                                                                  | 1      |
+| Minor: Implement remote authentication with OAuth 2.0 (Google, GitHub, 42, etc.).                                                                                                  | 1      |
+| Minor: Custom Docusaurus documentation platform                                                                                                                                    | 1      |
+| **Total**                                                                                                                                                                          | **14** |
+
+## Implementation evidence and gaps
+
+- React/Express, Drizzle, SSE, GitHub OAuth, and Docusaurus are present in the
+  repository. Browser compatibility and design-system acceptance still need
+  verification against the module criteria.
+- CI checks pull requests, while branch deployment workflows independently
+  publish images and trigger Coolify. They do not wait for CI, poll deployment
+  health, or perform automatic rollback. See [CI/CD Implementation](../development-and-testing/CI-CD-implementation).
+- Container entrypoints use Infisical. HashiCorp Vault and WAF/ModSecurity
+  configuration are not checked in, so the listed security target is not
+  established by the current implementation.
+- TOTP enrollment, verification, trusted-device login, and disabling are exposed.
+  Backup codes are displayed during setup, but there is no backup-code recovery
+  route. See [Authentication endpoints](../reference/api#authentication-endpoints).

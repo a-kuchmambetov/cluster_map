@@ -89,8 +89,8 @@ export function healthHandler(
 
 healthRouter.get("/", healthHandler(isDatabaseReachable));
 
-// healthRouter.get("/ready", async (_req, res) => {
-//   const { isApplicationReady } = await import("./readiness.js");
-//   const ready = await isApplicationReady();
-//   res.status(ready ? 200 : 503).json({ status: ready ? "ready" : "not-ready" });
-// });
+healthRouter.get("/ready", async (_req, res) => {
+  const { isApplicationReady } = await import("./readiness.js");
+  const ready = await isApplicationReady();
+  res.status(ready ? 200 : 503).json({ status: ready ? "ready" : "not-ready" });
+});

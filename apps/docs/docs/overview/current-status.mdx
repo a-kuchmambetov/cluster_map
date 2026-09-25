@@ -4,37 +4,47 @@ sidebar_position: 1
 
 # Current Status
 
-This page describes the checked-in implementation. Production deployment and
-release acceptance are separate from the presence of working source code.
+This page describes the checked-in implementation. Source code and workflow
+definitions do not establish production deployment or release acceptance.
 
 ## Implementation summary
 
-| Area            | Current state                                                                                                                                       |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Web             | Cluster map at `/`, email/password login and registration, session guards, responsive place details, and administrator approvals at `/admin/users`. |
-| API             | Public database health check; authenticated cluster list, layout, occupancy, configuration validation, and SSE endpoints.                           |
-| Authentication  | Better Auth sessions, administrator approval, current-role checks, logout, and rate limiting for login, registration, and approval.                 |
-| Database        | Drizzle auth and Hive schemas, three checked-in migrations, PostgreSQL Compose service, and a local demo seed.                                      |
-| Live updates    | Shared per-cluster database polling every 30 seconds while subscribed, SSE deltas, and frontend recovery snapshots.                                 |
-| Shared packages | Auth and cluster DTOs in `@repo/types`, application errors in `@repo/errors`; `@repo/validators` still contains example validation.                 |
-| Tests           | API unit and integration suites and frontend Vitest suites; optional PostgreSQL auth integration test.                                              |
-| Deployment      | Dockerfiles for API, web, DB, and docs; full-stack Compose; Nginx web/API proxy and docs hosting.                                                   |
-| Documentation   | Docusaurus site with separate development and build commands.                                                                                       |
+| Area            | Current state                                                                                                                                                                                           |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Web             | Protected map at `/`, email/password and GitHub sign-in, TOTP settings at `/settings/security`, and user listing, approval, and deletion at `/admin/users`.                                             |
+| API             | Public database health and application readiness checks; authenticated cluster list, layout, occupancy, configuration validation, and SSE endpoints.                                                    |
+| Public pages    | Privacy Policy at `/privacy` and Terms of Service at `/terms`, linked from auth screens and the global footer. Both are explicitly marked as drafts.                                                    |
+| Authentication  | Better Auth sessions, administrator approval, current-role checks, logout, GitHub OAuth, and TOTP enrollment/login/disable flows. Backup codes are displayed during setup, but recovery is not exposed. |
+| Database        | Auth and Hive Drizzle schemas, four migrations, PostgreSQL 17 development Compose service, and an optional static demo seed.                                                                            |
+| Worker          | One-shot database migration worker with optional initial administrator creation.                                                                                                                        |
+| Live updates    | Shared per-cluster polling with a 30-second delay between completed polls, SSE deltas, and frontend recovery snapshots.                                                                                 |
+| Shared packages | Auth and cluster DTOs in `@repo/types`, application errors in `@repo/errors`; `@repo/validators` still contains example validation.                                                                     |
+| Tests           | API unit/integration, web Vitest, worker Node tests, and deployment change-selection tests; opt-in PostgreSQL auth integration enabled in CI.                                                           |
+| Deployment      | API, web, docs, and worker Dockerfiles; API/worker Infisical entrypoints; GitHub Actions image publishing and Coolify webhook deployment.                                                               |
+| Documentation   | Docusaurus site with separate development and build commands; historical contracts under Archive.                                                                                                       |
 
-See [Local Development](../getting-started/local-development) to run the app and
-[API Reference](../reference/api) for the implemented contracts.
+See [Local Development](../getting-started/local-development),
+[API Reference](../reference/api), and [Deployment](../operations/deployment).
 
-## Remaining work
+## Remaining work and limitations
 
-- Hive OAuth, two-factor authentication, and a profile page.
+- Hive OAuth and a general profile page are not implemented. GitHub is the current
+  OAuth provider; password-based TOTP settings do not provide a password-creation
+  flow for GitHub-only accounts.
+- Backup-code verification and email/SMS OTP routes are not exposed.
 - Connect configuration-validation results to map warnings; the frontend currently
   supplies an empty warnings array.
 - Define an age-based stale threshold and measurable performance/accessibility
   acceptance criteria. Current stale behavior responds to failures, not data age.
 - Validate production occupancy integration and database privileges. The current
   client is shared by occupancy reads and authentication writes.
+- `/api/health/ready` is mounted, but omits the `two_factor` table, layout, and
+  sign-in round trips. Deployment workflows do not use it as a gate.
+- Complete the operator details and deployment practices identified as missing
+  in the public privacy/terms drafts.
 - Implement the simulation agent; the demo seed supplies static fixtures only.
-- Implement GitHub Actions, secrets-manager integration, WAF/TLS hardening,
-  environment-specific deployments, and backup/rollback procedures.
+- Configure environment-specific routing, migration ordering, deployment health
+  acceptance, backups, rollback, and TLS/WAF outside the checked-in workflows.
+  Vite and web Nginx do not currently proxy `/api`.
 - Verify the [Transcendence requirements](./transcendence-requirements) against
   delivered behavior; the points table is a target, not an acceptance result.

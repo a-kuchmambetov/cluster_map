@@ -8,7 +8,7 @@ import ThemeImage from "@site/src/components/ThemeImage";
 # System Overview
 
 Cluster Map is a pnpm monorepo with a React/Vite frontend, Express API,
-Docusaurus documentation, and shared TypeScript packages.
+Docusaurus documentation, a one-shot migration worker, and shared TypeScript packages.
 
 ## Implemented request path
 
@@ -23,28 +23,37 @@ Docusaurus documentation, and shared TypeScript packages.
 5. After the initial occupancy snapshot, an SSE connection delivers changes.
    One polling pool per cluster and API process queries PostgreSQL every 30 seconds
    while there are subscribers. Streams recheck access every 20 seconds.
-6. Approved administrators list pending users and approve them from `/admin/users`.
+6. Approved administrators list, approve, and delete users from `/admin/users`.
+7. Viewers can sign in with GitHub or configure TOTP at `/settings/security`.
+
+Public `/privacy` and `/terms` pages sit outside the protected route guard and
+display draft notices even when the API is unavailable. Public API probes are
+`/api/health` for database connectivity and `/api/health/ready` for auth
+configuration, selected schema checks, and auth initialization.
 
 ## Component responsibilities
 
-| Component            | Responsibility                                                                                                                   |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Web                  | Authentication screens, route guards, cluster map, place details, summaries, stale indicators, and user approvals.               |
-| API                  | Session/role enforcement, auth operations, layout validation, occupancy reads, SSE delivery, health checks, and request logging. |
-| Database package     | Shared PostgreSQL client, auth/Hive Drizzle schemas, and migrations.                                                             |
-| Layout configuration | Cluster/row/place identity, physical order, staggered positions, and gaps.                                                       |
-| Docs                 | Product, architecture, setup, reference, and operational guidance.                                                               |
-| Nginx                | Static web/docs hosting; the web container proxies `/api` to the API.                                                            |
+| Component            | Responsibility                                                                                                                         |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Web                  | Authentication screens, route guards, cluster map, place details, summaries, stale indicators, security settings, and user management. |
+| API                  | Session/role enforcement, auth operations, layout validation, occupancy reads, SSE delivery, health checks, and request logging.       |
+| Worker               | Database connectivity retries, migrations, and optional initial admin creation; exits after completion.                                |
+| Database package     | Shared PostgreSQL client, auth/Hive Drizzle schemas, and migrations.                                                                   |
+| Layout configuration | Cluster/row/place identity, physical order, staggered positions, and gaps.                                                             |
+| Docs                 | Product, architecture, setup, reference, and operational guidance.                                                                     |
+| Nginx                | Static web/docs hosting; API routing must be supplied externally or via a frontend API origin.                                         |
 
 ## Deployment boundaries
 
-`docker-compose.yml` defines `db`, `api`, `web`, and `docs` services with matching
-Dockerfiles. The API and DB have health checks. The documentation site is
-configured for `https://docs.map-hive.pp.ua/`.
+`docker-compose.dev.yml` defines only the local PostgreSQL service. API, web,
+docs, and worker have Dockerfiles inside their app directories. GitHub Actions
+publishes selected images to GHCR and triggers Coolify; API/worker entrypoints
+load runtime secrets from Infisical. The documentation site is configured for
+`https://docs.map-hive.pp.ua/`.
 
 The diagram describes the broader intended production topology. Cloudflare,
-TLS/WAF configuration, CI/CD, and secrets-manager integration are not provisioned
-by the checked-in Compose stack.
+TLS/WAF, destination networking, database provisioning, and migration ordering
+remain external configuration. Neither Vite nor web Nginx proxies `/api`.
 
 <ThemeImage
   src="img/architecture/diagram-light.svg"

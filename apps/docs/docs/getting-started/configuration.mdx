@@ -9,55 +9,69 @@ Runtime settings come from environment variables; physical layout comes from
 
 ## Root environment file
 
-The API and database configuration load `../../.env` relative to their workspace
-working directories. Vite also uses the repository root as `envDir`.
+The API, worker, and database configuration load `../../.env` relative to their
+workspace working directories. Vite also uses the repository root as `envDir`.
+Existing process variables take precedence over dotenv values.
 
 ```bash
 cp .env.example .env
 ```
 
-A consistent local example is:
+Use these values for direct local API access:
 
 ```dotenv
-API_PORT=5000
+API_PORT=5001
 WEB_ORIGIN=http://localhost:5173
-VITE_API_URL=
+VITE_API_URL=http://localhost:5001
 PG_USER=app
 PG_DB=app
 PG_PASSWORD=app
 PG_HOST=localhost
 PG_PORT=5432
 BETTER_AUTH_SECRET=replace-with-a-random-secret-at-least-32-characters
-BETTER_AUTH_URL=http://localhost:5000
+BETTER_AUTH_URL=http://localhost:5001
+GITHUB_CLIENT_ID=replace-with-your-github-oauth-client-id
+GITHUB_CLIENT_SECRET=replace-with-your-github-oauth-client-secret
 ```
 
-Generate the auth secret with `openssl rand -base64 32`. The template currently
-sets API port 5001 but auth URL port 5000; choose one port and align both.
-Do not commit the resulting `.env`.
+Generate the auth secret with `openssl rand -base64 32`. The template aligns
+API and auth ports at 5001, but leaves `VITE_API_URL` empty; set it as above
+because Vite has no API proxy. Do not commit the resulting `.env`.
 
 ## API and database configuration
 
-The API validates `API_PORT` as a number and applies defaults for `WEB_ORIGIN`
-and `PG_*`. The DB client constructs a PostgreSQL URL from `PG_USER`,
-`PG_PASSWORD`, `PG_HOST`, `PG_PORT`, and `PG_DB`, defaulting to
-`app`, `app`, `localhost`, `5432`, and `app` respectively. User/password are
-URL-encoded. Neither module currently reads `PG_PASSWORD_FILE` or a supplied
-`DATABASE_URL` environment variable.
+`API_PORT` defaults to 5001 and `WEB_ORIGIN` to `http://localhost:5173`.
+The DB client constructs a PostgreSQL URL from `PG_USER`, `PG_PASSWORD`,
+`PG_HOST`, `PG_PORT`, and `PG_DB`, defaulting to `app`, `app`, `localhost`,
+`5432`, and `app`. User/password are URL-encoded. Neither module reads
+`PG_PASSWORD_FILE` or a supplied `DATABASE_URL` environment variable.
 
-Auth configuration is initialized lazily when auth functionality is used.
-`BETTER_AUTH_SECRET` must have at least 32 characters and `BETTER_AUTH_URL` must
-be a URL. A healthy `/api/health` response does not validate auth configuration
-or prove that migrations have run.
+Auth initializes lazily when auth functionality or readiness is checked. `BETTER_AUTH_SECRET`
+must have at least 32 characters, `BETTER_AUTH_URL` must be a URL, and both
+GitHub variables must be non-empty. This validation also applies to password
+login and the demo seed. For local password-only testing, non-empty dummy GitHub
+values satisfy validation, but GitHub sign-in requires real OAuth credentials.
+Set the OAuth App callback to `http://localhost:5001/api/auth/callback/github`
+for this example; change it when the auth origin changes.
+
+A healthy `/api/health` response does not validate auth configuration or prove
+that migrations have run. `/api/health/ready` additionally checks auth settings,
+selected schema tables, and auth initialization. It requires `WEB_ORIGIN` without
+a path or trailing slash, and HTTPS web/auth URLs in production. It does not
+check the `two_factor` table or perform a sign-in round trip.
 
 Use `pnpm db:up`, `pnpm db:migrate`, and optionally `pnpm db:seed` for local setup.
-The DB client is shared by map reads and auth writes.
+Alternatively, after building shared packages, `pnpm worker:dev` runs migrations
+and optional admin bootstrap once. Set both `ADMIN_EMAIL` and `ADMIN_PASSWORD`
+to create an initial administrator, or omit both for migrations only. The DB
+client is shared by map reads and auth writes.
 
 ## CORS and environment mode
 
 Credentialed CORS allows exactly `WEB_ORIGIN` in every mode. Development wraps
-that same origin in an array; it does not add another origin. Auth POST requests
-also reject explicit untrusted browser origins and cross-site requests without
-an Origin header.
+that same origin in an array; it does not add another origin. Auth `POST`,
+`DELETE`, `PATCH`, and `PUT` requests reject explicit untrusted browser origins
+and cross-site requests without an Origin header.
 
 `NODE_ENV=production` masks internal errors and enables JSON request logs.
 Other modes expose more diagnostic error information. See the
@@ -65,14 +79,21 @@ Other modes expose more diagnostic error information. See the
 
 ## Frontend configuration
 
-`VITE_API_URL` is an optional API origin without `/api`. An empty value makes
-requests use same-origin `/api`; local Vite proxies this to
-`http://localhost:API_PORT` (default 5000). The web Nginx container proxies `/api`
-to the API service. An explicit origin is baked into the frontend at build time.
+`VITE_API_URL` is an API origin without `/api`. The client removes trailing
+slashes and appends `/api`. An empty value makes requests use same-origin
+`/api`, but neither local Vite nor the checked-in web Nginx configuration proxies
+that path. Use an explicit API origin locally, or supply external proxy routing.
+
+Vite reads the root `.env`; restart it after configuration changes. Production
+web images accept `VITE_API_URL` as a build argument, baked into the frontend.
 Browser HTTP requests and EventSource connections include credentials.
 
 ## Container configuration
 
-Compose sets API auth URL and allowed origin from `DOCKER_WEB_ORIGIN`
-(default `http://localhost:8080`). If changing `WEB_PORT`, update that origin too.
-See [Environment Variables](../reference/environment-variables) for the full list.
+API and worker containers require Infisical bootstrap variables. Their default
+secret paths are `/api` and `/worker`, respectively. Configure runtime secrets
+on the destination; local `pnpm` commands use `.env` directly. The only Compose
+service in `docker-compose.dev.yml` is PostgreSQL.
+
+See [Environment Variables](../reference/environment-variables) and
+[Deployment](../operations/deployment).

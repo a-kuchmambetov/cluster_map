@@ -7,6 +7,10 @@ import { routes } from "./routes";
 
 export const app: express.Express = express();
 
+// Only trust the configured proxy hops, counted from the API outwards.
+// This lets the auth limiter use the client IP instead of the proxy's IP.
+app.set("trust proxy", env.TRUST_PROXY_HOPS);
+
 app.use(requestLogger);
 
 const origin =

@@ -2,23 +2,48 @@
 sidebar_position: 5
 ---
 
-# CI/CD implementation
+# CI/CD Implementation
 
-The implemented release pipeline uses three workflows:
+Three workflows are checked in under `.github/workflows/`.
 
-- `ci.yml`: GitHub-hosted checks with disposable PostgreSQL 17, Node.js 24 and pnpm 11.5.2.
-- `publish.yml`: runs required checks, then builds all three images on trusted
-  self-hosted runners and publishes commit tags and digest artifacts to GHCR.
-- `deploy.yml`: validates publication provenance, promotes existing digests,
-  updates Coolify image configuration, polls deployments and checks public health.
+| Workflow      | Trigger                                                             | Behavior                                                                                                                                 |
+| ------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `ci.yml`      | Pull requests targeting `main` or `staging`; reusable workflow call | Formatting, lint, types, worker/API/web tests, PostgreSQL auth integration, deployment helper tests, application builds, and docs build. |
+| `staging.yml` | Push to `staging` or manual dispatch on that branch                 | Build selected images with `staging` and `staging-<sha>` tags, then call the staging Coolify webhook.                                    |
+| `main.yml`    | Push to `main` or manual dispatch on that branch                    | Build selected images with `production` and `production-<sha>` tags, then call the production Coolify webhook.                           |
 
-Staging and production require GitHub Environment reviewer gates because the
-initial migration mechanism is a controlled manual one-off container. Production
-requires a successful staging deployment of the same main-branch publication.
-Runtime Infisical credentials never enter CI or Docker builds.
+CI runs on GitHub-hosted Ubuntu with Node.js 24, pnpm 11.5.2, and disposable
+PostgreSQL 17. It migrates that database and sets `AUTH_DB_TEST=1` for API
+integration tests. Its credentials are disposable test values.
 
-See [Deployment](../operations/deployment) and the
-[manual runbook](https://github.com/a-kuchmambetov/cluster_map/blob/main/manual.md)
-for setup, migration approval, manual acceptance checks, credential rotation,
-backup and rollback instructions. Infrastructure is provisioned separately;
-checked-in automation alone is not evidence of a live deployment.
+## Image selection and publishing
+
+Deployment jobs use self-hosted runners labelled `linux`, `x64`, and `coolify`.
+`scripts/deploy/changed-apps.mjs` compares the current commit with the last
+successful deployment workflow run on the same branch. App-local changes select
+that app; shared packages, workspace/build inputs, app manifests, and deployment
+helpers select all four images: API, web, docs, and worker.
+
+Manual dispatch, missing history, or detection failure builds all images. If no
+application is affected, image and deployment jobs are skipped. Images target
+`linux/amd64` and are pushed to
+`ghcr.io/<owner>/cluster-map-<app>` using `GITHUB_TOKEN`. `VITE_API_URL` is supplied
+from the GitHub Environment variable of that name at build time.
+
+## Deployment boundary
+
+Image and deployment jobs reference the `staging` or `production` GitHub
+Environment. Reviewer requirements and branch protection must be configured in
+GitHub; the YAML does not establish that they are enabled. Deploy uses
+`COOLIFY_TOKEN` and `COOLIFY_STAGING_WEBHOOK` or `COOLIFY_PRODUCTION_WEBHOOK`.
+Infisical runtime credentials are configured on the destination containers.
+
+The branch deployment workflows do not call `ci.yml` or wait for a separate CI
+run. Staging builds from `staging`; production rebuilds from `main`. Both call the webhook after image
+publication, and stop after its HTTP response. They do not perform digest
+promotion, provenance verification, migration execution, deployment polling,
+public health checks, or automatic rollback. A successful workflow therefore
+does not prove the application is healthy.
+
+See [Deployment](../operations/deployment) for runtime setup, the migration
+worker, and post-deployment verification.

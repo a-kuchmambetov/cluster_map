@@ -17,7 +17,8 @@ place and, when approved, its peer.
 - Read only the minimum required fields from the occupancy source.
 - Return and display only approved identity and place-related fields.
 - Do not expose email addresses in map/peer responses. Auth session responses
-  include the viewer's email, and approved administrators can see pending-account emails.
+  include the viewer's email, and approved administrators can see account emails
+  in pending-user and all-user listings.
 - Do not log complete production records or unnecessary personal data.
 - Do not reveal database, credential, or configuration details in user-facing
   errors.
@@ -27,6 +28,22 @@ Current map responses contain nullable Intra login, display name, and photo.
 Production privacy policy for these fields remains an
 [open architecture decision](../architecture/decisions#displayed-peer-identity).
 Peer data is restricted to authenticated, administrator-approved viewers.
+
+## Public policy pages
+
+The web application serves a Privacy Policy at `/privacy` and Terms of Service
+at `/terms`. Both routes are public, linked from login/registration and the global
+footer, and remain readable without a successful session request. Their content
+lives in `apps/web/src/pages/legal-screen.tsx`.
+
+Both pages explicitly say they are drafts, not yet effective notices or agreements.
+They identify missing operator identity/contact details and unconfirmed deployment
+practices, including retention, hosting, providers, and treatment of peer data.
+The existence of these routes does not resolve those policy decisions.
+
+There is no self-service account deletion, export, or privacy-request workflow.
+The implemented deletion operation is restricted to approved administrators and
+can fail when the user's Hive identity still holds an occupied position.
 
 ## Security constraints
 

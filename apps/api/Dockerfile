@@ -19,6 +19,9 @@ RUN pnpm --filter @repo/api... build
 
 FROM base AS runtime
 ENV NODE_ENV=production
+# Coolify routes public API traffic through one reverse proxy.
+# Override for other topologies; do not publish the API port directly.
+ENV TRUST_PROXY_HOPS=1
 ARG INFISICAL_CLI_VERSION=0.43.133
 RUN apk add --no-cache bash curl && \
     curl -fsSL https://artifacts-cli.infisical.com/setup.apk.sh -o /tmp/infisical-setup.sh && \

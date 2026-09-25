@@ -12,13 +12,19 @@ Run from the repository root after installing and building shared packages:
 pnpm --filter @repo/api test
 pnpm --filter @repo/api test:integration
 pnpm --filter @repo/web test
+pnpm --filter @repo/worker test
+node --test scripts/deploy/*.test.mjs
 ```
 
-| Suite           | Coverage and tooling                                                                                                                  |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| API unit        | Vitest; auth service/controller, session middleware, health, logging, cluster schema/service/controller, SSE pool, and stream access. |
-| API integration | Vitest and Supertest; mounted routes, error behavior, logs, real layout configuration, and optional database auth flow.               |
-| Web             | Vitest with happy-dom; auth, administrator approvals, map model, snapshot ownership/cancellation, and SSE recovery.                   |
+| Suite           | Coverage and tooling                                                                                                                                                                            |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| API unit        | Vitest; auth service/controller, TOTP controller, session middleware, health/readiness, logging, cluster schema/service/controller, SSE pool, and stream access.                                |
+| API integration | Vitest and Supertest; mounted routes, error behavior, logs, real layout configuration, and optional database auth flow.                                                                         |
+| Web             | Vitest with happy-dom; auth/security settings, administrator management, public legal routes with pending/failed session loading, map model, snapshot ownership/cancellation, and SSE recovery. |
+
+Worker tests use Node's test runner and module mocks, covering environment
+validation, admin provisioning outcomes, and bounded connectivity/shutdown.
+Deployment helper tests cover changed-app selection and workflow baselines.
 
 The normal API `test` script excludes `src/test/integration`; run the separate
 integration command as well. API and web expose `test:watch`. There is no root
@@ -35,24 +41,30 @@ AUTH_DB_TEST=1 pnpm --filter @repo/api test:integration
 ```
 
 This exercises real account/session writes, current admin privileges, and
-single-use approval tokens. Other integration tests use mocked dependencies or
-the checked-in layout and do not establish full production DB coverage.
+single-use approval tokens. CI enables this test after migrating disposable
+PostgreSQL. Other integration tests use mocked dependencies or the checked-in
+layout. TOTP controller/UI tests do not establish a real authenticator or GitHub
+provider round trip; those still require end-to-end acceptance checks.
 
 ## Demo data and simulation
 
 `pnpm db:seed` runs the API's demo seed after building `@repo/db`. It creates
 synthetic admin/member/pending accounts and occupancy aligned with the layout:
-cluster 1 partially occupied, cluster 2 free, and cluster 3 full. It updates demo
-positions when rerun and refuses `NODE_ENV=production`.
+cluster 1 partially occupied, cluster 2 free, and cluster 3 full on a fresh DB.
+It inserts missing records, preserves existing accounts and positions when
+rerun, and refuses `NODE_ENV=production`. It does not reset changed occupancy.
 
 See [Local Development](../getting-started/local-development) for demo logins.
 The seed is static fixture setup, not an ongoing simulation agent. No such agent
-is implemented. A future agent should use repeatable synthetic scenarios in
+is implemented. The migration worker is also a one-shot process and does not
+simulate occupancy. A future agent should use repeatable synthetic scenarios in
 local/test/designated demo environments and must not modify a live production
 occupancy source.
 
 ## Other checks
 
 Use `pnpm typecheck`, `pnpm lint`, `pnpm fmt:check`, `pnpm build`, and
-`pnpm build:docs` as appropriate. GitHub Actions workflows are not checked in;
-these commands are available locally but are not yet enforced by repository CI.
+`pnpm build:docs` as appropriate. `.github/workflows/ci.yml` runs these checks
+and all suites above on pull requests targeting `main` or `staging`. Passing
+local or CI checks does not verify the external Coolify/Infisical configuration
+or a live deployment. See [CI/CD Implementation](./CI-CD-implementation).

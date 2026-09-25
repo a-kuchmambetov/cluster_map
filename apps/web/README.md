@@ -77,6 +77,52 @@ Untitled UI React open-source components are licensed under the MIT license, whi
 
 [Frequently asked questions →](https://www.untitledui.com/faqs)
 
+## Legal documents
+
+Public `/privacy` and `/terms` routes are available without account approval,
+including while session checks are loading or fail. A shared footer links to
+both on every route; sign-in and registration also link beside their introduction.
+Content lives in `src/pages/legal-screen.tsx` and uses the existing theme tokens.
+
+The documents reflect the operator's supplied policies: Artem Kuchmambetov,
+02650 Espoo, Finland; `a.kuchmambetov@outlook.com`; free access for approved adult
+Hive students and staff; Hive-provided occupancy data; Hetzner hosting in Finland;
+and Cloudflare proxy, DNS, and certificates. The effective date is 25 September 2026. Material
+changes are notified through registration or Hive school email.
+
+The operator states that information is retained while in use and completely
+removed on the day deletion is requested, including all copies under the
+operator's control in logs, caches, and backups. Hive-provided data is removed
+from Cluster Map; the original records in Hive's systems are not deleted.
+This is an administrator-handled
+policy, not an automated deletion feature. Hive staff and site administrators
+handle requests; the operator remains responsible for Cluster Map processing.
+The pages do not implement deletion, notification emails, age verification,
+consent collection, or a terms-acceptance record.
+
+Deployment details still require operational verification:
+
+- Keep provider agreements, backup locations, image hosts, and applicable
+  international transfer safeguards documented. Finland hosting does not imply
+  that Cloudflare or other external providers process data exclusively in the EEA.
+  The notice links Cloudflare's published DPA without claiming an audit of the
+  operator's provider agreements.
+- Maintain the confirmed same-day deletion process for all copies under the
+  operator's control, including logs/caches/backups, and coordinate with Hive to
+  avoid reimporting removed records. This documentation does not implement that
+  process or delete records in Hive's source systems.
+- Implement the stated removal of records no longer needed, including pending
+  accounts and expired security records; the text does not create a cleanup job.
+- Document the legitimate-interest assessment and arrangements with Hive for
+  supplying and displaying names/photos. The stated legal bases are policy
+  choices, not evidence that those assessments or agreements are completed.
+- Confirm the manual rights-request and email-notification processes and the
+  deployed authentication cookie lifetimes. Keep the notice aligned with changes.
+
+Drafting references: [EDPB data subject rights](https://www.edpb.europa.eu/topics/key-gdpr-concepts/data-subject-rights_en),
+[EDPB controller responsibilities](https://www.edpb.europa.eu/sme/learn-the-basics/data-controller-or-data-processor_en),
+and [Finnish Competition and Consumer Authority guidance on unfair terms](https://www.kkv.fi/en/consumer-affairs/contracts/unfair-contract-terms/).
+
 ## Authentication
 
 `/login` and `/register` are public. `/` requires a valid Better Auth session and

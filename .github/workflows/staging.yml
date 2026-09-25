@@ -36,7 +36,7 @@ jobs:
         with:
           script: |
             const { detectChangedApps } = await import(`${process.env.GITHUB_WORKSPACE}/scripts/deploy/changed-apps.mjs`);
-            await detectChangedApps({ github, context, core });
+            await detectChangedApps({ github, context, core, branch: "staging", workflow: "staging.yml" });
 
   images:
     needs: changes

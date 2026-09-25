@@ -9,6 +9,7 @@ sidebar_position: 1
 The Express application exposes these map and health endpoints:
 
 - `GET /api/health`
+- `GET /api/health/ready`
 - `GET /api/clusters`
 - `GET /api/clusters/:clusterNumber/layout`
 - `GET /api/clusters/:clusterNumber/occupancy`
@@ -19,31 +20,89 @@ The API mounts its router at `/api`. It enables JSON request parsing and credent
 
 Cluster endpoints require a Better Auth session cookie and a currently approved account. Health checks remain public. Missing or expired sessions return `401`; revoked or unapproved accounts return `403`. Cluster responses use `Cache-Control: no-store`.
 
-Authentication endpoints:
+## Authentication endpoints
 
-- `POST /api/auth/register`: `{ name, email, password }`; creates an account awaiting administrator approval.
-- `POST /api/auth/login`: `{ email, password }`; sets an HttpOnly session cookie and returns `{ user }`.
-- `GET /api/auth/session`: returns `{ user: { id, name, email, emailVerified, image, role } }` for an approved session.
-- `POST /api/auth/logout`: invalidates the session and clears cookies.
-- `GET /api/auth/pending-users`: returns `{ users: [{ id, name, email, createdAt, approvalToken }] }`, ordered by creation time then ID; requires an approved administrator. Tokens are for the approval action and must not be exposed to ordinary viewers.
-- `POST /api/auth/confirm/:id`: consumes a single-use approval token (not a user ID); requires a currently approved administrator. Returns `{ message }` and clears the token.
+Auth responses use `Cache-Control: no-store` and `Referrer-Policy: no-referrer`.
+Successful JSON operations below return `200`. Browser `POST`, `DELETE`,
+`PATCH`, and `PUT` requests must use the trusted origin. The browser sends
+credentials for HTTP requests and SSE.
 
-Session checks, pending-user reads, and logout are outside the login/register/approval rate limiter. That limiter allows 10 requests per IP per 60 seconds. Cluster routes have no separate rate limiter. Auth responses use `Cache-Control: no-store` and `Referrer-Policy: no-referrer`. Login also includes `role` in its user response; registration returns a generic `{ message }` without signing in. Browser POST requests must use the configured trusted origin. The browser sends credentials for both HTTP requests and SSE. Existing SSE connections revalidate access every 20 seconds and close if validation fails; revocation is therefore bounded by that interval plus check latency. The client checks its session after stream failures and stops retrying on `401`/`403`.
+| Method and path                         | Input                                                         | Result / access                                                                                        |
+| --------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `POST /api/auth/register`               | `{ name, email, password }`                                   | Generic `{ message }`; creates an account awaiting approval without signing in.                        |
+| `POST /api/auth/login`                  | `{ email, password }`                                         | Approved account: `{ user }` and session cookies, or a TOTP challenge as described below.              |
+| `GET /api/auth/session`                 | Session cookie                                                | `{ user }` for a currently approved account.                                                           |
+| `POST /api/auth/logout`                 | Session cookie                                                | Invalidates the session, clears cookies, returns `{ message: "Logged out" }`.                          |
+| `GET /api/auth/sign-in/github`          | Optional `callbackURL` query, defaulting to the frontend root | Redirects to GitHub and sets OAuth cookies.                                                            |
+| `GET /api/auth/callback/github`         | Provider callback query and OAuth cookies                     | Delegates to Better Auth and forwards its redirect/cookies. New users still require approval.          |
+| `GET /api/auth/pending-users`           | Approved admin session                                        | `{ users: [{ id, name, email, createdAt, approvalToken }] }`, ordered by creation time then ID.        |
+| `GET /api/auth/users`                   | Approved admin session                                        | `{ users: [{ id, name, email, role, approved, approvalToken, createdAt }] }`, ordered by name then ID. |
+| `POST /api/auth/confirm/:id`            | Single-use approval token in `:id`; approved admin session    | Approves the account, clears its token, and returns `{ message }`. This parameter is not a user ID.    |
+| `DELETE /api/auth/users/:id`            | User ID; approved admin session                               | `{ message: "User deleted" }`; self-deletion is rejected with `403`, missing users with `404`.         |
+| `POST /api/auth/two-factor/enable`      | `{ password, method?: "totp" }`; session cookie               | `{ totpURI, backupCodes }` for authenticator setup. Method defaults to `totp`.                         |
+| `POST /api/auth/two-factor/verify-totp` | `{ code, trustDevice? }`; session or challenge cookie         | Verifies setup or completes challenged login; returns `{ user }` and forwards cookies.                 |
+| `POST /api/auth/two-factor/disable`     | `{ password }`; session cookie                                | `{ status: boolean }` and forwarded cookies.                                                           |
+
+The public `user` shape is `{ id, name, email, emailVerified, image, role,
+twoFactorEnabled }`; role is `user` or `admin`. Approval tokens appear only in
+administrator listings and must not be exposed to ordinary viewers.
+
+The Express auth limiter allows 10 requests per IP per 60 seconds across login,
+registration, approval, and all three two-factor POST routes. Session reads,
+logout, GitHub redirects/callbacks, user listings, and user deletion are registered
+before this limiter. Cluster routes have no separate rate limiter.
+
+### TOTP challenge and setup
+
+For a password login requiring TOTP, `/login` returns:
+
+```json
+{ "twoFactorRedirect": true, "twoFactorMethods": ["totp"] }
+```
+
+This response sets a challenge cookie instead of completing sign-in. Preserve
+cookies and submit the authenticator code to `/two-factor/verify-totp`.
+`code` must be a six-character string; `trustDevice` is an optional boolean.
+The same verification endpoint confirms enrollment after `/two-factor/enable`.
+The web flow lives at `/settings/security` and supports QR/manual-key setup,
+backup-code display, verification, and password-confirmed disablement.
+
+Only TOTP is exposed. There is no email/SMS OTP or backup-code verification
+route, even though setup returns backup codes. Settings require a current
+password; the app has no password-creation flow for GitHub-only accounts.
+
+### Approval and deletion behavior
+
+Both email/password registration and new GitHub accounts require administrator
+approval before session creation. Explicit non-redirect OAuth callback failures
+are sent to `/login?error=github_access_denied` for a 403, or
+`/login?error=github_sign_in_failed` for other statuses; Better Auth redirects
+are forwarded as provided.
+
+Deletion cascades to sessions, linked accounts, two-factor records, and Hive
+identity. A position referencing that Hive identity prevents deletion through
+its restrictive foreign key. The API currently surfaces that database failure
+as `500 INTERNAL_SERVER_ERROR`; it does not release seats automatically.
+
+Existing SSE connections revalidate access every 20 seconds and close if
+validation fails. The client checks its session after stream failures and stops
+retrying on `401`/`403`.
 
 For the protected curl examples below, first save an approved account's session:
 
 ```bash
 curl -c cookies.txt -H 'Content-Type: application/json' \
   -d '{"email":"demo-admin@example.test","password":"Demo-password-123!"}' \
-  http://localhost:5000/api/auth/login
+  http://localhost:5001/api/auth/login
 ```
 
-These credentials are created by the local demo seed. Adjust the API port if
-using the template's `API_PORT=5001`.
+These credentials are created by the local demo seed. If the account has TOTP
+enabled, complete `/api/auth/two-factor/verify-totp` with the challenge cookies
+before using protected endpoints.
 
 ## Error envelope
 
-Errors handled by the API error middleware use this JSON shape. Health degradation and unregistered routes are exceptions described below:
+Errors handled by the API error middleware use this JSON shape. Health and readiness failures and unregistered routes are exceptions described below:
 
 ```ts
 type ApiErrorResponse = {
@@ -116,14 +175,16 @@ A non-numeric, non-integer, or non-positive `clusterNumber` (e.g. `abc`, `1.5`, 
 
 ## `GET /api/health`
 
-Checks PostgreSQL with `SELECT 1` and a two-second timeout. It does not verify migrations, authentication configuration, or occupancy freshness.
+Checks PostgreSQL with `SELECT 1` and a two-second query timeout. It does not
+verify migrations, authentication configuration, or occupancy freshness.
+Use `/api/health/ready` for the additional checks described below.
 
 ### Request
 
 The endpoint has no parameters, request body, or authentication requirement.
 
 ```bash
-curl http://localhost:5000/api/health
+curl http://localhost:5001/api/health
 ```
 
 ### Success response
@@ -141,6 +202,32 @@ If the database is unavailable or the check times out, the endpoint returns
 `503` with `{ "status": "degraded", "db": "unreachable" }`, outside the normal
 error envelope.
 
+## `GET /api/health/ready`
+
+Public application readiness check with no parameters or request body.
+
+```bash
+curl http://localhost:5001/api/health/ready
+```
+
+| Result                                                      | HTTP status | Body                        |
+| ----------------------------------------------------------- | ----------- | --------------------------- |
+| Checks pass                                                 | 200         | `{ "status": "ready" }`     |
+| Invalid configuration, failed schema/auth check, or timeout | 503         | `{ "status": "not-ready" }` |
+
+The check validates the required auth environment variables and requires
+`WEB_ORIGIN` to be an exact origin (no path or trailing slash). In production,
+both `WEB_ORIGIN` and `BETTER_AUTH_URL` must use HTTPS. It selects declared columns
+with `LIMIT 0` from `user`, `session`, `account`, `verification`, `cluster`,
+`row`, `position`, and `user_hive_info`, then imports the Better Auth configuration.
+The database/auth phase has a three-second timeout. Failures use the body above,
+outside the normal error envelope.
+
+This is a partial readiness check: it does not query `two_factor`, inspect
+migration history, validate the layout, check occupancy freshness, or exercise
+GitHub/TOTP sign-in. It does not apply migrations. The API Docker health check
+still targets `/api/health`; deployment workflows do not call either endpoint.
+
 ## `GET /api/clusters`
 
 Returns the list of clusters known to the layout config. Used to render a cluster picker; it does not report occupancy or vacancy counts.
@@ -150,7 +237,7 @@ Returns the list of clusters known to the layout config. Used to render a cluste
 No parameters or request body. An approved session is required.
 
 ```bash
-curl -b cookies.txt http://localhost:5000/api/clusters
+curl -b cookies.txt http://localhost:5001/api/clusters
 ```
 
 ### Success response
@@ -161,7 +248,8 @@ Status: `200 OK`
 {
   "clusters": [
     { "id": "c1", "number": 1, "label": "Cluster 1" },
-    { "id": "c2", "number": 2, "label": "Cluster 2" }
+    { "id": "c2", "number": 2, "label": "Cluster 2" },
+    { "id": "c3", "number": 3, "label": "Cluster 3" }
   ]
 }
 ```
@@ -172,11 +260,15 @@ Status: `200 OK`
 | `number` | User-facing cluster number; also the `:clusterNumber` used in the other routes. |
 | `label`  | UI caption for the cluster.                                                     |
 
-This list comes from the layout config file, not from any occupancy source, so it cannot fail with a 404 or reflect stale occupancy data. A malformed or unreadable config file returns `500 INTERNAL_SERVER_ERROR`.
+This list comes from the layout config file and does not reflect occupancy
+freshness. A malformed or unreadable config file returns
+`500 INTERNAL_SERVER_ERROR`. The authentication guard still requires a working
+database even though the list itself makes no occupancy query.
 
 ## `GET /api/clusters/:clusterNumber/layout`
 
-Returns the cluster's physical layout from the config file. No DB query.
+Returns the cluster's physical layout from the config file. Layout loading makes
+no occupancy query; the route's authentication guard still accesses the database.
 
 ### Request
 
@@ -187,7 +279,7 @@ Returns the cluster's physical layout from the config file. No DB query.
 No query parameters or request body.
 
 ```bash
-curl -b cookies.txt http://localhost:5000/api/clusters/1/layout
+curl -b cookies.txt http://localhost:5001/api/clusters/1/layout
 ```
 
 ### Success response
@@ -259,7 +351,7 @@ Returns the currently occupied places. Every place not listed is free by implica
 No query parameters or request body.
 
 ```bash
-curl -b cookies.txt http://localhost:5000/api/clusters/1/occupancy
+curl -b cookies.txt http://localhost:5001/api/clusters/1/occupancy
 ```
 
 ### Success response
@@ -289,12 +381,14 @@ Field meanings:
   - `row` — row number within the cluster; matches `rows[].number` from `/layout`.
   - `place` — place number within that row; matches `cells[].number` from `/layout`.
   - `peer` — `{ intraName, displayName, photo }`, all fields `string | null`. Both name fields are passed through raw from the DB; no fallback or priority logic is applied server-side. Presentation is the frontend's decision.
-    - `intraName` — Hive/intra login, or `null` for guest accounts without one.
-    - `displayName` — real name, or `null` if absent.
+    - `intraName` — Hive/intra login, nullable in the response type. The current DB schema requires a non-null login on the holder's Hive identity; guest occupancy without that identity is not represented by the current schema.
+    - `displayName` — account display name, or `null` if absent; the API does not verify that it is a real name.
     - `photo` — avatar URL, or `null`; frontend uses an initial or `?` fallback when null.
     - **The response type permits all three fields to be `null`.** Render such an entry as occupied even without identity details. The current DB constraint requires occupied positions to have a holder and taken time; an occupied position without a holder is not a valid current database row.
   - No `email` — explicitly excluded per privacy rules.
-- `lastUpdated` — ISO 8601 timestamp of the last successful DB read. `null` if the occupancy has never been successfully read.
+- `lastUpdated` — ISO 8601 timestamp generated after the successful DB read.
+  The shared type permits `null`, but this endpoint returns a timestamp on
+  success and an error on read failure; it does not return an unread snapshot.
 
 ### Occupancy data source
 
@@ -323,7 +417,7 @@ The config file is structurally valid by construction — Zod catches schema pro
 No query parameters or request body.
 
 ```bash
-curl -b cookies.txt http://localhost:5000/api/clusters/1/config-validation
+curl -b cookies.txt http://localhost:5001/api/clusters/1/config-validation
 ```
 
 ### Success response
@@ -371,7 +465,12 @@ A [Server-Sent Events](https://developer.mozilla.org/en-US/docs/Web/API/Server-s
 
 ### Load sequence
 
-Always fetch `/layout` and `/occupancy` before opening this connection. The stream carries only changes from the point of connect — it does not replay current state.
+Fetch `/layout` and `/occupancy` to construct the map. Open SSE only after a
+successful occupancy snapshot; the web client loads layout independently and
+may open SSE before layout finishes. The stream diffs a process-local shared
+snapshot and does not replay full state or per-client history. Successful
+occupancy requests also replace that shared baseline, so this is not a
+per-client guarantee of every change since connection time.
 
 ```
 GET /api/clusters/:clusterNumber/layout    → render the grid
@@ -389,7 +488,7 @@ No query parameters or request body. The browser's `EventSource` API sets `Accep
 
 ```bash
 # curl example — streams indefinitely
-curl -N -b cookies.txt -H "Accept: text/event-stream" http://localhost:5000/api/clusters/1/events
+curl -N -b cookies.txt -H "Accept: text/event-stream" http://localhost:5001/api/clusters/1/events
 ```
 
 ### Response — stream open
@@ -465,9 +564,12 @@ The `Last-Event-ID` header sent by `EventSource` on reconnect is ignored — no 
 
 ### Error responses (before the stream opens)
 
-| Case                                          | Status | Code                |
-| --------------------------------------------- | -----: | ------------------- |
-| `clusterNumber` fails validation (e.g. `abc`) |    422 | `VALIDATION_ERROR`  |
-| No cluster with that number in the config     |    404 | `CLUSTER_NOT_FOUND` |
+| Case                                          | Status | Code                    |
+| --------------------------------------------- | -----: | ----------------------- |
+| `clusterNumber` fails validation (e.g. `abc`) |    422 | `VALIDATION_ERROR`      |
+| No cluster with that number in the config     |    404 | `CLUSTER_NOT_FOUND`     |
+| Config file is unreadable or invalid          |    500 | `INTERNAL_SERVER_ERROR` |
+
+The common `401`/`403` access errors also apply before the stream opens.
 
 Once the stream is open, database failures are delivered as `error` events rather than HTTP status codes.

@@ -28,21 +28,48 @@ The following are out of scope for the first release:
 
 - booking or reserving a place;
 - changing occupancy through Cluster Map;
-- general user/role administration beyond approving pending accounts.
+- editing user roles or profiles (listing, approval, and deletion are implemented).
 
-A focused administrator approval interface is implemented at `/admin/users`.
+An administrator interface for listing, approving, and deleting users is implemented
+at `/admin/users`. Administrators cannot delete their own account.
 
-Viewers register with email and password, await administrator approval, and sign
-in before accessing the map. Occupancy remains read-only. See
+Viewers use email/password or GitHub sign-in and need administrator approval
+before accessing the map. Occupancy remains read-only. See
 [Architecture Decisions](../architecture/decisions#authentication-and-access).
 
 ## Register and approve an account
+
+A visitor can read `/privacy` and `/terms` before signing in. Links appear on
+login and registration screens and in the global footer. Both pages are marked
+as drafts and remain readable while session loading is pending or the API is
+unavailable. See [Public policy pages](./privacy-and-quality-requirements#public-policy-pages).
 
 A viewer registers at `/register` and receives an approval-pending message;
 registration does not create a session. An approved administrator opens
 `/admin/users`, reviews pending users, and approves an account. The viewer can
 then sign in at `/login`. The API enforces current privileges independently of
-the frontend, and logout invalidates the session.
+the frontend, and logout invalidates the session. New GitHub accounts also await
+approval; GitHub sign-in does not bypass this requirement.
+
+## Manage account security
+
+A signed-in viewer opens `/settings/security`, enters their password, scans the
+QR code (or copies the setup key), and verifies a six-digit authenticator code.
+Setup displays backup codes and asks the viewer to save them. Subsequent password
+logins can present a TOTP challenge with a trust-device option. Disabling TOTP
+requires the current password.
+
+Backup-code login/recovery and email/SMS OTP are not exposed by the current API
+or UI. GitHub-only users have no in-app password-creation flow for these settings.
+
+## Manage users
+
+An approved administrator opens `/admin/users` to list accounts, approve pending
+users, or delete another account after confirmation. Deleting an account removes
+its sessions and linked auth records. If its Hive identity holds a position, the
+database prevents deletion until the position is released; the current API
+returns a server error for that case. There is no role editor or seat-release
+operation in this interface.
 
 ## Actors
 

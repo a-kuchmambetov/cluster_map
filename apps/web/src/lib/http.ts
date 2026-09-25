@@ -34,8 +34,11 @@ export async function apiRequest<T>(
       listeners.forEach((listener) => listener(response.status));
     throw new ApiError(
       response.status,
-      body?.error?.message ??
-        body?.message ??
+      (typeof body?.error === "string" ? body.error : undefined) ??
+        (typeof body?.error?.message === "string"
+          ? body.error.message
+          : undefined) ??
+        (typeof body?.message === "string" ? body.message : undefined) ??
         `Request failed (${response.status})`,
     );
   }

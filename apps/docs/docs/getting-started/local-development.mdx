@@ -5,7 +5,7 @@ sidebar_position: 1
 # Local Development
 
 The repository includes the cluster map, authentication, administrator approvals,
-PostgreSQL schemas, tests, and a full-stack Compose setup.
+PostgreSQL schemas, tests, and a Compose service for the development database.
 
 ## Prerequisites
 
@@ -23,11 +23,15 @@ cp .env.example .env
 openssl rand -base64 32
 ```
 
-Put the generated value in `BETTER_AUTH_SECRET`. For this walkthrough, set
-`API_PORT=5000` and `BETTER_AUTH_URL=http://localhost:5000`. The checked-in template
-currently uses `API_PORT=5001` but an auth URL on port 5000; align those values
-before starting. Keep `WEB_ORIGIN=http://localhost:5173` and `VITE_API_URL=` for
-the local Vite proxy. See [Configuration](./configuration).
+Put the generated value in `BETTER_AUTH_SECRET`. Keep `API_PORT=5001`,
+`BETTER_AUTH_URL=http://localhost:5001`, and `WEB_ORIGIN=http://localhost:5173`.
+Set `VITE_API_URL=http://localhost:5001`; Vite has no API proxy.
+
+Set `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` as well: API auth initialization
+requires both even for password login and seeding. For local password-only
+work, non-empty dummy values are sufficient. To exercise GitHub sign-in, use
+real OAuth App credentials and callback
+`http://localhost:5001/api/auth/callback/github`. See [Configuration](./configuration).
 
 ## Prepare the database
 
@@ -35,23 +39,31 @@ the local Vite proxy. See [Configuration](./configuration).
 pnpm db:up
 ```
 
-Wait for the DB to become healthy (`docker compose ps db`), then run:
+Wait for the DB to become healthy (`docker compose -f docker-compose.dev.yml ps db`), then run:
 
 ```bash
+pnpm --filter @repo/api... build
 pnpm db:migrate
-pnpm build
 pnpm db:seed
 ```
 
-Migrations create auth and Hive tables. `pnpm build` builds all workspaces except
-docs and makes shared `dist/` packages available. The optional seed writes demo
+The filtered build makes the API and its shared `dist/` packages available.
+Migrations create auth and Hive tables, including TOTP storage. Use `pnpm build`
+when you also need the web and worker builds. The optional seed writes demo
 accounts and occupancy to the configured database; use a local/demo database.
 It refuses to run with `NODE_ENV=production` and is not a live simulation agent.
 
 On a fresh seed, sign in with `demo-admin@example.test` or
 `demo-member-1@example.test` and password `Demo-password-123!`. The administrator
 can approve `demo-pending@example.test` from `/admin/users`. Existing demo accounts
-retain their passwords and approval/role state when seeding again.
+retain their passwords and approval/role state when seeding again. Existing
+positions are also preserved; rerunning the seed does not reset occupancy.
+
+For an initial administrator without demo fixtures, set `ADMIN_EMAIL` and
+`ADMIN_PASSWORD` in `.env`, then run `pnpm worker:dev`. This one-shot worker
+migrates first and creates an approved admin if the email does not exist.
+An existing approved admin is preserved; any other existing account causes
+bootstrap to fail. Omit both credentials for migrations only.
 
 ## Start web and API
 
@@ -62,18 +74,28 @@ pnpm dev
 | Service | URL with the walkthrough configuration | Behavior                                                 |
 | ------- | -------------------------------------- | -------------------------------------------------------- |
 | Web     | `http://localhost:5173`                | Login, registration, protected map, and admin approvals. |
-| API     | `http://localhost:5000`                | Health, auth, cluster HTTP endpoints, and SSE.           |
+| API     | `http://localhost:5001`                | Health, auth, cluster HTTP endpoints, and SSE.           |
 
-Vite proxies `/api` to `localhost:API_PORT`. If Vite chooses another port, update
-`WEB_ORIGIN` and restart the API.
+The frontend calls `VITE_API_URL` directly. If Vite chooses another port, update
+`WEB_ORIGIN` and restart the API. `pnpm dev` also runs the worker once, applying
+migrations and optional admin bootstrap; it is not an occupancy simulator.
 
 ```bash
-curl http://localhost:5000/api/health
+curl http://localhost:5001/api/health
+curl http://localhost:5001/api/health/ready
 ```
 
 A reachable database returns `200` with `{ "status": "ok", "db": "ok" }`.
 An unavailable database returns `503` with
 `{ "status": "degraded", "db": "unreachable" }`.
+
+Readiness returns `200` with `{ "status": "ready" }` when auth configuration,
+the selected schema checks, and auth initialization succeed; otherwise it returns
+`503` with `{ "status": "not-ready" }`. It does not check all migrations or
+complete a sign-in. See the [API Reference](../reference/api#get-apihealthready).
+
+The web also serves `/privacy` and `/terms` without requiring sign-in. Both
+currently display draft documents awaiting operator details and deployment confirmation.
 
 ## Start individual workspaces
 
@@ -95,13 +117,17 @@ pnpm fmt:check
 pnpm --filter @repo/api test
 pnpm --filter @repo/api test:integration
 pnpm --filter @repo/web test
+pnpm --filter @repo/worker test
+node --test scripts/deploy/*.test.mjs
 pnpm build:docs
 ```
 
 See [Testing and Simulation](../development-and-testing/testing-and-simulation)
 for the optional DB-backed test and [Deployment](../operations/deployment) for
-running web, API, DB, and docs in containers.
+application images, runtime secrets, and migration ordering.
 
-`pnpm db:down` runs `docker compose down`, stopping the whole Compose project
-without removing its named database volume. `pnpm start` runs workspace start
-scripts, including built API, Vite preview, and the Docusaurus development server.
+`pnpm db:down` runs `docker compose -f docker-compose.dev.yml down`, stopping
+the development database without removing its named volume. `pnpm start` runs
+workspace start scripts, including the built API and one-shot worker, Vite
+preview, and the Docusaurus development server. For Vite preview, align
+`WEB_ORIGIN` with its actual port.

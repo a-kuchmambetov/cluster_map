@@ -21,10 +21,13 @@ Shared wire types are defined in `packages/types/src/cluster-map.ts` and
 | Viewer    | Auth user with a session, role (`user` or `admin`), and approval state.                  |
 
 The Hive schema contains `cluster`, `row`, `position`, and `user_hive_info`.
-Auth tables are `user`, `session`, `account`, and `verification`. Database
+Auth tables are `user`, `session`, `account`, `verification`, and `two_factor`. Database
 constraints enforce unique cluster names, row numbers within clusters, and seat
 numbers within rows. A position must be either free with no holder/taken time,
-or occupied with both fields populated.
+or occupied with both fields populated. `user.twoFactorEnabled` and `two_factor`
+store TOTP state. Deleting an auth user cascades to its sessions, accounts,
+two-factor records, and Hive identity, but occupied positions restrict deletion
+of a referenced Hive identity until those positions are released.
 
 ## Read and merge flow
 
@@ -47,7 +50,9 @@ frontend map; there is no separate duplicate-warning UI.
 After a successful occupancy load, the frontend opens SSE. The server shares
 one poller and snapshot per subscribed cluster within each API process. It emits
 only changed/new occupied entries and freed coordinates, with no event history.
-The frontend removes freed entries, then upserts occupied entries.
+Successful HTTP occupancy reads also replace this shared baseline; it is not
+tracked per subscriber. The frontend removes freed entries, then upserts occupied
+entries. Multiple API processes have independent polling and snapshot state.
 
 A `DB_UNAVAILABLE` event retains the existing map, marks occupancy stale, and
 schedules a snapshot recovery attempt after 30 seconds. Failed recovery repeats;
