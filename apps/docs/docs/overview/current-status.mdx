@@ -42,7 +42,8 @@ See [Local Development](../getting-started/local-development),
   sign-in round trips. Deployment workflows do not use it as a gate.
 - Complete the operator details and deployment practices identified as missing
   in the public privacy/terms drafts.
-- Implement the simulation agent; the demo seed supplies static fixtures only.
+- The simulation agent is implemented in `apps/simulator` and must be enabled
+  explicitly for local/demo databases.
 - Configure environment-specific routing, migration ordering, deployment health
   acceptance, backups, rollback, and TLS/WAF outside the checked-in workflows.
   Vite and web Nginx do not currently proxy `/api`.

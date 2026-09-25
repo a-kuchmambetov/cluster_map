@@ -330,6 +330,34 @@ importers:
         specifier: 7.0.1-rc
         version: 7.0.1-rc
 
+  apps/simulator:
+    dependencies:
+      '@repo/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      dotenv:
+        specifier: ^16.4.5
+        version: 16.6.1
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: 25.5.0
+        version: 25.5.0
+      '@types/pg':
+        specifier: ^8.11.10
+        version: 8.23.1
+      tsx:
+        specifier: ^4.19.0
+        version: 4.22.4
+      typescript:
+        specifier: 7.0.1-rc
+        version: 7.0.1-rc
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@25.5.0)(happy-dom@20.14.5)(vite@8.1.0(@types/node@25.5.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4))
+
   apps/web:
     dependencies:
       '@internationalized/date':

@@ -121,7 +121,8 @@ and create scenario-specific fixtures rather than depending on this demo seed.
 
 ## Docker and deployment
 
-Application Dockerfiles live in `apps/api`, `apps/web`, and `apps/docs`; build
+Application Dockerfiles live in `apps/api`, `apps/web`, `apps/docs`, `apps/worker`,
+and `apps/simulator`; build
 with the repository root as context. Root Compose runs the local database only.
 
 ```bash
@@ -129,9 +130,16 @@ docker compose up -d db
 pnpm db:migrate
 ```
 
-Releases use GitHub Actions → GHCR → Coolify, with API secrets loaded from
-Infisical at startup. Pushes to `staging` deploy to staging; pushes to `main` deploy
-to production. Both build API, Web and Docs on GitHub-hosted runners and deploy
-the published GHCR digests after the environment approval gate. Start with [manual.md](manual.md) for infrastructure setup,
-required environment variables, one-off migrations, staging approval, production
-branch releases, and rollback. Do not run demo seeding against production.
+Releases use GitHub Actions → GHCR → Coolify, with API, worker, and simulator
+secrets loaded from Infisical at startup. Pushes to `staging` deploy to staging;
+pushes to `main` deploy to production. Both build changed application images on
+self-hosted runners, then trigger the environment's Coolify webhook.
+
+The simulator image is published only by staging and uses `/simulator` as its
+default Infisical secret path. The main workflow excludes it.
+For a staging/demo database, set `NODE_ENV=development`, `SIMULATOR_ENABLED=true`,
+and `PG_*` in that path. Start it after migrations and demo seeding. It exposes
+no port and refuses to run when enabled with `NODE_ENV=production` (the image
+default). See [Deployment](apps/docs/docs/operations/deployment.mdx) for image
+build commands and runtime setup. Do not run demo seeding or simulation against
+production databases.

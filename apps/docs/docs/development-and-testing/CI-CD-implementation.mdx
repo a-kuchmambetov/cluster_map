@@ -6,11 +6,11 @@ sidebar_position: 5
 
 Three workflows are checked in under `.github/workflows/`.
 
-| Workflow      | Trigger                                                             | Behavior                                                                                                                                 |
-| ------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `ci.yml`      | Pull requests targeting `main` or `staging`; reusable workflow call | Formatting, lint, types, worker/API/web tests, PostgreSQL auth integration, deployment helper tests, application builds, and docs build. |
-| `staging.yml` | Push to `staging` or manual dispatch on that branch                 | Build selected images with `staging` and `staging-<sha>` tags, then call the staging Coolify webhook.                                    |
-| `main.yml`    | Push to `main` or manual dispatch on that branch                    | Build selected images with `production` and `production-<sha>` tags, then call the production Coolify webhook.                           |
+| Workflow      | Trigger                                                             | Behavior                                                                                                                                           |
+| ------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ci.yml`      | Pull requests targeting `main` or `staging`; reusable workflow call | Formatting, lint, types, worker/API/web/simulator tests, PostgreSQL auth integration, deployment helper tests, application builds, and docs build. |
+| `staging.yml` | Push to `staging` or manual dispatch on that branch                 | Build selected images with `staging` and `staging-<sha>` tags, then call the staging Coolify webhook.                                              |
+| `main.yml`    | Push to `main` or manual dispatch on that branch                    | Build selected images with `production` and `production-<sha>` tags, then call the production Coolify webhook.                                     |
 
 CI runs on GitHub-hosted Ubuntu with Node.js 24, pnpm 11.5.2, and disposable
 PostgreSQL 17. It migrates that database and sets `AUTH_DB_TEST=1` for API
@@ -22,7 +22,9 @@ Deployment jobs use self-hosted runners labelled `linux`, `x64`, and `coolify`.
 `scripts/deploy/changed-apps.mjs` compares the current commit with the last
 successful deployment workflow run on the same branch. App-local changes select
 that app; shared packages, workspace/build inputs, app manifests, and deployment
-helpers select all four images: API, web, docs, and worker.
+helpers select all five staging images: API, web, docs, worker, and simulator.
+The `main` workflow always excludes the simulator, including manual runs and
+detection fallbacks. Simulator-only source changes skip production deployment.
 
 Manual dispatch, missing history, or detection failure builds all images. If no
 application is affected, image and deployment jobs are skipped. Images target

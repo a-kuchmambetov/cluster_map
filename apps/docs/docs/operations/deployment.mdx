@@ -5,19 +5,20 @@ sidebar_position: 1
 # Deployment
 
 The repository builds application images for GHCR and triggers Coolify through
-GitHub Actions. API and worker containers load runtime secrets from Infisical.
+GitHub Actions. API, worker, and simulator containers load runtime secrets from Infisical.
 The checked-in configuration does not provision Coolify, DNS, TLS, or PostgreSQL.
 
 ## Images and networking
 
 Build each image with the repository root as context.
 
-| Application | Dockerfile               | Internal port / behavior                                       |
-| ----------- | ------------------------ | -------------------------------------------------------------- |
-| API         | `apps/api/Dockerfile`    | `API_PORT`, default 5001; long-running server                  |
-| Web         | `apps/web/Dockerfile`    | 80; static SPA with history fallback                           |
-| Docs        | `apps/docs/Dockerfile`   | 80; static Docusaurus site                                     |
-| Worker      | `apps/worker/Dockerfile` | No listener; migrates, optionally creates an admin, then exits |
+| Application | Dockerfile                  | Internal port / behavior                                       |
+| ----------- | --------------------------- | -------------------------------------------------------------- |
+| API         | `apps/api/Dockerfile`       | `API_PORT`, default 5001; long-running server                  |
+| Web         | `apps/web/Dockerfile`       | 80; static SPA with history fallback                           |
+| Docs        | `apps/docs/Dockerfile`      | 80; static Docusaurus site                                     |
+| Worker      | `apps/worker/Dockerfile`    | No listener; migrates, optionally creates an admin, then exits |
+| Simulator   | `apps/simulator/Dockerfile` | No listener; ongoing demo occupancy updates when enabled       |
 
 The web Nginx configuration does **not** proxy `/api` and does not consume
 `API_UPSTREAM`. Choose a browser-reachable API origin using the web image's
@@ -43,10 +44,11 @@ Docs uses the canonical domain in `apps/docs/docusaurus.config.ts`.
 
 ## Runtime secrets
 
-Both API and worker entrypoints require `INFISICAL_CLIENT_ID`,
+API, worker, and simulator entrypoints require `INFISICAL_CLIENT_ID`,
 `INFISICAL_CLIENT_SECRET`, `INFISICAL_PROJECT_ID`, and `INFISICAL_ENV`.
-`INFISICAL_SECRET_PATH` defaults to `/api` for the API and `/worker` for the
-worker. Secrets are injected at process startup; restart to load changes.
+`INFISICAL_SECRET_PATH` defaults to `/api` for the API, `/worker` for the
+worker, and `/simulator` for the simulator. Secrets are injected at process
+startup; restart to load changes.
 
 The API needs `PG_*`, auth configuration, and GitHub OAuth credentials. The
 worker needs a database identity permitted to apply migrations. Optional
@@ -69,6 +71,34 @@ administrator credentials to run migrations only.
 API containers do not migrate at startup. The deployment workflows publish the
 worker image but do not run it or enforce migration-before-API ordering. Configure
 that sequencing in the deployment environment.
+
+## Demo simulator
+
+The staging workflow publishes `ghcr.io/<owner>/cluster-map-simulator` when
+selected by change detection; the main workflow excludes it. Configure a separate Coolify service using its
+`staging` tag for a demo database, with no public port or HTTP health check.
+Start it after migrations and demo seeding have completed.
+
+The simulator image defaults to `NODE_ENV=production`, which the application
+refuses when enabled. In the staging `/simulator` Infisical path, set
+`NODE_ENV=development`, `SIMULATOR_ENABLED=true`, and the demo database's `PG_*`
+connection settings. `INFISICAL_ENV` selects the secret environment; it does
+not set `NODE_ENV`. Optional `SIMULATOR_*` settings control the user count,
+tick interval, and action probabilities. Keep the simulator disabled against
+production databases.
+
+Build locally from the repository root:
+
+```bash
+docker build -f apps/simulator/Dockerfile -t cluster-map-simulator .
+docker run --rm --network host --env-file .env cluster-map-simulator
+```
+
+The `.env` file must supply the Infisical bootstrap variables listed above.
+Host networking reaches a locally published PostgreSQL port on Linux; for a
+container network, use that network and configure a reachable database host.
+The image runs compiled JavaScript as the non-root `node` user and handles
+termination signals through the simulator's shutdown handler.
 
 ## Release behavior and verification
 
