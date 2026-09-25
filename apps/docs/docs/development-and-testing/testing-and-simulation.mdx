@@ -55,11 +55,21 @@ It inserts missing records, preserves existing accounts and positions when
 rerun, and refuses `NODE_ENV=production`. It does not reset changed occupancy.
 
 See [Local Development](../getting-started/local-development) for demo logins.
-The seed is static fixture setup, not an ongoing simulation agent. No such agent
-is implemented. The migration worker is also a one-shot process and does not
-simulate occupancy. A future agent should use repeatable synthetic scenarios in
-local/test/designated demo environments and must not modify a live production
-occupancy source.
+The seed is static fixture setup, not an ongoing simulation agent.
+
+`apps/simulator` provides the live simulation agent. It creates a bounded pool
+of display-only synthetic users (`sim-member-*@example.test`) with randomly
+combined first names and surnames, then periodically claims or releases seats.
+Run it with `pnpm simulator:start` only after seeding and only against a
+local/demo database. It refuses `NODE_ENV=production`, uses a PostgreSQL
+advisory lock to prevent duplicate instances, and only releases seats held by
+its own identities.
+
+Simulator unit tests live in `apps/simulator/test` and run with Vitest:
+
+```bash
+pnpm simulator:test
+```
 
 ## Other checks
 

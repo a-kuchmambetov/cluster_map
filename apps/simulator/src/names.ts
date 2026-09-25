@@ -1,0 +1,63 @@
+const FIRST_NAMES = [
+  "Alice",
+  "Bob",
+  "Charlie",
+  "Diana",
+  "Evan",
+  "Fiona",
+  "George",
+  "Hannah",
+  "Ian",
+  "Julia",
+  "Kevin",
+  "Luna",
+  "Marcus",
+  "Nora",
+  "Oscar",
+  "Penelope",
+  "Quentin",
+  "Rachel",
+  "Samuel",
+  "Tina",
+  "Uma",
+  "Victor",
+  "Wendy",
+  "Xavier",
+  "Yara",
+  "Zack",
+];
+
+const SURNAMES = [
+  "Anderson",
+  "Brown",
+  "Clark",
+  "Davis",
+  "Evans",
+  "Foster",
+  "Garcia",
+  "Harris",
+  "Irwin",
+  "Johnson",
+  "King",
+  "Lewis",
+  "Miller",
+  "Nelson",
+  "Owens",
+  "Parker",
+  "Quinn",
+  "Robinson",
+  "Smith",
+  "Taylor",
+  "Underwood",
+  "Vance",
+  "Wilson",
+  "Xiong",
+  "Young",
+  "Zimmerman",
+];
+
+export function generateName(rng = Math.random): string {
+  const first = FIRST_NAMES[Math.floor(rng() * FIRST_NAMES.length)];
+  const last = SURNAMES[Math.floor(rng() * SURNAMES.length)];
+  return `${first} ${last}`;
+}

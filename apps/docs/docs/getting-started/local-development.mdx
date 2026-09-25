@@ -108,6 +108,45 @@ pnpm start:docs
 Docusaurus starts separately at `http://localhost:3000`; `pnpm dev` does not start
 it. Use the API workspace command so relative `.env` and layout paths resolve.
 
+## Live occupancy simulator
+
+`apps/simulator` is an optional, demo-only process that creates synthetic users
+with randomly combined names and emails and periodically has them take or free
+seats. It writes directly to the database, so the map and SSE polling reflect
+live changes.
+
+First seed the database so clusters, rows, and positions exist:
+
+```bash
+pnpm --filter @repo/api... build
+pnpm db:migrate
+pnpm db:seed
+```
+
+Then enable the simulator in `.env`:
+
+```bash
+SIMULATOR_ENABLED=true
+# SIMULATOR_USER_COUNT=20
+# SIMULATOR_INTERVAL_MS=5000
+# SIMULATOR_CLAIM_PROBABILITY=0.7
+# SIMULATOR_RELEASE_PROBABILITY=0.3
+```
+
+Run it explicitly; it is not started by `pnpm dev` or `pnpm start`:
+
+```bash
+pnpm simulator:start
+```
+
+The simulator exits immediately if `SIMULATOR_ENABLED` is not `true` or if
+`NODE_ENV=production`. It acquires a PostgreSQL advisory lock so only one
+instance runs against a database at a time. Restarting reuses existing
+`sim-member-*` identities and preserves their display names; it never releases
+seats held by seed members or real users.
+
+Stop it with `Ctrl+C` (SIGINT) or `SIGTERM`.
+
 ## Common checks
 
 ```bash

@@ -1,0 +1,26 @@
+{
+  "name": "@repo/simulator",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "simulator": "tsx src/index.ts",
+    "simulator:dev": "tsx watch --include \"./src\" ./src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@repo/db": "workspace:*",
+    "dotenv": "^16.4.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "25.5.0",
+    "@types/pg": "^8.11.10",
+    "tsx": "^4.19.0",
+    "typescript": "7.0.1-rc",
+    "vitest": "^4.1.10"
+  }
+}
