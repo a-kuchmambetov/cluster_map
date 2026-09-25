@@ -6,7 +6,8 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { detectChangedApps, selectApps } from "./changed-apps.mjs";
 
-const all = ["api", "web", "docs", "worker"];
+const all = ["api", "web", "docs", "worker", "simulator"];
+const production = ["api", "web", "docs", "worker"];
 
 test("selects individual apps and combines changes without duplicates", () => {
   for (const app of all) {
@@ -183,19 +184,51 @@ test("main compares against its own successful run, ignoring staging history", a
   assert.equal(f.requests[0].workflow_id, "main.yml");
 });
 
-test("main builds all apps on its first run even when staging has succeeded", async (t) => {
+test("main builds production apps on its first run even when staging has succeeded", async (t) => {
   const f = fixture(t);
   f.params.branch = "main";
   f.params.workflow = "main.yml";
-  assert.deepEqual(await detectChangedApps(f.params, f.cwd), all);
+  assert.deepEqual(await detectChangedApps(f.params, f.cwd), production);
   assert.equal(f.outputs.has_changes, "true");
 });
 
-test("manual main runs rebuild all apps", async (t) => {
+test("manual main runs rebuild only production apps", async (t) => {
   const f = fixture(t);
   f.params.branch = "main";
   f.params.workflow = "main.yml";
   f.params.context.eventName = "workflow_dispatch";
-  assert.deepEqual(await detectChangedApps(f.params, f.cwd), all);
+  assert.deepEqual(await detectChangedApps(f.params, f.cwd), production);
   assert.equal(f.requests.length, 0);
+});
+
+test("simulator-only changes deploy on staging and skip main", async (t) => {
+  const f = fixture(t);
+  f.params.context.sha = f.commit(
+    "apps/simulator/src/index.ts",
+    "simulator change",
+  );
+  assert.deepEqual(await detectChangedApps(f.params, f.cwd), ["simulator"]);
+  f.params.branch = "main";
+  f.params.workflow = "main.yml";
+  f.runs[0].head_branch = "main";
+  assert.deepEqual(await detectChangedApps(f.params, f.cwd), []);
+  assert.equal(f.outputs.apps, "[]");
+  assert.equal(f.outputs.has_changes, "false");
+});
+
+test("main excludes simulator from shared changes and detection fallbacks", async (t) => {
+  const f = fixture(t);
+  f.params.branch = "main";
+  f.params.workflow = "main.yml";
+  f.runs[0].head_branch = "main";
+  f.params.context.sha = f.commit("packages/db/src/index.ts", "shared change");
+  assert.deepEqual(await detectChangedApps(f.params, f.cwd), production);
+  assert.deepEqual(JSON.parse(f.outputs.apps), production);
+  f.runs[0].head_sha = "0".repeat(40);
+  assert.deepEqual(await detectChangedApps(f.params, f.cwd), production);
+  f.params.github.paginate = async () => {
+    throw new Error("API unavailable");
+  };
+  assert.deepEqual(await detectChangedApps(f.params, f.cwd), production);
+  assert.equal(f.warnings.length, 2);
 });

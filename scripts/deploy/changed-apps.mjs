@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 
-const apps = ["api", "web", "docs", "worker"];
+const apps = ["api", "web", "docs", "worker", "simulator"];
 const sharedFiles = new Set([
   "package.json",
   "pnpm-lock.yaml",
@@ -87,6 +87,11 @@ export async function detectChangedApps(
         `Cannot determine changed apps; building all: ${error.message}`,
       );
     }
+  }
+
+  // The simulator is a staging-only image, including on full rebuilds.
+  if (branch === "main") {
+    selected = selected.filter((app) => app !== "simulator");
   }
 
   core.info(`Images to build: ${selected.join(", ") || "none"}`);
