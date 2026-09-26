@@ -90,10 +90,12 @@ Browser HTTP requests and EventSource connections include credentials.
 
 ## Container configuration
 
-API and worker containers require Infisical bootstrap variables. Their default
+Production API and worker containers require Infisical bootstrap variables. Their default
 secret paths are `/api` and `/worker`, respectively. Configure runtime secrets
-on the destination; local `pnpm` commands use `.env` directly. The only Compose
-service in `docker-compose.dev.yml` is PostgreSQL.
+on the destination; local `pnpm` commands use `.env` directly.
+`docker-compose.dev.yml` runs the complete development stack with `Dockerfile.dev`,
+local environment defaults, source mounts, and no Infisical. See
+[Local Development](./local-development#run-everything-in-docker).
 
 See [Environment Variables](../reference/environment-variables) and
 [Deployment](../operations/deployment).

@@ -8,6 +8,12 @@ API, worker, and DB configuration load the root `.env` via workspace-relative
 paths. Vite uses the root as its environment directory. Existing process
 variables take precedence over dotenv values.
 
+Development Compose reads `.env` for overrides and provides local auth defaults
+when values are missing or empty. It uses `db:5432` inside containers, fixes
+`NODE_ENV=development` and `TRUST_PROXY_HOPS=0`, and does not use Infisical.
+Unset or empty auth/frontend URLs default to `http://localhost:${API_PORT:-5001}`.
+Infisical bootstrap settings below apply to production app Dockerfiles only.
+
 | Variable                                         | Requirement / default                                                                                                    | Consumer                                                                       |
 | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
 | `NODE_ENV`                                       | `production` in API/worker release images                                                                                | Error masking, request logs, seed guard                                        |

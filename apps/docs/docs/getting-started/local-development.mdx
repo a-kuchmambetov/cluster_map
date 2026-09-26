@@ -5,7 +5,63 @@ sidebar_position: 1
 # Local Development
 
 The repository includes the cluster map, authentication, administrator approvals,
-PostgreSQL schemas, tests, and a Compose service for the development database.
+PostgreSQL schemas, tests, and a Compose setup for the whole development stack.
+
+## Run everything in Docker
+
+Only Docker Compose is required for this workflow. From the repository root:
+
+```bash
+docker compose -f docker-compose.dev.yml up --build
+```
+
+This starts PostgreSQL, the one-shot migration/admin worker, API, Vite, and
+Docusaurus. The API waits for successful migrations, and Vite waits for API
+readiness. No Infisical installation, token, or account is needed. `.env` is
+optional: Compose supplies local development defaults, including an auth secret
+and dummy GitHub credentials for password login. Supply real GitHub credentials
+to test OAuth.
+
+| Service | URL                   |
+| ------- | --------------------- |
+| Web     | http://localhost:5173 |
+| API     | http://localhost:5001 |
+| Docs    | http://localhost:3000 |
+
+Compose reads the root `.env` for overrides. Application containers always use
+`db:5432`, regardless of `PG_HOST` and the published `PG_PORT`. `API_PORT` changes
+the host API port; unset `BETTER_AUTH_URL` and `VITE_API_URL` follow it by default.
+If those URLs are explicitly set in `.env`, update them to match. Published ports
+bind to localhost. The built-in credentials and secret are for local development.
+
+API, web, docs, and simulator source mounts support automatic reloads. Dependencies
+and compiled shared packages stay inside the image. After changing a package
+manifest, lockfile, shared package, or unmounted configuration, run `up --build`
+again. After changing `.env`, run `up -d` to recreate affected containers. After
+adding migrations, run `docker compose -f docker-compose.dev.yml run --rm worker`.
+
+In another terminal, create optional demo data and start the optional simulator:
+
+```bash
+docker compose -f docker-compose.dev.yml exec api pnpm db:seed
+docker compose -f docker-compose.dev.yml --profile simulator up -d simulator
+```
+
+The seed creates `demo-admin@example.test` with password `Demo-password-123!`,
+approved members, and a pending account. To bootstrap only an administrator, set
+both `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env` before startup. The simulator
+profile enables simulation by default; an explicit `SIMULATOR_ENABLED=false`
+override keeps it disabled. Seed the database before starting it.
+
+```bash
+docker compose -f docker-compose.dev.yml logs -f api worker
+docker compose -f docker-compose.dev.yml --profile simulator down
+```
+
+Stopping preserves the PostgreSQL volume. Add `--volumes` to the stop command only
+when you want to delete the local database. `pnpm dev:docker` and
+`pnpm dev:docker:down` are shortcuts for starting and stopping this stack.
+`pnpm db:up` still starts just PostgreSQL for the host-based workflow below.
 
 ## Prerequisites
 
@@ -166,7 +222,7 @@ for the optional DB-backed test and [Deployment](../operations/deployment) for
 application images, runtime secrets, and migration ordering.
 
 `pnpm db:down` runs `docker compose -f docker-compose.dev.yml down`, stopping
-the development database without removing its named volume. `pnpm start` runs
+the development stack without removing its named volume. `pnpm start` runs
 workspace start scripts, including the built API and one-shot worker, Vite
 preview, and the Docusaurus development server. For Vite preview, align
 `WEB_ORIGIN` with its actual port.

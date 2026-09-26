@@ -58,8 +58,9 @@ per-event signal. Metrics, alerting, and distributed tracing are not configured.
 | Documentation build fails              | Run `pnpm build:docs` and fix reported MDX/link errors.                                                                            |
 
 For the local database, use `docker compose -f docker-compose.dev.yml ps` and
-`docker compose -f docker-compose.dev.yml logs db`. Application containers are
-managed separately; inspect their logs and health in the deployment environment.
+`docker compose -f docker-compose.dev.yml logs db`. For local applications, use
+the same logs command with `api`, `web`, `docs`, `worker`, or `simulator`.
+For production, inspect logs and health in the deployment environment.
 The worker exits after migration/bootstrap, so a successful exit is expected.
 Validate SSE buffering and timeouts in the external proxy; the checked-in web
 Nginx configuration only serves static files.

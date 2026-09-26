@@ -56,7 +56,8 @@ defines membership; `tsconfig.base.json`, `.oxlintrc.json`, and `.oxfmtrc.json`
 configure TypeScript, Oxlint, and Oxfmt.
 
 `.env.example` provides runtime defaults. `docker-compose.dev.yml` runs the
-local database. Each of `apps/api`, `apps/web`, `apps/docs`, and `apps/worker`
+full development stack using `Dockerfile.dev` without Infisical. Each of
+`apps/api`, `apps/web`, `apps/docs`, and `apps/worker`
 contains its own `Dockerfile`. API and worker have Infisical entrypoints.
 `apps/web/nginx.web.conf` serves the frontend without API proxying;
 `apps/docs/nginx.docs.conf` serves documentation.

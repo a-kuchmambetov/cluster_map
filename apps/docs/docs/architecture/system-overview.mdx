@@ -45,8 +45,9 @@ configuration, selected schema checks, and auth initialization.
 
 ## Deployment boundaries
 
-`docker-compose.dev.yml` defines only the local PostgreSQL service. API, web,
-docs, and worker have Dockerfiles inside their app directories. GitHub Actions
+`docker-compose.dev.yml` runs PostgreSQL, the migration worker, API, web, and docs
+using `Dockerfile.dev` without Infisical; the simulator is an optional profile.
+Production apps have Dockerfiles inside their app directories. GitHub Actions
 publishes selected images to GHCR and triggers Coolify; API/worker entrypoints
 load runtime secrets from Infisical. The documentation site is configured for
 `https://docs.map-hive.pp.ua/`.

@@ -1,0 +1,22 @@
+FROM node:24-alpine
+
+WORKDIR /app
+RUN npm install -g pnpm@11.5.2
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/api/package.json apps/api/package.json
+COPY apps/web/package.json apps/web/package.json
+COPY apps/docs/package.json apps/docs/package.json
+COPY apps/worker/package.json apps/worker/package.json
+COPY apps/simulator/package.json apps/simulator/package.json
+COPY packages/db/package.json packages/db/package.json
+COPY packages/errors/package.json packages/errors/package.json
+COPY packages/types/package.json packages/types/package.json
+COPY packages/validators/package.json packages/validators/package.json
+RUN pnpm install --frozen-lockfile
+
+COPY --chown=node:node . .
+RUN pnpm --filter './packages/**' build && chown -R node:node /app
+
+ENV NODE_ENV=development
+USER node

@@ -1,14 +1,33 @@
+# Local development only. No Infisical CLI or production entrypoints are used.
+x-dev: &dev
+  image: cluster-map-dev
+  build:
+    context: .
+    dockerfile: Dockerfile.dev
+  init: true
+
+x-db-env: &db-env
+  NODE_ENV: development
+  PG_HOST: db
+  PG_PORT: "5432"
+  PG_USER: ${PG_USER:-app}
+  PG_PASSWORD: ${PG_PASSWORD:-app}
+  PG_DB: ${PG_DB:-app}
+
+x-auth-env: &auth-env
+  BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-local-development-secret-change-me-123456789}
+  BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:${API_PORT:-5001}}
+
 services:
   db:
     image: postgres:17-alpine
-    container_name: cluster-map-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${PG_USER:-app}
       POSTGRES_PASSWORD: ${PG_PASSWORD:-app}
       POSTGRES_DB: ${PG_DB:-app}
     ports:
-      - "${PG_PORT:-5432}:5432"
+      - "127.0.0.1:${PG_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -16,6 +35,119 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  worker:
+    <<: *dev
+    command: ["pnpm", "--filter", "@repo/worker", "dev"]
+    environment:
+      <<: [*db-env, *auth-env]
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ADMIN_NAME: ${ADMIN_NAME:-Administrator}
+    volumes:
+      - ./apps/worker/src:/app/apps/worker/src:ro
+      - ./packages/db/migrations:/app/packages/db/migrations:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    <<: *dev
+    command: ["pnpm", "--filter", "@repo/api", "dev"]
+    environment:
+      <<: [*db-env, *auth-env]
+      API_PORT: "5001"
+      TRUST_PROXY_HOPS: "0"
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:5173}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-local-development}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-local-development}
+    ports:
+      - "127.0.0.1:${API_PORT:-5001}:5001"
+    volumes:
+      - ./apps/api/src:/app/apps/api/src:ro
+    depends_on:
+      worker:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:5001/api/health/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 5s
+      timeout: 5s
+      start_period: 20s
+      retries: 20
+
+  web:
+    <<: *dev
+    command:
+      [
+        "pnpm",
+        "--filter",
+        "@repo/web",
+        "dev",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "5173",
+        "--strictPort",
+      ]
+    environment:
+      NODE_ENV: development
+      # This URL is used by the browser, so it must use the published host port.
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:${API_PORT:-5001}}
+    ports:
+      - "127.0.0.1:5173:5173"
+    volumes:
+      - ./apps/web/src:/app/apps/web/src:ro
+      - ./apps/web/public:/app/apps/web/public:ro
+      - ./apps/web/index.html:/app/apps/web/index.html:ro
+      - ./apps/web/vite.config.ts:/app/apps/web/vite.config.ts:ro
+    depends_on:
+      api:
+        condition: service_healthy
+
+  docs:
+    <<: *dev
+    command:
+      [
+        "pnpm",
+        "--filter",
+        "@repo/docs",
+        "start",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "3000",
+      ]
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./apps/docs/docs:/app/apps/docs/docs:ro
+      - ./apps/docs/src:/app/apps/docs/src:ro
+      - ./apps/docs/static:/app/apps/docs/static:ro
+      - ./apps/docs/docusaurus.config.ts:/app/apps/docs/docusaurus.config.ts:ro
+      - ./apps/docs/sidebars.ts:/app/apps/docs/sidebars.ts:ro
+
+  simulator:
+    <<: *dev
+    profiles: ["simulator"]
+    command: ["pnpm", "--filter", "@repo/simulator", "simulator:dev"]
+    environment:
+      <<: *db-env
+      SIMULATOR_ENABLED: ${SIMULATOR_ENABLED:-true}
+      SIMULATOR_USER_COUNT: ${SIMULATOR_USER_COUNT:-20}
+      SIMULATOR_INTERVAL_MS: ${SIMULATOR_INTERVAL_MS:-5000}
+      SIMULATOR_CLAIM_PROBABILITY: ${SIMULATOR_CLAIM_PROBABILITY:-0.7}
+      SIMULATOR_RELEASE_PROBABILITY: ${SIMULATOR_RELEASE_PROBABILITY:-0.3}
+      SIMULATOR_LOCK_KEY: ${SIMULATOR_LOCK_KEY:-7269736}
+    volumes:
+      - ./apps/simulator/src:/app/apps/simulator/src:ro
+    depends_on:
+      worker:
+        condition: service_completed_successfully
 
 volumes:
   postgres_data:

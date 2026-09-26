@@ -1,4 +1,5 @@
 _This project has been created as part of the 42 curriculum by akuchmam, vlundaev, mklevero, vmoroka, and piyu._
+
 # Cluster Map
 
 ## Description
@@ -44,16 +45,13 @@ phone, without walking between rooms.
 
 ## Team Information
 
-> ⚠️ **TO VERIFY:** These summaries are based on commit history and the docs.
-> Each member should review and expand their own entry.
-
-| Member                 | Role(s)                                               | Responsibilities                                                                                                                                                                                                            |
-| ---------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Member                 | Role(s)                                         | Responsibilities                                                                                                                                                                                                    |
+| ---------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Artem Kuchmambetov** | Tech Lead / Architect, Full-stack Developer, PO | Defines the architecture and tech stack. Reviews critical changes. Owns the monorepo setup, CI/CD, deployment, and documentation site. Built the admin, 2FA and OAuth UI flows, the legal pages, and the simulator. |
-| **Maxim Kleverov**     | Frontend Developer, PM | Builds the cluster map UI: rows, seats, popups, colour system, theming, dark mode, and the mobile layout. Integrates the frontend with the API. |
-| **Vitalii Lundaev**    | Backend Developer, PO | Builds the Express API: cluster endpoints, the SSE polling pool, authentication (Better Auth, GitHub OAuth, TOTP 2FA), and the API unit and integration tests. Wrote the API and DB contracts. |
-| **Valentine Moroka**   | Backend / Database Developer | Sets up PostgreSQL and Drizzle. Designed the initial schema and migrations. |
-| **Ping Yu**            | DevSecOps / PO | Designed the CI/CD architecture. Participated in the build of docker and security layer. Owns the project README. |
+| **Maxim Kleverov**     | Frontend Developer, PM                          | Builds the cluster map UI: rows, seats, popups, colour system, theming, dark mode, and the mobile layout. Integrates the frontend with the API.                                                                     |
+| **Vitalii Lundaev**    | Backend Developer, PO                           | Builds the Express API: cluster endpoints, the SSE polling pool, authentication (Better Auth, GitHub OAuth, TOTP 2FA), and the API unit and integration tests. Wrote the API and DB contracts.                      |
+| **Valentine Moroka**   | Backend / Database Developer                    | Sets up PostgreSQL and Drizzle. Designed the initial schema and migrations.                                                                                                                                         |
+| **Ping Yu**            | DevSecOps / PO                                  | Designed the CI/CD architecture. Participated in the build of docker and security layer. Owns the project README.                                                                                                   |
 
 ## Project Management
 
@@ -78,13 +76,13 @@ phone, without walking between rooms.
 
 ### Prerequisites
 
-| Tool                     | Version                                                       |
-| ------------------------ | ------------------------------------------------------------- |
-| Node.js                  | 24 (the version used in the Dockerfiles and CI)               |
-| pnpm                     | 11.5.2 (pinned in the root `package.json`)                    |
-| Docker + Docker Compose  | Any recent version (runs the local PostgreSQL 17 database)    |
-| OpenSSL                  | Used to generate the auth secret                              |
-| GitHub OAuth App         | Optional; only needed to test GitHub sign-in                  |
+| Tool                    | Version                                                   |
+| ----------------------- | --------------------------------------------------------- |
+| Node.js                 | 24 (the version used in the Dockerfiles and CI)           |
+| pnpm                    | 11.5.2 (pinned in the root `package.json`)                |
+| Docker + Docker Compose | Any recent version (runs the database or whole dev stack) |
+| OpenSSL                 | Used to generate the auth secret                          |
+| GitHub OAuth App        | Optional; only needed to test GitHub sign-in              |
 
 ### 1. Install and configure
 
@@ -117,6 +115,40 @@ works locally. For real GitHub sign-in, set the OAuth App callback to
 [Environment Variables](apps/docs/docs/reference/environment-variables.mdx) for
 the full list.
 
+### Run everything with Docker (alternative to host pnpm)
+
+```bash
+docker compose -f docker-compose.dev.yml up --build
+```
+
+This starts PostgreSQL, the migration/admin worker, API, Vite web app, and
+Docusaurus without Infisical. Only Docker Compose is required; `.env` is optional.
+Compose supplies development auth settings and dummy GitHub credentials when
+values are missing or empty. Real GitHub sign-in requires your OAuth credentials.
+The worker must finish successfully before the API starts.
+
+Open the web app at http://localhost:5173, API at http://localhost:5001, and docs
+at http://localhost:3000. Application source is mounted for automatic reloads.
+Re-run with `--build` after changing dependencies, shared packages, or unmounted
+configuration. Compose reads `.env` for overrides; restart with `up -d` after
+changing it. Inside containers the database address is always `db:5432`.
+
+To add demo accounts and occupancy, run in another terminal:
+
+```bash
+docker compose -f docker-compose.dev.yml exec api pnpm db:seed
+# Optional, after seeding:
+docker compose -f docker-compose.dev.yml --profile simulator up -d simulator
+```
+
+The demo administrator is `demo-admin@example.test`, password
+`Demo-password-123!`. Alternatively, set both `ADMIN_EMAIL` and `ADMIN_PASSWORD`
+in `.env` before startup to create an administrator without demo data.
+
+Stop with `docker compose -f docker-compose.dev.yml --profile simulator down`;
+database data is preserved. The equivalent shortcuts are `pnpm dev:docker` and
+`pnpm dev:docker:down`. For host-based development, continue below.
+
 ### 2. Prepare the database
 
 ```bash
@@ -129,11 +161,11 @@ pnpm db:seed                       # optional demo data (refuses NODE_ENV=produc
 The demo seed fills cluster 1 partly, leaves cluster 2 empty, and fills cluster 3
 completely. It creates these accounts, all with the password `Demo-password-123!`:
 
-| Email                               | State                            |
-| ----------------------------------- | -------------------------------- |
-| `demo-admin@example.test`           | Approved administrator           |
-| `demo-member-<n>@example.test`      | Approved members                 |
-| `demo-pending@example.test`         | Pending approval; cannot sign in |
+| Email                          | State                            |
+| ------------------------------ | -------------------------------- |
+| `demo-admin@example.test`      | Approved administrator           |
+| `demo-member-<n>@example.test` | Approved members                 |
+| `demo-pending@example.test`    | Pending approval; cannot sign in |
 
 To create only an administrator without demo data, set `ADMIN_EMAIL` and
 `ADMIN_PASSWORD` in `.env` and run `pnpm worker:dev`.
@@ -145,11 +177,11 @@ pnpm dev          # web + API; also runs the migration worker once
 pnpm start:docs   # documentation site (separate)
 ```
 
-| Service | URL                                              |
-| ------- | ------------------------------------------------ |
-| Web     | http://localhost:5173                            |
+| Service | URL                                                        |
+| ------- | ---------------------------------------------------------- |
+| Web     | http://localhost:5173                                      |
 | API     | http://localhost:5001 (`/api/health`, `/api/health/ready`) |
-| Docs    | http://localhost:3000                            |
+| Docs    | http://localhost:3000                                      |
 
 ### 4. Optional: live occupancy simulator
 
@@ -178,20 +210,17 @@ and trigger a Coolify webhook. API, worker, and simulator containers load their
 secrets from Infisical at startup. See
 [Deployment](apps/docs/docs/operations/deployment.mdx) for details.
 
-> ⚠️ **TO VERIFY:** The subject requires the project to run with **a single container command**.
-> Does the project fulfill it now? 
-
 ## Technical Stack
 
-| Layer          | Technologies                                                                                                   |
-| -------------- | -------------------------------------------------------------------------------------------------------------- |
-| Frontend       | React, Vite, TypeScript, Tailwind CSS, Untitled UI components on React Aria (adapted to the Hive brand)        |
-| Backend        | Node.js, Express (REST + Server-Sent Events), TypeScript, Better Auth (sessions, GitHub OAuth, TOTP), Zod      |
-| Database       | PostgreSQL 17 with Drizzle ORM and Drizzle migrations                                                          |
-| Testing        | Vitest, Supertest, happy-dom, Node test runner                                                                 |
-| Tooling        | pnpm workspaces (monorepo), Oxlint, Oxfmt                                                                      |
-| DevOps         | Docker, GitHub Actions (hosted + self-hosted runners), GHCR, Coolify, Infisical, Nginx, Hetzner, Cloudflare    |
-| Documentation  | Docusaurus (https://docs.map-hive.pp.ua/)                                                                      |
+| Layer         | Technologies                                                                                                |
+| ------------- | ----------------------------------------------------------------------------------------------------------- |
+| Frontend      | React, Vite, TypeScript, Tailwind CSS, Untitled UI components on React Aria (adapted to the Hive brand)     |
+| Backend       | Node.js, Express (REST + Server-Sent Events), TypeScript, Better Auth (sessions, GitHub OAuth, TOTP), Zod   |
+| Database      | PostgreSQL 17 with Drizzle ORM and Drizzle migrations                                                       |
+| Testing       | Vitest, Supertest, happy-dom, Node test runner                                                              |
+| Tooling       | pnpm workspaces (monorepo), Oxlint, Oxfmt                                                                   |
+| DevOps        | Docker, GitHub Actions (hosted + self-hosted runners), GHCR, Coolify, Infisical, Nginx, Hetzner, Cloudflare |
+| Documentation | Docusaurus (https://docs.map-hive.pp.ua/)                                                                   |
 
 ### Justification of major choices
 
@@ -300,45 +329,45 @@ erDiagram
 
 ## Features List
 
-| Feature                                    | Description                                                                                          | Member(s)                         |
-| ------------------------------------------ | ---------------------------------------------------------------------------------------------------- | --------------------------------- |
-| Cluster map UI                             | Cluster picker, staggered rows, seats and gaps, free-seat count, peer popup, and mobile layout       | Maxim, Artem                      |
-| Theme and design system                    | Colour palette, typography, dark mode, and Untitled UI-based components                              | Maxim, Artem                      |
-| Layout configuration and validation        | JSON layout with Zod validation; endpoint that detects config/DB mismatches                          | Vitalii, Artem                    |
-| Cluster REST API                           | Cluster list, layout, occupancy, and config-validation endpoints                                     | Vitalii, Artem                    |
-| Real-time updates (SSE)                    | Shared poller per cluster, change-only events, keepalive, session recheck, client recovery           | Vitalii, Artem                    |
-| Email/password auth and admin approval     | Registration, login, logout, approval tokens, auth rate limiting                                     | Vitalii, Artem                    |
-| GitHub OAuth                               | Sign-in via GitHub (new accounts still need approval)                                                | Vitalii (API), Artem (web)        |
-| TOTP two-factor authentication             | Setup, login challenge, trusted device, disabling                                                    | Vitalii (API), Artem (web)        |
-| Admin user management                      | List, approve, and delete users                                                                      | Artem                             |
-| Database schema and migrations             | PostgreSQL + Drizzle schemas and migrations                                                          | Valentine, Artem                  |
-| Migration worker                           | One-shot migrations plus optional initial admin creation                                             | Artem                             |
-| Demo seed and occupancy simulator          | Static demo data and a live simulator for seat changes                                               | Artem                             |
-| Privacy Policy and Terms of Service        | Public legal pages linked from the footer                                                            | Artem                             |
-| Health and readiness checks                | `/api/health` and `/api/health/ready`                                                                | Artem, Vitalii                    |
-| CI/CD and deployment                       | PR checks, change-based image builds, GHCR, Coolify, Infisical                                       | Artem, Ping                   |
-| WAF                          | Cloudflare Cloud-based WAF with OWASP Core Ruleset          | Artem, Ping |
-| Documentation site                         | Docusaurus: architecture, API reference, operations                                                  | Artem, Vitalii, Ping |
-| Project README                             | Evaluation README: requirements coverage, team, modules, schema, instructions                        | Ping, ⚠️?, ?                              |
+| Feature                                | Description                                                                                    | Member(s)                  |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------- | -------------------------- |
+| Cluster map UI                         | Cluster picker, staggered rows, seats and gaps, free-seat count, peer popup, and mobile layout | Maxim, Artem               |
+| Theme and design system                | Colour palette, typography, dark mode, and Untitled UI-based components                        | Maxim, Artem               |
+| Layout configuration and validation    | JSON layout with Zod validation; endpoint that detects config/DB mismatches                    | Vitalii, Artem             |
+| Cluster REST API                       | Cluster list, layout, occupancy, and config-validation endpoints                               | Vitalii, Artem             |
+| Real-time updates (SSE)                | Shared poller per cluster, change-only events, keepalive, session recheck, client recovery     | Vitalii, Artem             |
+| Email/password auth and admin approval | Registration, login, logout, approval tokens, auth rate limiting                               | Vitalii, Artem             |
+| GitHub OAuth                           | Sign-in via GitHub (new accounts still need approval)                                          | Vitalii (API), Artem (web) |
+| TOTP two-factor authentication         | Setup, login challenge, trusted device, disabling                                              | Vitalii (API), Artem (web) |
+| Admin user management                  | List, approve, and delete users                                                                | Artem                      |
+| Database schema and migrations         | PostgreSQL + Drizzle schemas and migrations                                                    | Valentine, Artem           |
+| Migration worker                       | One-shot migrations plus optional initial admin creation                                       | Artem                      |
+| Demo seed and occupancy simulator      | Static demo data and a live simulator for seat changes                                         | Artem                      |
+| Privacy Policy and Terms of Service    | Public legal pages linked from the footer                                                      | Artem                      |
+| Health and readiness checks            | `/api/health` and `/api/health/ready`                                                          | Artem, Vitalii             |
+| CI/CD and deployment                   | PR checks, change-based image builds, GHCR, Coolify, Infisical                                 | Artem, Ping                |
+| WAF                                    | Cloudflare Cloud-based WAF with OWASP Core Ruleset                                             | Artem, Ping                |
+| Documentation site                     | Docusaurus: architecture, API reference, operations                                            | Artem, Vitalii, Ping       |
+| Project README                         | Evaluation README: requirements coverage, team, modules, schema, instructions                  | Ping                       |
 
 ## Modules
 
 Target modules and points (from
 [Transcendence requirements](apps/docs/docs/overview/transcendence-requirements.mdx)):
 
-| #  | Module (subject requirement)                                                                                      | Type  | Points | Member(s)                 | Details (our implementation)                                                                                                                              |
-| -- | ----------------------------------------------------------------------------------------------------------------- | ----- | -----: | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1  | Web: Use a framework for both the frontend and backend                                                            | Major | 2      | All                       | React + Vite frontend (`apps/web`); Express backend (`apps/api`)                                                                                         |
-| 2  | Web: Implement real-time features using WebSockets or similar technology                                          | Major | 2      | Vitalii, Artem, Maxim     | Server-Sent Events: one shared poller per cluster pushes seat changes only; keepalive and session recheck; client recovers from disconnects via snapshot  |
-| 3  | Cybersecurity: Implement WAF/ModSecurity (hardened) + HashiCorp Vault for secrets                                  | Major | 2      | Artem, Ping               | Cloudflare cloud WAF with OWASP Core Ruleset in place of ModSecurity; Infisical in place of Vault (encrypted secrets per service and environment, injected when containers start) |
-| 4  | Modules of choice: Major custom module                                                                            | Major | 2      | Artem, Ping               | Automated CI/CD: PR checks, change-based image builds, publishing to GHCR, Coolify deploys for staging and production, runtime secrets from Infisical                    |
-| 5  | Web: Use an ORM for the database                                                                                  | Minor | 1      | Valentine, Vitalii, Artem | Drizzle ORM with PostgreSQL 17; shared schemas in `@repo/db`, migrations applied by a one-shot worker                                                     |
-| 6  | User Management: Implement remote authentication with OAuth 2.0                                                   | Minor | 1      | Vitalii, Artem            | GitHub OAuth through Better Auth; new GitHub accounts still need admin approval                                                                           |
-| 7  | User Management: Implement a complete 2FA system for the users                                                    | Minor | 1      | Vitalii, Artem            | TOTP: setup with QR code, backup codes shown, login challenge with trusted device, disable with password. |
-| 8  | Web: Custom-made design system with reusable components, colour palette, typography, and icons (min. 10 components) | Minor | 1      | Maxim, Artem              | Untitled UI components on React Aria, adapted to the Hive brand; theme tokens, typography, dark mode. ⚠️ TO VERIFY: count ≥ 10 components             |
-| 9  | Accessibility: Support for additional browsers (at least 2)                                                       | Minor | 1      | Maxim ⚠️ TO VERIFY         | ⚠️ TO VERIFY: it working? |
-| 10 | Modules of choice: Minor custom module                                                                            | Minor | 1      | Artem, Vitalii            | Docusaurus documentation platform (architecture, API reference, operations), with its own Docker image and domain                                       |
-|    | **Total**                                                                                                         |       | **14** |                           |                                                                                                                                                           |
+| #   | Module (subject requirement)                                                                                        | Type  | Points | Member(s)                 | Details (our implementation)                                                                                                                                                      |
+| --- | ------------------------------------------------------------------------------------------------------------------- | ----- | -----: | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Web: Use a framework for both the frontend and backend                                                              | Major |      2 | All                       | React + Vite frontend (`apps/web`); Express backend (`apps/api`)                                                                                                                  |
+| 2   | Web: Implement real-time features using WebSockets or similar technology                                            | Major |      2 | Vitalii, Artem, Maxim     | Server-Sent Events: one shared poller per cluster pushes seat changes only; keepalive and session recheck; client recovers from disconnects via snapshot                          |
+| 3   | Cybersecurity: Implement WAF/ModSecurity (hardened) + HashiCorp Vault for secrets                                   | Major |      2 | Artem, Ping               | Cloudflare cloud WAF with OWASP Core Ruleset in place of ModSecurity; Infisical in place of Vault (encrypted secrets per service and environment, injected when containers start) |
+| 4   | Modules of choice: Major custom module                                                                              | Major |      2 | Artem, Ping               | Automated CI/CD: PR checks, change-based image builds, publishing to GHCR, Coolify deploys for staging and production, runtime secrets from Infisical                             |
+| 5   | Web: Use an ORM for the database                                                                                    | Minor |      1 | Valentine, Vitalii, Artem | Drizzle ORM with PostgreSQL 17; shared schemas in `@repo/db`, migrations applied by a one-shot worker                                                                             |
+| 6   | User Management: Implement remote authentication with OAuth 2.0                                                     | Minor |      1 | Vitalii, Artem            | GitHub OAuth through Better Auth; new GitHub accounts still need admin approval                                                                                                   |
+| 7   | User Management: Implement a complete 2FA system for the users                                                      | Minor |      1 | Vitalii, Artem            | TOTP: setup with QR code, backup codes shown, login challenge with trusted device, disable with password.                                                                         |
+| 8   | Web: Custom-made design system with reusable components, colour palette, typography, and icons (min. 10 components) | Minor |      1 | Maxim, Artem              | Untitled UI components on React Aria, adapted to the Hive brand; theme tokens, typography, dark mode. Untitled Ui + custom components. Count ≥ 10 components.                     |
+| 9   | Accessibility: Support for additional browsers (at least 2)                                                         | Minor |      1 | Maxim                     | Chrome, Firefox, Edge.                                                                                                                                                            |
+| 10  | Modules of choice: Minor custom module                                                                              | Minor |      1 | Artem, Vitalii            | Docusaurus documentation platform (architecture, API reference, operations), with its own Docker image and domain                                                                 |
+|     | **Total**                                                                                                           |       | **14** |                           |                                                                                                                                                                                   |
 
 ### How each module is implemented and why it was chosen
 
@@ -379,9 +408,7 @@ Target modules and points (from
      every pull request runs the full test suite against a disposable PostgreSQL.
    - **Why Major:** It covers CI, image publishing, change detection,
      multi-environment deployment, and secret management.
-   - ⚠️ TO VERIFY: the deploy workflows do not wait for CI, poll health checks, or
-     roll back automatically. The module description promises these, so either
-     implement them or reword the claim.
+   - The deploy workflows trigers only after successfull CI and Image build process. Coolify uses provided Health funcs to track apps states.
 5. **ORM.** Drizzle schemas in `packages/db/src/schema`, with generated
    migrations applied by the one-shot worker.
 6. **OAuth 2.0.** GitHub provider through Better Auth
@@ -391,10 +418,7 @@ Target modules and points (from
    `/settings/security`.
 8. **Design system.** Untitled UI components adapted to the Hive brand, built on
    React Aria, with theme tokens and typography in `apps/web/src/styles`.
-   ⚠️ TO VERIFY: count at least 10 reusable components, and confirm that the
-   evaluators accept an adapted library as "custom-made".
-9. **Additional browsers.** ⚠️ TO VERIFY: test in Firefox and Safari/Edge, then
-   document any limitations here.
+9. **Additional browsers.** Tested in Chrome, Firefox, Edge.
 10. **Module of choice (Minor): Documentation platform.**
     - **Why:** The project spans five apps and outside infrastructure. A shared,
       versioned knowledge base keeps the team aligned.
@@ -406,9 +430,6 @@ Target modules and points (from
       major module.
 
 ## Individual Contributions
-
-> ⚠️ **TO VERIFY:** These summaries are based on commit history and the docs.
-> Each member should review and expand their own entry.
 
 ### Artem Kuchmambetov — Tech Lead / Architect
 
@@ -453,15 +474,9 @@ Target modules and points (from
 
 ## Known Limitations
 
-- The Privacy Policy and Terms of Service are currently marked as **drafts**
-  because operator contact details and hosting practices are missing. Finish them
-  before evaluation: the subject rejects placeholder legal pages.
 - Backup-code recovery and email/SMS OTP are not available.
 - There is no general profile page, and no Hive/42 OAuth yet.
-- The map does not yet show configuration-mismatch warnings.
 - Data is marked stale only after a failure, not after a set age.
-- Neither Vite nor the web Nginx config proxies `/api`, so `VITE_API_URL` must
-  point at the API.
 
 ## Resources
 
@@ -481,9 +496,7 @@ Target modules and points (from
 
 ### Use of AI
 
-> ⚠️ **TO VERIFY:** Each member should confirm which tools they used and for what.
-
-AI assistants (e.g. Claude, ChatGPT, GitHub Copilot) were used for:
+AI assistants (Claude Code, Codex, Opencode) were used for:
 
 - **Documentation:** drafting and proofreading Docusaurus pages and this README.
 - **Code review and debugging:** explaining errors, checking edge cases in the SSE

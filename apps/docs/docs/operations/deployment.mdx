@@ -133,9 +133,10 @@ does not establish that release documentation is complete; see
 
 ## Local development and recovery
 
-`docker-compose.dev.yml` runs PostgreSQL only. Use
-[Local Development](../getting-started/local-development) for the applications.
-There is no checked-in full-stack Compose file or custom database Dockerfile.
+`docker-compose.dev.yml` runs PostgreSQL, the migration worker, API, web, and docs,
+with an optional simulator profile. It uses `Dockerfile.dev` without Infisical.
+See [Local Development](../getting-started/local-development#run-everything-in-docker)
+for startup, seeding, and reload behavior. Production uses the app Dockerfiles above.
 
 Keep a record of healthy image references and a tested database backup/restore
 procedure. Rollback requires selecting compatible earlier images in the deployment
