@@ -16,6 +16,7 @@ const app = createApp({
   checkReady: createReadinessCheck(env, createSchemaCheck(db)),
 });
 
-app.listen(env.API_PORT, () => {
+app.listen(env.API_PORT, (error?: Error) => {
+  if (error) throw error;
   console.log(`API server running on port ${env.API_PORT}`);
 });

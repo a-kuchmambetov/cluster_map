@@ -12,6 +12,34 @@ beforeEach(() => {
   app = createApp(deps);
 });
 describe("custom auth routes", () => {
+  it("preserves credentialed CORS preflight for the web app", async () => {
+    const result = await request(app)
+      .options("/api/auth/logout")
+      .set("Origin", env.WEB_ORIGIN)
+      .set("Access-Control-Request-Method", "POST")
+      .set("Access-Control-Request-Headers", "content-type");
+
+    expect(result.status).toBe(204);
+    expect(result.headers["access-control-allow-origin"]).toBe(env.WEB_ORIGIN);
+    expect(result.headers["access-control-allow-credentials"]).toBe("true");
+  });
+
+  it("keeps the malformed JSON error envelope and skips the controller", async () => {
+    const result = await request(app)
+      .post("/api/auth/confirm/signed-token")
+      .set("Content-Type", "application/json")
+      .send("{invalid");
+
+    expect(result.status).toBe(400);
+    expect(result.body).toEqual({
+      ok: false,
+      status: "fail",
+      code: "BAD_REQUEST",
+      error: "Invalid JSON body",
+    });
+    expect(service.confirm).not.toHaveBeenCalled();
+  });
+
   it("rejects an untrusted browser origin", async () => {
     expect(
       (
@@ -41,6 +69,25 @@ describe("custom auth routes", () => {
     expect(result.status).toBe(401);
     expect(result.body).toMatchObject({ ok: false, code: "UNAUTHORIZED" });
   });
+  it.each(["confirm", "users"])(
+    "validates the %s token before calling its service",
+    async (route) => {
+      const path = `/api/auth/${route}/${"x".repeat(4097)}`;
+      const result = await (route === "confirm"
+        ? request(app).post(path)
+        : request(app).delete(path));
+
+      expect(result.status).toBe(422);
+      expect(result.body).toMatchObject({
+        ok: false,
+        status: "fail",
+        code: "VALIDATION_ERROR",
+        details: [{ path: "id", code: "too_big" }],
+      });
+      expect(service.confirm).not.toHaveBeenCalled();
+      expect(service.deleteUser).not.toHaveBeenCalled();
+    },
+  );
   it("does not expose password or default Better Auth routes", async () => {
     const responses = await Promise.all(
       [
@@ -95,7 +142,31 @@ describe("GitHub OAuth routes", () => {
     );
   });
 
-  it("defaults callbackURL to the web app when the parameter is absent", async () => {
+  it.each([
+    "",
+    "?callbackURL=/one&callbackURL=/two",
+    "?callbackURL[path]=/dashboard",
+    "?callbackURL[]=/dashboard",
+  ])(
+    "defaults callbackURL for absent or non-string queries: %s",
+    async (query) => {
+      vi.mocked(service.initiateGitHubSignIn).mockResolvedValue({
+        headers: new Headers(),
+        response: {
+          url: "https://github.com/login/oauth/authorize",
+          redirect: true,
+        },
+      });
+      const result = await request(app).get(`/api/auth/sign-in/github${query}`);
+      expect(result.status).toBe(302);
+      expect(service.initiateGitHubSignIn).toHaveBeenCalledWith(
+        new URL("/", env.WEB_ORIGIN).href,
+        expect.any(Headers),
+      );
+    },
+  );
+
+  it("preserves encoded callbackURL strings", async () => {
     vi.mocked(service.initiateGitHubSignIn).mockResolvedValue({
       headers: new Headers(),
       response: {
@@ -103,12 +174,57 @@ describe("GitHub OAuth routes", () => {
         redirect: true,
       },
     });
-    await request(app).get("/api/auth/sign-in/github");
+    const callbackURL = "/dashboard?tab=map&label=a+b";
+
+    const result = await request(app).get(
+      `/api/auth/sign-in/github?callbackURL=${encodeURIComponent(callbackURL)}`,
+    );
+
+    expect(result.status).toBe(302);
     expect(service.initiateGitHubSignIn).toHaveBeenCalledWith(
-      new URL("/", env.WEB_ORIGIN).href,
+      callbackURL,
       expect.any(Headers),
     );
   });
+
+  it.each([
+    {
+      search: "code=a%2Bb%2Fc%3D%20&state=s%26t%3Dx",
+      query: { code: "a+b/c= ", state: "s&t=x" },
+    },
+    {
+      search: "error=access_denied&error_description=User+cancelled&state=xyz",
+      query: {
+        error: "access_denied",
+        error_description: "User cancelled",
+        state: "xyz",
+      },
+    },
+    {
+      search: "code=one&code=two&state=xyz&extra[nested]=value",
+      query: { code: ["one", "two"], state: "xyz", extra: { nested: "value" } },
+    },
+  ])(
+    "preserves existing OAuth callback query parsing: $search",
+    async ({ search, query }) => {
+      vi.mocked(service.handleGitHubCallback).mockResolvedValue(
+        new Response(null, { status: 400 }),
+      );
+
+      const result = await request(app)
+        .get(`/api/auth/callback/github?${search}`)
+        .set("Cookie", "better-auth.state=signed-state");
+
+      expect(result.status).toBe(302);
+      expect(service.handleGitHubCallback).toHaveBeenCalledWith(
+        query,
+        expect.any(Headers),
+      );
+      expect(
+        vi.mocked(service.handleGitHubCallback).mock.calls[0][1].get("cookie"),
+      ).toBe("better-auth.state=signed-state");
+    },
+  );
 
   it.each([403, 500, 200])(
     "returns callback failures (%s) to the web login page",

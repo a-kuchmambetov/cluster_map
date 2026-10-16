@@ -2,9 +2,7 @@ import { Router } from "express";
 import { rateLimit } from "express-rate-limit";
 import { AppError } from "@repo/errors";
 import type { AuthService } from "./auth.service.js";
-import { validateRequest } from "@middleware/validateRequest.js";
 import { createAuthController } from "./auth.controller.js";
-import { confirmSchema } from "./auth.schema.js";
 
 export function createAuthRouter(
   service: AuthService,
@@ -43,11 +41,7 @@ export function createAuthRouter(
   authRouter.get("/session", sessionHandler);
   authRouter.get("/pending-users", pendingUsersHandler);
   authRouter.get("/users", usersHandler);
-  authRouter.delete(
-    "/users/:id",
-    validateRequest({ params: confirmSchema }),
-    deleteUserHandler,
-  );
+  authRouter.delete("/users/:id", deleteUserHandler);
   authRouter.post("/logout", logoutHandler);
   authRouter.use(
     rateLimit({
@@ -65,11 +59,7 @@ export function createAuthRouter(
         ),
     }),
   );
-  authRouter.post(
-    "/confirm/:id",
-    validateRequest({ params: confirmSchema }),
-    confirmHandler,
-  );
+  authRouter.post("/confirm/:id", confirmHandler);
 
   return authRouter;
 }

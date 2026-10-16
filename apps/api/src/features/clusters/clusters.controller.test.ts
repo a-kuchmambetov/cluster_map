@@ -1,11 +1,10 @@
-import type { NextFunction, Request, Response } from "express";
-import { describe, expect, it, vi } from "vitest";
-import {
-  getClusterConfigValidationHandler,
-  getClusterLayoutHandler,
-  getClusterOccupancyHandler,
-  listClusters,
-} from "./clusters.controller.js";
+import express from "express";
+import request from "supertest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createClustersRouter } from "./clusters.routes.js";
+import { clusterNumberParamSchema } from "./clusters.schema.js";
+import { errorMiddleware } from "../../middleware/error.js";
+import { createTestDependencies } from "../../test/fakes.js";
 
 const listClusterConfigsMock = vi.fn();
 const getClusterLayoutMock = vi.fn();
@@ -21,75 +20,75 @@ vi.mock("./clusters.service.js", () => ({
     getClusterConfigValidationMock(...args),
 }));
 
-function makeHandlerArgs(params: Record<string, unknown> = {}) {
-  const json = vi.fn();
-  const req = { params } as unknown as Request;
-  const res = { json } as unknown as Response;
-  const next = vi.fn() as unknown as NextFunction;
-  return { req, res, next, json };
-}
+const { authService } = createTestDependencies();
+const app = express()
+  .use("/api/clusters", createClustersRouter(authService))
+  .use(errorMiddleware);
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 describe("listClusters", () => {
   it("maps the service result to { clusters } and sends it", async () => {
-    const serviceResult = [
+    listClusterConfigsMock.mockReturnValueOnce([
       { id: "c1", number: 1, label: "Cluster 1", rows: [] },
       { id: "c2", number: 2, label: "Cluster 2", rows: [] },
-    ];
-    listClusterConfigsMock.mockReturnValueOnce(serviceResult);
+    ]);
 
-    const { req, res, next, json } = makeHandlerArgs();
-    await listClusters(req, res, next);
+    const response = await request(app).get("/api/clusters");
 
-    expect(json).toHaveBeenCalledWith({
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
       clusters: [
         { id: "c1", number: 1, label: "Cluster 1" },
         { id: "c2", number: 2, label: "Cluster 2" },
       ],
     });
-    expect(next).not.toHaveBeenCalled();
   });
 
-  it("forwards thrown errors to next", async () => {
-    const err = new Error("config unreadable");
+  it("forwards thrown errors to the error middleware", async () => {
     listClusterConfigsMock.mockImplementationOnce(() => {
-      throw err;
+      throw new Error("config unreadable");
     });
 
-    const { req, res, next } = makeHandlerArgs();
-    await listClusters(req, res, next);
+    const response = await request(app).get("/api/clusters");
 
-    expect(next).toHaveBeenCalledWith(err);
+    expect(response.status).toBe(500);
+    expect(response.body).toMatchObject({
+      code: "INTERNAL_SERVER_ERROR",
+      error: "config unreadable",
+    });
   });
 });
 
 describe("getClusterLayoutHandler", () => {
-  it("passes the parsed clusterNumber to the service and sends the result", async () => {
+  it("parses the clusterNumber once, passes a number to the service and sends the result", async () => {
+    const parse = vi.spyOn(clusterNumberParamSchema, "parse");
     const layout = {
       cluster: { id: "c1", number: 1, label: "Cluster 1" },
       rows: [],
     };
     getClusterLayoutMock.mockReturnValueOnce(layout);
 
-    const { req, res, next, json } = makeHandlerArgs({
-      clusterNumber: "1",
-    });
-    await getClusterLayoutHandler(req, res, next);
+    const response = await request(app).get("/api/clusters/1/layout");
 
+    expect(response.status).toBe(200);
+    expect(parse).toHaveBeenCalledOnce();
     expect(getClusterLayoutMock).toHaveBeenCalledWith(1);
-    expect(json).toHaveBeenCalledWith(layout);
-    expect(next).not.toHaveBeenCalled();
+    expect(response.body).toEqual(layout);
+    parse.mockRestore();
   });
 
-  it("forwards thrown errors to next", async () => {
-    const err = new Error("cluster not found");
+  it("forwards thrown errors to the error middleware", async () => {
     getClusterLayoutMock.mockImplementationOnce(() => {
-      throw err;
+      throw new Error("cluster not found");
     });
 
-    const { req, res, next } = makeHandlerArgs({ clusterNumber: "1" });
-    await getClusterLayoutHandler(req, res, next);
+    const response = await request(app).get("/api/clusters/1/layout");
 
-    expect(next).toHaveBeenCalledWith(err);
+    expect(response.status).toBe(500);
+    expect(response.body.error).toBe("cluster not found");
   });
 });
 
@@ -101,24 +100,20 @@ describe("getClusterOccupancyHandler", () => {
     };
     getClusterOccupancyDataMock.mockResolvedValueOnce(occupancy);
 
-    const { req, res, next, json } = makeHandlerArgs({
-      clusterNumber: "2",
-    });
-    await getClusterOccupancyHandler(req, res, next);
+    const response = await request(app).get("/api/clusters/2/occupancy");
 
+    expect(response.status).toBe(200);
     expect(getClusterOccupancyDataMock).toHaveBeenCalledWith(2);
-    expect(json).toHaveBeenCalledWith(occupancy);
-    expect(next).not.toHaveBeenCalled();
+    expect(response.body).toEqual(occupancy);
   });
 
-  it("forwards thrown errors to next", async () => {
-    const err = new Error("db error");
-    getClusterOccupancyDataMock.mockRejectedValueOnce(err);
+  it("forwards rejected promises to the error middleware", async () => {
+    getClusterOccupancyDataMock.mockRejectedValueOnce(new Error("db error"));
 
-    const { req, res, next } = makeHandlerArgs({ clusterNumber: "1" });
-    await getClusterOccupancyHandler(req, res, next);
+    const response = await request(app).get("/api/clusters/1/occupancy");
 
-    expect(next).toHaveBeenCalledWith(err);
+    expect(response.status).toBe(500);
+    expect(response.body.error).toBe("db error");
   });
 });
 
@@ -127,23 +122,41 @@ describe("getClusterConfigValidationHandler", () => {
     const result = { clusterNumber: 1, valid: true, errors: [] };
     getClusterConfigValidationMock.mockResolvedValueOnce(result);
 
-    const { req, res, next, json } = makeHandlerArgs({
-      clusterNumber: "1",
-    });
-    await getClusterConfigValidationHandler(req, res, next);
+    const response = await request(app).get(
+      "/api/clusters/1/config-validation",
+    );
 
+    expect(response.status).toBe(200);
     expect(getClusterConfigValidationMock).toHaveBeenCalledWith(1);
-    expect(json).toHaveBeenCalledWith(result);
-    expect(next).not.toHaveBeenCalled();
+    expect(response.body).toEqual(result);
   });
 
-  it("forwards thrown errors to next", async () => {
-    const err = new Error("db error");
-    getClusterConfigValidationMock.mockRejectedValueOnce(err);
+  it("forwards rejected promises to the error middleware", async () => {
+    getClusterConfigValidationMock.mockRejectedValueOnce(new Error("db error"));
 
-    const { req, res, next } = makeHandlerArgs({ clusterNumber: "1" });
-    await getClusterConfigValidationHandler(req, res, next);
+    const response = await request(app).get(
+      "/api/clusters/1/config-validation",
+    );
 
-    expect(next).toHaveBeenCalledWith(err);
+    expect(response.status).toBe(500);
+    expect(response.body.error).toBe("db error");
   });
 });
+
+it.each(["layout", "occupancy", "config-validation", "events"])(
+  "rejects an invalid cluster number before the %s service runs",
+  async (endpoint) => {
+    const response = await request(app).get(`/api/clusters/abc/${endpoint}`);
+
+    expect(response.status).toBe(422);
+    expect(response.body).toMatchObject({
+      ok: false,
+      status: "fail",
+      code: "VALIDATION_ERROR",
+      details: [{ path: "clusterNumber", code: "invalid_type" }],
+    });
+    expect(getClusterLayoutMock).not.toHaveBeenCalled();
+    expect(getClusterOccupancyDataMock).not.toHaveBeenCalled();
+    expect(getClusterConfigValidationMock).not.toHaveBeenCalled();
+  },
+);

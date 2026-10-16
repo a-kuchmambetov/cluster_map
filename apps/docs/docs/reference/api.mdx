@@ -131,7 +131,7 @@ Unknown routes are an exception to this envelope: there is no catch-all JSON not
 
 ## Request validation
 
-Path parameters are validated with the shared `validateRequest` Zod middleware, which replaces `req.params` with the parsed value on success or forwards a `ZodError` to the error middleware (surfaced as `422 VALIDATION_ERROR`) on failure. All `:clusterNumber` routes below use it with:
+Path parameters are validated once by the shared `handler` wrapper. It passes Zod's parsed output to a typed controller context without mutating the HTTP request. Express 5 forwards validation and controller errors to the error middleware (validation failures surface as `422 VALIDATION_ERROR`). All `:clusterNumber` routes below use:
 
 ```ts
 z.object({ clusterNumber: z.coerce.number().int().positive() });

@@ -1,6 +1,7 @@
 import { fromNodeHeaders } from "better-auth/node";
 import type { AuthService } from "../auth/auth.service.js";
-import type { NextFunction, Request, Response } from "express";
+import type { Request, Response } from "express";
+import { handler } from "@middleware/handler.js";
 import type { ClusterListResponse } from "@repo/types";
 import { subscribe } from "./clusters.pool.js";
 import { clusterNumberParamSchema } from "./clusters.schema.js";
@@ -14,77 +15,47 @@ import {
 
 const KEEPALIVE_INTERVAL_MS = 20_000;
 
-export async function listClusters(
-  _req: Request,
-  res: Response,
-  next: NextFunction,
-) {
-  try {
-    const body: ClusterListResponse = {
-      clusters: listClusterConfigs().map((cluster) => ({
-        id: cluster.id,
-        number: cluster.number,
-        label: cluster.label,
-      })),
-    };
+export function listClusters(_req: Request, res: Response) {
+  const body: ClusterListResponse = {
+    clusters: listClusterConfigs().map((cluster) => ({
+      id: cluster.id,
+      number: cluster.number,
+      label: cluster.label,
+    })),
+  };
 
-    res.json(body);
-  } catch (error) {
-    next(error);
-  }
+  res.json(body);
 }
 
-export async function getClusterLayoutHandler(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) {
-  try {
-    const { clusterNumber } = clusterNumberParamSchema.parse(req.params);
-    res.json(getClusterLayout(clusterNumber));
-  } catch (error) {
-    next(error);
-  }
-}
+export const getClusterLayoutHandler = handler(
+  { params: clusterNumberParamSchema },
+  ({ params }, res) => {
+    res.json(getClusterLayout(params.clusterNumber));
+  },
+);
 
-export async function getClusterOccupancyHandler(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) {
-  try {
-    const { clusterNumber } = clusterNumberParamSchema.parse(req.params);
-    res.json(await getClusterOccupancyData(clusterNumber));
-  } catch (error) {
-    next(error);
-  }
-}
+export const getClusterOccupancyHandler = handler(
+  { params: clusterNumberParamSchema },
+  async ({ params }, res) => {
+    res.json(await getClusterOccupancyData(params.clusterNumber));
+  },
+);
 
-export async function getClusterConfigValidationHandler(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) {
-  try {
-    const { clusterNumber } = clusterNumberParamSchema.parse(req.params);
-    res.json(await getClusterConfigValidation(clusterNumber));
-  } catch (error) {
-    next(error);
-  }
-}
+export const getClusterConfigValidationHandler = handler(
+  { params: clusterNumberParamSchema },
+  async ({ params }, res) => {
+    res.json(await getClusterConfigValidation(params.clusterNumber));
+  },
+);
 
 export function createClusterEventsHandler({
   getSession,
 }: Pick<AuthService, "getSession">) {
-  return function getClusterEventsHandler(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): void {
-    try {
-      const { clusterNumber } = clusterNumberParamSchema.parse(req.params);
+  return handler(
+    { params: clusterNumberParamSchema },
+    ({ params, req }, res) => {
       // 404 before the stream opens — throws AppError.clusterNotFound if missing.
-      const config = loadClusterConfig(clusterNumber);
+      const config = loadClusterConfig(params.clusterNumber);
 
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-store");
@@ -122,8 +93,6 @@ export function createClusterEventsHandler({
       }, KEEPALIVE_INTERVAL_MS);
 
       res.on("close", cleanup);
-    } catch (error) {
-      next(error);
-    }
-  };
+    },
+  );
 }

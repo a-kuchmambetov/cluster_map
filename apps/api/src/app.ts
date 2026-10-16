@@ -17,6 +17,9 @@ export function createApp(deps: AppDependencies): express.Express {
   // This lets the auth limiter use the client IP instead of the proxy's IP.
   app.set("trust proxy", env.TRUST_PROXY_HOPS);
 
+  // Preserve Express 4 query semantics for the OAuth endpoints.
+  app.set("query parser", "extended");
+
   app.use(requestLogger);
 
   const origin =
