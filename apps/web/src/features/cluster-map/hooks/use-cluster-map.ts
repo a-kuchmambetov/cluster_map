@@ -29,15 +29,16 @@ export const useClusterMap = () => {
     error: occupancyError,
     refetch: refetchOccupancy,
     applyDelta,
+    applySnapshot,
     markStale,
   } = useClusterOccupancy(selectedCluster);
 
   useClusterEvents({
     clusterNumber: selectedCluster,
     enabled: occupancyData !== null,
+    onSnapshot: applySnapshot,
     onDelta: applyDelta,
-    onDbUnavailable: markStale,
-    refetchOccupancy,
+    onStale: markStale,
   });
 
   const mapData =

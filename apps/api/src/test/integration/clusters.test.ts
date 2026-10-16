@@ -5,10 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppError } from "@repo/errors";
 import { createApp } from "../../app";
 import { createTestDependencies } from "../fakes";
-import {
-  resetPool,
-  writeSharedSnapshot,
-} from "../../features/clusters/clusters.pool";
+import { resetPool } from "../../features/clusters/clusters.pool";
 import type { OccupancyRow } from "../../features/clusters/clusters.types";
 
 // Captured before vi.useFakeTimers() runs so it always refers to the real
@@ -260,19 +257,24 @@ describe("GET /api/clusters/:clusterNumber/config-validation", () => {
 // This guarantees the subscriber is registered in the pool before the caller
 // advances any fake timers to trigger a poll.
 //
+// Events are queued in arrival order, so the snapshot sent on connect is not
+// lost if it arrives before the caller asks for it.
+//
 // setTimeout/clearTimeout are faked in SSE tests (see beforeEach). realSetTimeout
 // (module-level, captured before any faking) is used for the 5 s guard so that
 // vi.advanceTimersByTimeAsync can't fire it prematurely.
+type SSEEvent = { type: string; data: unknown };
+
 function openSSE(
   port: number,
   path: string,
 ): Promise<{
-  nextEvent: () => Promise<{ type: string; data: unknown }>;
+  nextEvent: () => Promise<SSEEvent>;
   close: () => void;
 }> {
   return new Promise((connected, connectErr) => {
-    let eventResolve: ((v: { type: string; data: unknown }) => void) | null =
-      null;
+    const queued: SSEEvent[] = [];
+    let eventResolve: ((v: SSEEvent) => void) | null = null;
     let buffer = "";
 
     const req = http.get(`http://localhost:${port}${path}`, (res) => {
@@ -287,24 +289,29 @@ function openSSE(
           const lines = part.split("\n");
           const type = lines[0].replace("event: ", "").trim();
           const raw = lines[1]?.replace("data: ", "").trim() ?? "{}";
-          const data: unknown = JSON.parse(raw);
+          const event = { type, data: JSON.parse(raw) as unknown };
           if (eventResolve) {
             const r = eventResolve;
             eventResolve = null;
-            r({ type, data });
+            r(event);
+          } else {
+            queued.push(event);
           }
         }
       });
 
       // Headers received — the stream is open and the subscriber is registered.
       connected({
-        nextEvent: () =>
-          new Promise((res, rej) => {
+        nextEvent: () => {
+          const event = queued.shift();
+          if (event) return Promise.resolve(event);
+          return new Promise((res, rej) => {
             eventResolve = res;
             // realSetTimeout (captured before vi.useFakeTimers) so
             // advancing the fake clock can't fire this guard early.
             realSetTimeout(() => rej(new Error("SSE event timeout")), 5_000);
-          }),
+          });
+        },
         close: () => req.destroy(),
       });
     });
@@ -361,18 +368,56 @@ describe("GET /api/clusters/:clusterNumber/events — stream", () => {
     getClusterOccupancyMock.mockReset();
   });
 
-  it("sends occupancy-delta when a place becomes occupied", async () => {
-    getClusterOccupancyMock.mockResolvedValue([
-      {
-        row: 1,
-        place: 2,
-        intraName: "jdoe",
-        displayName: "John Doe",
-        photo: null,
-      },
-    ]);
+  const dbRow = (
+    place: number,
+    peer: Partial<Omit<OccupancyRow, "row" | "place">> = {},
+  ): OccupancyRow => ({
+    row: 1,
+    place,
+    intraName: null,
+    displayName: null,
+    photo: null,
+    ...peer,
+  });
 
-    const { nextEvent, close } = await openSSE(port, "/api/clusters/1/events");
+  // Connects and consumes the snapshot every new stream starts with.
+  async function connect() {
+    const stream = await openSSE(port, "/api/clusters/1/events");
+    const snapshot = await stream.nextEvent();
+    expect(snapshot.type).toBe("occupancy-snapshot");
+    return { ...stream, snapshot };
+  }
+
+  it("sends a full occupancy-snapshot as soon as the stream opens", async () => {
+    getClusterOccupancyMock.mockResolvedValue(C1_R1_OCCUPANCY);
+
+    const { snapshot, close } = await connect();
+    close();
+
+    expect(snapshot.data).toEqual({
+      occupied: [
+        {
+          row: 1,
+          place: 2,
+          peer: { intraName: "jdoe", displayName: "John Doe", photo: null },
+        },
+        {
+          row: 1,
+          place: 5,
+          peer: { intraName: null, displayName: "Guest User", photo: null },
+        },
+      ],
+      lastUpdated: expect.any(String),
+    });
+  });
+
+  it("sends occupancy-delta when a place becomes occupied", async () => {
+    getClusterOccupancyMock.mockResolvedValue([]);
+    const { nextEvent, close } = await connect();
+
+    getClusterOccupancyMock.mockResolvedValue([
+      dbRow(2, { intraName: "jdoe", displayName: "John Doe" }),
+    ]);
     const eventPromise = nextEvent();
     await vi.advanceTimersByTimeAsync(30_000);
     const event = await eventPromise;
@@ -386,18 +431,10 @@ describe("GET /api/clusters/:clusterNumber/events — stream", () => {
   });
 
   it("sends occupancy-delta when a place becomes free", async () => {
-    // Seed: place 3 is occupied.
-    writeSharedSnapshot("c1", [
-      {
-        row: 1,
-        place: 3,
-        peer: { intraName: null, displayName: null, photo: null },
-      },
-    ]);
-    // Poll: place 3 is now gone.
-    getClusterOccupancyMock.mockResolvedValue([]);
+    getClusterOccupancyMock.mockResolvedValue([dbRow(3)]);
+    const { nextEvent, close } = await connect();
 
-    const { nextEvent, close } = await openSSE(port, "/api/clusters/1/events");
+    getClusterOccupancyMock.mockResolvedValue([]);
     const eventPromise = nextEvent();
     await vi.advanceTimersByTimeAsync(30_000);
     const event = await eventPromise;
@@ -410,18 +447,14 @@ describe("GET /api/clusters/:clusterNumber/events — stream", () => {
   });
 
   it("sends occupancy-delta when peer data changes on an already-occupied place", async () => {
-    writeSharedSnapshot("c1", [
-      {
-        row: 1,
-        place: 2,
-        peer: { intraName: "alice", displayName: "Alice", photo: null },
-      },
-    ]);
     getClusterOccupancyMock.mockResolvedValue([
-      { row: 1, place: 2, intraName: "bob", displayName: "Bob", photo: null },
+      dbRow(2, { intraName: "alice", displayName: "Alice" }),
     ]);
+    const { nextEvent, close } = await connect();
 
-    const { nextEvent, close } = await openSSE(port, "/api/clusters/1/events");
+    getClusterOccupancyMock.mockResolvedValue([
+      dbRow(2, { intraName: "bob", displayName: "Bob" }),
+    ]);
     const eventPromise = nextEvent();
     await vi.advanceTimersByTimeAsync(30_000);
     const event = await eventPromise;
@@ -436,30 +469,40 @@ describe("GET /api/clusters/:clusterNumber/events — stream", () => {
     expect(delta.freed).toHaveLength(0);
   });
 
-  it("sends no event when nothing changed", async () => {
-    writeSharedSnapshot("c1", [
-      {
-        row: 1,
-        place: 2,
-        peer: { intraName: "jdoe", displayName: "John Doe", photo: null },
-      },
-    ]);
+  it("delivers a change to a connected client even after another client reads /occupancy", async () => {
+    getClusterOccupancyMock.mockResolvedValue([]);
+    const { nextEvent, close } = await connect();
+
+    // DB changes, then another user loads the page through REST.
     getClusterOccupancyMock.mockResolvedValue([
-      {
-        row: 1,
-        place: 2,
-        intraName: "jdoe",
-        displayName: "John Doe",
-        photo: null,
-      },
+      dbRow(2, { intraName: "jdoe" }),
+    ]);
+    const rest = await request(app).get("/api/clusters/1/occupancy");
+    expect(rest.status).toBe(200);
+    expect(rest.body.occupied).toHaveLength(1);
+
+    const eventPromise = nextEvent();
+    await vi.advanceTimersByTimeAsync(30_000);
+    const event = await eventPromise;
+    close();
+
+    expect(event.type).toBe("occupancy-delta");
+    expect(event.data).toMatchObject({
+      occupied: [{ row: 1, place: 2 }],
+      freed: [],
+    });
+  });
+
+  it("sends no event after the snapshot when nothing changed", async () => {
+    getClusterOccupancyMock.mockResolvedValue([
+      dbRow(2, { intraName: "jdoe", displayName: "John Doe" }),
     ]);
 
-    const { nextEvent, close } = await openSSE(port, "/api/clusters/1/events");
+    const { nextEvent, close } = await connect();
 
     // Register the event handler BEFORE triggering the poll. If nextEvent()
-    // were called after advanceTimersByTimeAsync, the delta would land while
-    // eventResolve is still null and be silently dropped — the race would
-    // always time out regardless of what the mock returns.
+    // were called after advanceTimersByTimeAsync, a delta would be queued
+    // rather than racing the timeout below.
     const eventPromise = nextEvent();
     await vi.advanceTimersByTimeAsync(30_000);
     // realSetTimeout (real clock) gives I/O 200 ms to deliver any event that
@@ -480,9 +523,7 @@ describe("GET /api/clusters/:clusterNumber/events — stream", () => {
     getClusterOccupancyMock.mockRejectedValue(new Error("connection refused"));
 
     const { nextEvent, close } = await openSSE(port, "/api/clusters/1/events");
-    const eventPromise = nextEvent();
-    await vi.advanceTimersByTimeAsync(30_000);
-    const event = await eventPromise;
+    const event = await nextEvent();
     close();
 
     expect(event.type).toBe("error");

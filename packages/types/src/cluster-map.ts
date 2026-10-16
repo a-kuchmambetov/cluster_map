@@ -100,6 +100,10 @@ export type OccupiedEntry = {
  *
  * GET /api/clusters/:clusterNumber/occupancy
  *
+ * Also the payload of the `occupancy-snapshot` SSE event, which the stream
+ * sends first on every connection (including reconnects) and again after
+ * the database recovers from an outage.
+ *
  * Places missing from `occupied` are considered free.
  */
 export type ClusterOccupancyResponse = {
@@ -147,8 +151,9 @@ export type FreedEntry = {
  *
  * `freed` contains places that were occupied before and are now free.
  *
- * The frontend applies this delta to the current occupancy state
- * instead of replacing the whole occupancy snapshot.
+ * Deltas are relative to the last `occupancy-snapshot` received on the
+ * same connection plus the deltas since. The frontend applies them to its
+ * current occupancy state instead of replacing the whole snapshot.
  */
 export type OccupancyDelta = {
   occupied: OccupiedEntry[];
@@ -160,7 +165,8 @@ export type OccupancyDelta = {
  * read the current occupancy from the database.
  *
  * The SSE connection stays open. The frontend should keep the
- * last successful occupancy state visible and mark it as stale.
+ * last successful occupancy state visible and mark it as stale
+ * until the next `occupancy-snapshot` arrives.
  */
 export type OccupancyStreamError = {
   code: "DB_UNAVAILABLE";

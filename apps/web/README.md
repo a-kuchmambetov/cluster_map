@@ -54,7 +54,7 @@ Pages consume features through `index.ts`. Feature internals use direct relative
 
 API transport contracts remain in `@repo/types`. Frontend-only view types stay in the feature. Layout and occupancy snapshots have independent requests; superseded requests are cancelled and cannot commit old data. Switching clusters hides previous data before effects start the replacement requests. Same-cluster refresh failures retain the last snapshot and mark it stale.
 
-The event stream opens after an occupancy snapshot loads. DB failures retain the stream and retry the snapshot every 30 seconds. Transport failures close the stream and require a successful fresh snapshot before reconnecting. Cleanup cancels timers and prevents reconnection after unmount or selection changes.
+The event stream opens after the occupancy request loads. Each connection starts with a full snapshot that replaces local occupancy, followed by deltas. DB failures retain the stream and mark occupancy stale until the server's recovery snapshot. Transport failures close the stream, mark occupancy stale and reconnect after 30 seconds; the new connection's snapshot resynchronizes. Cleanup cancels timers and prevents reconnection after unmount or selection changes.
 
 ## UI library audit
 

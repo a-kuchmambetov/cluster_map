@@ -7,6 +7,9 @@ const getClusterEventsHandler = createClusterEventsHandler({ getSession });
 const mocks = vi.hoisted(() => ({
   unsubscribe: vi.fn(),
   emit: undefined as undefined | ((event: string, data: string) => void),
+  onSubscribe: undefined as
+    | undefined
+    | ((emit: (event: string, data: string) => void) => void),
 }));
 vi.mock("./clusters.service", () => ({
   loadClusterConfig: () => ({ id: "c1" }),
@@ -14,12 +17,14 @@ vi.mock("./clusters.service", () => ({
 vi.mock("./clusters.pool", () => ({
   subscribe: (_id: string, emit: typeof mocks.emit) => {
     mocks.emit = emit;
+    if (emit) mocks.onSubscribe?.(emit);
     return mocks.unsubscribe;
   },
 }));
 afterEach(() => {
   vi.useRealTimers();
   vi.resetAllMocks();
+  mocks.onSubscribe = undefined;
 });
 describe("stream session revalidation", () => {
   it("closes the connection, unsubscribes and stops events when access expires", async () => {
@@ -71,5 +76,29 @@ describe("stream session revalidation", () => {
     expect(res.write).toHaveBeenCalledWith(": keep-alive\n\n");
     expect(res.end).not.toHaveBeenCalled();
     expect(mocks.unsubscribe).not.toHaveBeenCalled();
+  });
+});
+
+describe("stream subscription", () => {
+  it("writes a snapshot emitted synchronously while subscribing", () => {
+    const res = Object.assign(new EventEmitter(), {
+      setHeader: vi.fn(),
+      flushHeaders: vi.fn(),
+      write: vi.fn(),
+      end: vi.fn(),
+    });
+    const snapshot = JSON.stringify({ occupied: [], lastUpdated: null });
+    mocks.onSubscribe = (emit) => emit("occupancy-snapshot", snapshot);
+    getClusterEventsHandler(
+      { params: { clusterNumber: "1" }, headers: {} } as unknown as Request,
+      res as unknown as Response,
+      vi.fn() as NextFunction,
+    );
+    expect(res.flushHeaders).toHaveBeenCalledBefore(res.write);
+    expect(res.write).toHaveBeenCalledWith(
+      `event: occupancy-snapshot\ndata: ${snapshot}\n\n`,
+    );
+    res.emit("close");
+    expect(mocks.unsubscribe).toHaveBeenCalledOnce();
   });
 });

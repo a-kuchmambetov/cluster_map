@@ -1,28 +1,32 @@
 import { apiRequest, ApiError } from "@/lib/http";
 import { API_URL } from "@/config/api";
-import type { OccupancyDelta, OccupancyStreamError } from "@repo/types";
+import type {
+  ClusterOccupancyResponse,
+  OccupancyDelta,
+  OccupancyStreamError,
+} from "@repo/types";
 
-// Used for both DB recovery retries and SSE reconnect retries.
+// Delay before reopening a lost stream.
 // Matching the server's 30-second polling cadence keeps retries reasonable.
-const RECOVERY_RETRY_MS = 30_000;
+const RECONNECT_RETRY_MS = 30_000;
 
 export type ClusterEventsOptions = {
   clusterNumber: number;
   enabled: boolean;
+  onSnapshot: (snapshot: ClusterOccupancyResponse) => void;
   onDelta: (delta: OccupancyDelta) => void;
-  onDbUnavailable: () => void;
-  refetchOccupancy: () => Promise<boolean>;
+  onStale: () => void;
 };
 
 export const subscribeClusterEvents = ({
   clusterNumber,
   enabled,
+  onSnapshot,
   onDelta,
-  onDbUnavailable,
-  refetchOccupancy,
+  onStale,
 }: ClusterEventsOptions) => {
-  // The stream is opened only after the initial occupancy snapshot
-  // has loaded successfully.
+  // The stream is opened only after the initial occupancy request
+  // has loaded successfully, so loading and error states stay with it.
   if (!enabled) {
     return;
   }
@@ -30,25 +34,12 @@ export const subscribeClusterEvents = ({
   let source: EventSource | null = null;
   const sessionCheck = new AbortController();
 
-  // recoveryTimer:
-  // Used when SSE is still connected but the API reports DB_UNAVAILABLE.
-  let recoveryTimer: ReturnType<typeof setTimeout> | null = null;
-
-  // reconnectTimer:
-  // Used when the SSE connection itself is lost and the occupancy
-  // refresh also fails.
+  // Used when the SSE connection itself is lost.
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Prevents async work from reopening streams after the component
   // has unmounted or the selected cluster has changed.
   let cancelled = false;
-
-  const clearRecoveryTimer = () => {
-    if (recoveryTimer !== null) {
-      clearTimeout(recoveryTimer);
-      recoveryTimer = null;
-    }
-  };
 
   const clearReconnectTimer = () => {
     if (reconnectTimer !== null) {
@@ -58,44 +49,11 @@ export const subscribeClusterEvents = ({
   };
 
   /**
-   * DB recovery path.
-   *
-   * The SSE connection is still alive, but the server could not
-   * read occupancy from the database.
-   *
-   * We periodically re-fetch /occupancy so the frontend can clear
-   * its stale state even if the database recovers without producing
-   * an occupancy delta.
-   */
-  const scheduleRecovery = () => {
-    // Only one recovery timer may exist at a time.
-    if (cancelled || recoveryTimer !== null) {
-      return;
-    }
-
-    recoveryTimer = setTimeout(async () => {
-      recoveryTimer = null;
-
-      if (cancelled) {
-        return;
-      }
-
-      const refreshed = await refetchOccupancy();
-
-      // If the DB is still unavailable, keep the existing
-      // occupancy visible and try again later.
-      if (!refreshed && !cancelled) {
-        scheduleRecovery();
-      }
-    }, RECOVERY_RETRY_MS);
-  };
-
-  /**
    * SSE reconnect path.
    *
    * When the stream itself is lost, events may have been missed.
-   * The contract therefore requires a fresh /occupancy snapshot
-   * before opening the stream again.
+   * Every new connection starts with a full occupancy-snapshot,
+   * so reopening the stream is enough to resynchronize.
    */
   const scheduleReconnect = () => {
     // Avoid multiple reconnect timers running in parallel.
@@ -103,28 +61,10 @@ export const subscribeClusterEvents = ({
       return;
     }
 
-    reconnectTimer = setTimeout(async () => {
+    reconnectTimer = setTimeout(() => {
       reconnectTimer = null;
-
-      if (cancelled) {
-        return;
-      }
-
-      const refreshed = await refetchOccupancy();
-
-      if (cancelled) {
-        return;
-      }
-
-      if (refreshed) {
-        // We are synchronized again, so realtime updates
-        // can safely resume.
-        openStream();
-      } else {
-        // Still unable to obtain a trusted full snapshot.
-        scheduleReconnect();
-      }
-    }, RECOVERY_RETRY_MS);
+      openStream();
+    }, RECONNECT_RETRY_MS);
   };
 
   /**
@@ -140,23 +80,28 @@ export const subscribeClusterEvents = ({
     });
 
     /**
-     * Normal realtime update.
+     * Full occupancy state.
      *
-     * The server sends deltas only:
+     * Sent first on every connection and again after a DB outage.
+     * It replaces whatever the client had, so state missed while
+     * disconnected or stale during an outage is repaired.
+     */
+    source.addEventListener(
+      "occupancy-snapshot",
+      (event: MessageEvent<string>) => {
+        onSnapshot(JSON.parse(event.data) as ClusterOccupancyResponse);
+      },
+    );
+
+    /**
+     * Normal realtime update, relative to the last snapshot:
      * - occupied: newly occupied places or changed peer data
      * - freed: places that became free
      */
     source.addEventListener(
       "occupancy-delta",
       (event: MessageEvent<string>) => {
-        const delta = JSON.parse(event.data) as OccupancyDelta;
-
-        // Receiving a successful delta proves the DB is
-        // responding again, so any pending DB recovery
-        // refresh is no longer needed.
-        clearRecoveryTimer();
-
-        onDelta(delta);
+        onDelta(JSON.parse(event.data) as OccupancyDelta);
       },
     );
 
@@ -179,11 +124,8 @@ export const subscribeClusterEvents = ({
         if (streamError.code === "DB_UNAVAILABLE") {
           // Keep the last successful occupancy visible,
           // mark it stale, and keep the SSE connection open.
-          onDbUnavailable();
-
-          // Re-fetch later so stale can be cleared even if
-          // the DB recovers without any occupancy changes.
-          scheduleRecovery();
+          // The server sends a fresh snapshot once the DB recovers.
+          onStale();
         }
 
         return;
@@ -192,11 +134,11 @@ export const subscribeClusterEvents = ({
       // Native EventSource connection failure.
       //
       // Close the browser's automatic reconnect behavior and use our own
-      // reconnect flow. Before reopening the stream, scheduleReconnect()
-      // fetches a fresh /occupancy snapshot so missed events cannot leave
-      // the frontend out of sync.
-      clearRecoveryTimer();
+      // reconnect flow. The reopened stream starts with a full snapshot,
+      // so missed events cannot leave the frontend out of sync. Until it
+      // arrives, the visible occupancy is marked stale.
       source?.close();
+      onStale();
 
       void apiRequest("/auth/session", { signal: sessionCheck.signal })
         .then(() => {
@@ -225,7 +167,6 @@ export const subscribeClusterEvents = ({
     cancelled = true;
     sessionCheck.abort();
 
-    clearRecoveryTimer();
     clearReconnectTimer();
     source?.close();
   };

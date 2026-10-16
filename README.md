@@ -371,10 +371,11 @@ Target modules and points (from
    ecosystem support.
 2. **Real-time (SSE).** `GET /api/clusters/:n/events` streams `occupancy-delta`
    events (`occupied[]` / `freed[]`) from one shared poller per cluster in each API
-   process. The poller runs every 30 s. Keepalive comments and a session recheck
-   happen every 20 s. The client closes the stream on a disconnect, fetches a fresh
-   snapshot, and then reconnects. Seat occupancy is the core value of the product,
-   so it has to stay current without reloading the page.
+   process. Every connection starts with a full `occupancy-snapshot`, and the
+   poller runs every 30 s. Keepalive comments and a session recheck happen every
+   20 s. On a disconnect the client closes the stream and reconnects; the new
+   connection's snapshot repairs anything missed. Seat occupancy is the core
+   value of the product, so it has to stay current without reloading the page.
 3. **WAF + secrets management.**
    - **WAF:** Traffic passes through Cloudflare's cloud-based WAF, with the OWASP
      Core Ruleset enabled, before it reaches the Coolify reverse proxy. The API

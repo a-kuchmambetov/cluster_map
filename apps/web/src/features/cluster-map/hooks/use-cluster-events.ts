@@ -5,17 +5,16 @@ import {
 } from "../api/cluster-events";
 
 export const useClusterEvents = (options: ClusterEventsOptions) => {
-  const { clusterNumber, enabled, onDelta, onDbUnavailable, refetchOccupancy } =
-    options;
+  const { clusterNumber, enabled, onSnapshot, onDelta, onStale } = options;
   useEffect(
     () =>
       subscribeClusterEvents({
         clusterNumber,
         enabled,
+        onSnapshot,
         onDelta,
-        onDbUnavailable,
-        refetchOccupancy,
+        onStale,
       }),
-    [clusterNumber, enabled, onDelta, onDbUnavailable, refetchOccupancy],
+    [clusterNumber, enabled, onSnapshot, onDelta, onStale],
   );
 };

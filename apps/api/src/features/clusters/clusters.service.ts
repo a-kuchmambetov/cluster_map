@@ -5,7 +5,6 @@ import type {
   ConfigValidationError,
   ConfigValidationResponse,
 } from "@repo/types";
-import { writeSharedSnapshot } from "./clusters.pool";
 import { getClusterOccupancy } from "./clusters.repository";
 import { clustersConfigFileSchema } from "./clusters.schema";
 import type {
@@ -107,6 +106,7 @@ export function getClusterLayout(clusterNumber: number): ClusterLayoutResponse {
 
 // Returns only the currently occupied places for a cluster.
 // Every place not listed is free by implication.
+// Read-only: the SSE poller owns its own baseline (see clusters.pool.ts).
 // DB errors propagate uncaught; the error middleware surfaces them as 500.
 export async function getClusterOccupancyData(
   clusterNumber: number,
@@ -122,10 +122,6 @@ export async function getClusterOccupancyData(
       photo: r.photo,
     },
   }));
-
-  // Keep the shared SSE snapshot in sync so the first poll after a new
-  // SSE connection has a baseline to diff against (cold-start window fix).
-  writeSharedSnapshot(config.id, occupied);
 
   return { occupied, lastUpdated: new Date().toISOString() };
 }

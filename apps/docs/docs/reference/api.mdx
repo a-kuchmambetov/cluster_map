@@ -432,17 +432,22 @@ A [Server-Sent Events](https://developer.mozilla.org/en-US/docs/Web/API/Server-s
 
 ### Load sequence
 
-Fetch `/layout` and `/occupancy` to construct the map. Open SSE only after a
-successful occupancy snapshot; the web client loads layout independently and
-may open SSE before layout finishes. The stream diffs a process-local shared
-snapshot and does not replay full state or per-client history. Successful
-occupancy requests also replace that shared baseline, so this is not a
-per-client guarantee of every change since connection time.
+Fetch `/layout` and `/occupancy` to construct the map. The web client opens
+SSE after a successful occupancy response so loading and error states stay
+with that request; it loads layout independently and may open SSE before
+layout finishes.
+
+Every new connection, including a reconnect, first receives a full
+`occupancy-snapshot`, then `occupancy-delta` events relative to it. The
+poller owns its per-cluster baseline: `/occupancy` is read-only and never
+changes what the stream diffs against, and a new subscriber never resets the
+baseline of existing ones. The baseline is dropped when the last subscriber
+for a cluster disconnects.
 
 ```
 GET /api/clusters/:clusterNumber/layout    → render the grid
 GET /api/clusters/:clusterNumber/occupancy → mark initially occupied seats
-GET /api/clusters/:clusterNumber/events    → open stream; receive deltas
+GET /api/clusters/:clusterNumber/events    → receive a snapshot, then deltas
 ```
 
 ### Request
@@ -469,6 +474,9 @@ All events are named so the client can use `addEventListener` rather than `onmes
 const source = new EventSource("/api/clusters/1/events", {
   withCredentials: true,
 });
+source.addEventListener("occupancy-snapshot", (e) => {
+  /* ... */
+});
 source.addEventListener("occupancy-delta", (e) => {
   /* ... */
 });
@@ -477,11 +485,33 @@ source.addEventListener("error", (e) => {
 });
 ```
 
+#### `occupancy-snapshot`
+
+The full current occupancy, in the same shape as the `/occupancy` response.
+Replace local occupancy with it. Sent:
+
+- first on every connection: immediately when the cluster's poller already
+  has a baseline, otherwise as soon as a poll started for the connection
+  completes;
+- to every connection on the first successful poll after a `DB_UNAVAILABLE`
+  error, even if nothing changed, so clients can clear stale state.
+
+```
+event: occupancy-snapshot
+data: {"occupied":[{"row":1,"place":2,"peer":{"intraName":"jdoe","displayName":"John Doe","photo":null}}],"lastUpdated":"2026-08-27T10:00:00.000Z"}
+
+```
+
+`lastUpdated` is the time of the poll that produced the baseline, so a
+snapshot served from memory can be up to one poll interval old; any change
+since then arrives as a delta.
+
 #### `occupancy-delta`
 
 Sent when occupancy changed since the last poll. Not sent when nothing changed.
+A delta is never sent to a connection before its snapshot.
 
-The stream carries incremental changes with explicit `occupied` and `freed` arrays. It does not include event IDs, timestamps, full snapshots, or replay history.
+The stream carries incremental changes with explicit `occupied` and `freed` arrays, relative to the last snapshot plus the deltas since. It does not include event IDs or replay history.
 
 ```
 event: occupancy-delta
@@ -506,7 +536,9 @@ data: {"code":"DB_UNAVAILABLE","message":"Occupancy data temporarily unavailable
 
 ```
 
-On repeated `DB_UNAVAILABLE` events: keep the last successful occupancy rendered and mark it stale, showing the last successful update time. Do not clear occupancy and do not treat missing data as free. The frontend retries an occupancy snapshot after 30 seconds so a successful read can clear stale state even when recovery produces no changes. A successful delta also clears stale state.
+On repeated `DB_UNAVAILABLE` events: keep the last successful occupancy rendered and mark it stale, showing the last successful update time. Do not clear occupancy and do not treat missing data as free. The server sends an `occupancy-snapshot` once the database recovers, which clears stale state even when recovery produces no changes.
+
+A connection opened while the database is unavailable receives `error` events instead of a snapshot until a poll succeeds.
 
 #### Keepalive comments
 
@@ -519,13 +551,11 @@ A comment line is sent every 20 seconds after a successful session recheck to pr
 
 ### Reconnect
 
-`EventSource` reconnects automatically after a disconnect, but the server keeps no event history, so the client may have missed changes during the gap. The required reconnect sequence is:
+The server keeps no event history, so a client may miss changes while disconnected. The `occupancy-snapshot` that starts every connection repairs that state, so no `/occupancy` request is needed before reconnecting. The current client replaces browser automatic reconnect with this sequence:
 
-1. On a native transport error, close EventSource and check `/auth/session`. Stop retries on `401` or `403`.
-2. Wait 30 seconds, then **re-fetch `/occupancy`**. Repeat if that snapshot fails.
-3. Open a new credentialed EventSource only after a successful snapshot.
-
-The current client replaces browser automatic reconnect with this sequence. A transport error alone does not immediately mark data stale; a failed snapshot refresh does.
+1. On a native transport error, close EventSource, mark occupancy stale and check `/auth/session`. Stop retries on `401` or `403`.
+2. Wait 30 seconds, then open a new credentialed EventSource. Repeat if it fails again.
+3. Replace occupancy with the new connection's snapshot, which clears stale state.
 
 The `Last-Event-ID` header sent by `EventSource` on reconnect is ignored — no event IDs are assigned.
 
