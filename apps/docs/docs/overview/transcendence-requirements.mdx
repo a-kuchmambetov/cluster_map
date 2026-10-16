@@ -32,6 +32,6 @@ This table records target modules and points, not verified completion. See
 - Container entrypoints use Infisical. HashiCorp Vault and WAF/ModSecurity
   configuration are not checked in, so the listed security target is not
   established by the current implementation.
-- TOTP enrollment, verification, trusted-device login, and disabling are exposed.
-  Backup codes are displayed during setup, but there is no backup-code recovery
-  route. See [Authentication endpoints](../reference/api#authentication-endpoints).
+- The 2FA module is not currently implemented. TOTP enrollment and login were
+  removed with email/password sign-in, since they depended on passwords. See
+  [Authentication endpoints](../reference/api#authentication-endpoints).

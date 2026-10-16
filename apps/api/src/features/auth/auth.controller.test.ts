@@ -13,53 +13,25 @@ vi.mock("./auth.service", () => ({
   getSession: vi.fn(),
   getPendingUsers: vi.fn(),
   logout: vi.fn(),
-  register: vi.fn(),
   confirm: vi.fn(),
-  login: vi.fn(),
   initiateGitHubSignIn: vi.fn(),
   handleGitHubCallback: vi.fn(),
-  enableTwoFactor: vi.fn(),
-  verifyTOTP: vi.fn(),
-  disableTwoFactor: vi.fn(),
 }));
 const app = express()
   .use(express.json())
   .use("/api/auth", authRouter)
   .use(errorMiddleware);
-const credentials = { email: "person@example.com", password: "test-password" };
 beforeEach(() => vi.clearAllMocks());
 describe("custom auth routes", () => {
-  it("validates input before calling registration", async () => {
-    expect(
-      (await request(app).post("/api/auth/register").send({ email: "bad" }))
-        .status,
-    ).toBe(422);
-    expect(service.register).not.toHaveBeenCalled();
-  });
-  it("registers using validated input and forwarded headers", async () => {
-    vi.mocked(service.register).mockResolvedValue({
-      message: "Awaiting administrator approval",
-    });
-    const result = await request(app)
-      .post("/api/auth/register")
-      .set("Origin", "http://localhost:5173")
-      .send({ ...credentials, name: " Person " });
-    expect(result.status).toBe(200);
-    expect(service.register).toHaveBeenCalledWith(
-      { ...credentials, name: "Person" },
-      expect.any(Headers),
-    );
-  });
   it("rejects an untrusted browser origin", async () => {
     expect(
       (
         await request(app)
-          .post("/api/auth/login")
+          .post("/api/auth/confirm/signed-token")
           .set("Origin", "https://untrusted.example")
-          .send(credentials)
       ).status,
     ).toBe(403);
-    expect(service.login).not.toHaveBeenCalled();
+    expect(service.confirm).not.toHaveBeenCalled();
   });
   it("passes the confirmation token and prevents caching/referrer leakage", async () => {
     vi.mocked(service.confirm).mockResolvedValue({ message: "Confirmed" });
@@ -72,47 +44,33 @@ describe("custom auth routes", () => {
       expect.any(Headers),
     );
   });
-  it("preserves multiple session cookies separately", async () => {
-    const headers = new Headers();
-    headers.append("set-cookie", "session=one; HttpOnly; Path=/");
-    headers.append("set-cookie", "other=two; HttpOnly; Path=/");
-    vi.mocked(service.login).mockResolvedValue({
-      headers,
-      body: {
-        user: {
-          id: "1",
-          email: credentials.email,
-          name: "Person",
-          emailVerified: true,
-          role: "user",
-          image: null,
-          twoFactorEnabled: false,
-        },
-      },
-    });
-    const result = await request(app).post("/api/auth/login").send(credentials);
-    expect(result.status).toBe(200);
-    expect(result.headers["set-cookie"]).toEqual(headers.getSetCookie());
-    expect(result.body.token).toBeUndefined();
-  });
   it("uses the existing error envelope", async () => {
-    vi.mocked(service.login).mockRejectedValue(
-      AppError.unauthorized("Invalid credentials"),
+    vi.mocked(service.confirm).mockRejectedValue(
+      AppError.unauthorized("Authentication required"),
     );
-    const result = await request(app).post("/api/auth/login").send(credentials);
+    const result = await request(app).post("/api/auth/confirm/signed-token");
     expect(result.status).toBe(401);
     expect(result.body).toMatchObject({ ok: false, code: "UNAUTHORIZED" });
   });
-  it("does not expose default Better Auth routes", async () => {
-    expect(
-      (await request(app).post("/api/auth/sign-up/email").send(credentials))
-        .status,
-    ).toBe(404);
+  it("does not expose password or default Better Auth routes", async () => {
+    const responses = await Promise.all(
+      [
+        "/api/auth/sign-up/email",
+        "/api/auth/sign-in/email",
+        "/api/auth/register",
+        "/api/auth/login",
+        "/api/auth/two-factor/enable",
+      ].map((path) => request(app).post(path).send({})),
+    );
+    expect(responses.map((response) => response.status)).toEqual([
+      404, 404, 404, 404, 404,
+    ]);
   });
-  it("limits repeated authentication requests", async () => {
+  it("limits repeated approval attempts", async () => {
+    vi.mocked(service.confirm).mockResolvedValue({ message: "Confirmed" });
     const results = await Promise.all(
       Array.from({ length: 11 }, () =>
-        request(app).post("/api/auth/login").send({}),
+        request(app).post("/api/auth/confirm/signed-token"),
       ),
     );
     const result = results.at(-1);
@@ -206,7 +164,7 @@ describe("GitHub OAuth routes", () => {
 });
 
 describe("session lifecycle routes", () => {
-  it("does not throttle routine session checks with the login limiter", async () => {
+  it("does not throttle routine session checks with the approval limiter", async () => {
     vi.mocked(service.getSession).mockResolvedValue({
       user: {
         id: "1",
@@ -215,7 +173,6 @@ describe("session lifecycle routes", () => {
         emailVerified: false,
         role: "user",
         image: null,
-        twoFactorEnabled: false,
       },
     });
     const results = await Promise.all(

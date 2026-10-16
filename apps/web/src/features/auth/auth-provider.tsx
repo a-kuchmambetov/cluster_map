@@ -11,22 +11,12 @@ import { ApiError, onAccessDenied } from "@/lib/http";
 import * as api from "./api";
 
 type State = {
-  status:
-    | "loading"
-    | "authenticated"
-    | "anonymous"
-    | "two-factor"
-    | "error"
-    | "forbidden";
+  status: "loading" | "authenticated" | "anonymous" | "error" | "forbidden";
   user: AuthUser | null;
 };
 type Auth = State & {
   refresh: () => void;
-  signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
-  verifyTwoFactor: (code: string, trustDevice: boolean) => Promise<void>;
-  cancelTwoFactor: () => void;
-  setTwoFactorEnabled: (enabled: boolean) => void;
 };
 const Context = createContext<Auth | null>(null);
 export function AuthProvider({ children }: PropsWithChildren) {
@@ -71,22 +61,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
       controller.abort();
     };
   }, [revision]);
-  const signIn = async (email: string, password: string) => {
-    const current = ++generation.current;
-    const result = await api.login(email, password);
-    if (current === generation.current)
-      setState(
-        "twoFactorRedirect" in result
-          ? { status: "two-factor", user: null }
-          : { status: "authenticated", user: result.user },
-      );
-  };
-  const verifyTwoFactor = async (code: string, trustDevice: boolean) => {
-    const current = ++generation.current;
-    const { user } = await api.verifyTOTP(code, trustDevice);
-    if (current === generation.current)
-      setState({ status: "authenticated", user });
-  };
   const signOut = async () => {
     await api.logout();
     generation.current++;
@@ -97,22 +71,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       value={{
         ...state,
         refresh: () => setRevision((value) => value + 1),
-        signIn,
         signOut,
-        verifyTwoFactor,
-        setTwoFactorEnabled: (enabled) =>
-          setState((current) =>
-            current.user
-              ? {
-                  ...current,
-                  user: { ...current.user, twoFactorEnabled: enabled },
-                }
-              : current,
-          ),
-        cancelTwoFactor: () => {
-          generation.current++;
-          setState({ status: "anonymous", user: null });
-        },
       }}
     >
       {children}

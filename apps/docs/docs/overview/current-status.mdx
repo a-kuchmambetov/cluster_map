@@ -9,37 +9,35 @@ definitions do not establish production deployment or release acceptance.
 
 ## Implementation summary
 
-| Area            | Current state                                                                                                                                                                                           |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Web             | Protected map at `/`, email/password and GitHub sign-in, TOTP settings at `/settings/security`, and user listing, approval, and deletion at `/admin/users`.                                             |
-| API             | Public database health and application readiness checks; authenticated cluster list, layout, occupancy, configuration validation, and SSE endpoints.                                                    |
-| Public pages    | Privacy Policy at `/privacy` and Terms of Service at `/terms`, linked from auth screens and the global footer. Both are explicitly marked as drafts.                                                    |
-| Authentication  | Better Auth sessions, administrator approval, current-role checks, logout, GitHub OAuth, and TOTP enrollment/login/disable flows. Backup codes are displayed during setup, but recovery is not exposed. |
-| Database        | Auth and Hive Drizzle schemas, four migrations, PostgreSQL 17 in the full development Compose stack, and an optional static demo seed.                                                                  |
-| Worker          | One-shot database migration worker with optional initial administrator creation.                                                                                                                        |
-| Live updates    | Shared per-cluster polling with a 30-second delay between completed polls, SSE deltas, and frontend recovery snapshots.                                                                                 |
-| Shared packages | Auth and cluster DTOs in `@repo/types`, application errors in `@repo/errors`; `@repo/validators` still contains example validation.                                                                     |
-| Tests           | API unit/integration, web Vitest, worker Node tests, and deployment change-selection tests; opt-in PostgreSQL auth integration enabled in CI.                                                           |
-| Deployment      | API, web, docs, and worker Dockerfiles; API/worker Infisical entrypoints; GitHub Actions image publishing and Coolify webhook deployment.                                                               |
-| Documentation   | Docusaurus site with separate development and build commands; historical contracts under Archive.                                                                                                       |
+| Area            | Current state                                                                                                                                                             |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Web             | Protected map at `/`, GitHub sign-in, and user listing, approval, and deletion at `/admin/users`.                                                                         |
+| API             | Public database health and application readiness checks; authenticated cluster list, layout, occupancy, configuration validation, and SSE endpoints.                      |
+| Public pages    | Privacy Policy at `/privacy` and Terms of Service at `/terms`, linked from auth screens and the global footer. Both are explicitly marked as drafts.                      |
+| Authentication  | Better Auth sessions, GitHub OAuth, administrator approval, current-role checks, and logout. Email/password sign-in and TOTP two-factor authentication have been removed. |
+| Database        | Auth and Hive Drizzle schemas, four migrations, PostgreSQL 17 in the full development Compose stack, and an optional static demo seed.                                    |
+| Worker          | One-shot database migration worker with optional administrator promotion of an existing account.                                                                          |
+| Live updates    | Shared per-cluster polling with a 30-second delay between completed polls, SSE deltas, and frontend recovery snapshots.                                                   |
+| Shared packages | Auth and cluster DTOs in `@repo/types`, application errors in `@repo/errors`; `@repo/validators` still contains example validation.                                       |
+| Tests           | API unit/integration, web Vitest, worker Node tests, and deployment change-selection tests; opt-in PostgreSQL auth integration enabled in CI.                             |
+| Deployment      | API, web, docs, and worker Dockerfiles; API/worker Infisical entrypoints; GitHub Actions image publishing and Coolify webhook deployment.                                 |
+| Documentation   | Docusaurus site with separate development and build commands; historical contracts under Archive.                                                                         |
 
 See [Local Development](../getting-started/local-development),
 [API Reference](../reference/api), and [Deployment](../operations/deployment).
 
 ## Remaining work and limitations
 
-- Hive OAuth and a general profile page are not implemented. GitHub is the current
-  OAuth provider; password-based TOTP settings do not provide a password-creation
-  flow for GitHub-only accounts.
-- Backup-code verification and email/SMS OTP routes are not exposed.
+- Hive OAuth and a general profile page are not implemented. GitHub is the only
+  sign-in method. Email/password sign-in and TOTP two-factor authentication have
+  been removed.
 - Connect configuration-validation results to map warnings; the frontend currently
   supplies an empty warnings array.
 - Define an age-based stale threshold and measurable performance/accessibility
   acceptance criteria. Current stale behavior responds to failures, not data age.
 - Validate production occupancy integration and database privileges. The current
   client is shared by occupancy reads and authentication writes.
-- `/api/health/ready` is mounted, but omits the `two_factor` table, layout, and
-  sign-in round trips. Deployment workflows do not use it as a gate.
+- `/api/health/ready` is mounted, but omits layout and sign-in round trips. Deployment workflows do not use it as a gate.
 - Complete the operator details and deployment practices identified as missing
   in the public privacy/terms drafts.
 - The simulation agent is implemented in `apps/simulator` and must be enabled

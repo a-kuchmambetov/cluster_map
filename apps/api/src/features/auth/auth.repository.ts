@@ -50,7 +50,7 @@ export async function listUsers() {
 }
 
 export async function deleteUser(id: string) {
-  // Foreign keys cascade deletion to sessions, accounts, and two-factor secrets.
+  // Foreign keys cascade deletion to sessions and linked accounts.
   const [record] = await db
     .delete(user)
     .where(eq(user.id, id))

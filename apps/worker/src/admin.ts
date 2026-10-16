@@ -1,11 +1,10 @@
-import { betterAuth } from "better-auth";
-import { drizzleAdapter } from "@better-auth/drizzle-adapter";
-import { db, eq, user, session, account, verification } from "@repo/db";
+import { db, eq, user } from "@repo/db";
 import { env } from "./env.js";
 
-export async function createAdminIfRequested(): Promise<void> {
-  if (!env.ADMIN_EMAIL || !env.ADMIN_PASSWORD) {
-    console.log("No admin credentials provided; skipping admin creation.");
+// Administrators are never created here. The account must already exist from a GitHub sign-in.
+export async function promoteAdminIfRequested(): Promise<void> {
+  if (!env.ADMIN_EMAIL) {
+    console.log("No admin email provided; skipping admin promotion.");
     return;
   }
 
@@ -15,67 +14,22 @@ export async function createAdminIfRequested(): Promise<void> {
     .where(eq(user.email, env.ADMIN_EMAIL))
     .limit(1);
 
-  if (existing) {
-    if (existing.role === "admin" && existing.approved) {
-      console.log(`Admin account ${env.ADMIN_EMAIL} already exists.`);
-      return;
-    }
-    throw new Error(
-      `Account ${env.ADMIN_EMAIL} already exists but is not an approved admin.`,
+  if (!existing) {
+    console.log(
+      `No account for ${env.ADMIN_EMAIL} yet. Sign in with GitHub, then restart the worker.`,
     );
+    return;
   }
 
-  const auth = betterAuth({
-    secret: env.BETTER_AUTH_SECRET!,
-    baseURL: env.BETTER_AUTH_URL!,
-    database: drizzleAdapter(db, {
-      provider: "pg",
-      schema: { user, session, account, verification },
-    }),
-    emailAndPassword: {
-      enabled: true,
-      requireEmailVerification: false,
-      autoSignIn: false,
-      minPasswordLength: 8,
-      maxPasswordLength: 128,
-    },
-    user: {
-      additionalFields: {
-        role: {
-          type: ["user", "admin"],
-          defaultValue: "user",
-          input: false,
-        },
-        approved: { type: "boolean", defaultValue: false, input: false },
-        approvalToken: {
-          type: "string",
-          required: false,
-          input: false,
-          returned: false,
-        },
-      },
-    },
-  });
+  if (existing.role === "admin" && existing.approved) {
+    console.log(`Admin account ${env.ADMIN_EMAIL} already exists.`);
+    return;
+  }
 
-  const result = await auth.api.signUpEmail({
-    body: {
-      name: env.ADMIN_NAME,
-      email: env.ADMIN_EMAIL,
-      password: env.ADMIN_PASSWORD,
-    },
-  });
-
-  const [created] = await db
+  await db
     .update(user)
     .set({ role: "admin", approved: true, approvalToken: null })
-    .where(eq(user.id, result.user.id))
-    .returning({ id: user.id });
+    .where(eq(user.id, existing.id));
 
-  if (!created) {
-    throw new Error(
-      `Admin account ${env.ADMIN_EMAIL} could not be provisioned.`,
-    );
-  }
-
-  console.log(`Created admin account ${env.ADMIN_EMAIL}.`);
+  console.log(`Promoted ${env.ADMIN_EMAIL} to approved administrator.`);
 }

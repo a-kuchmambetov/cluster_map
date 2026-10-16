@@ -18,7 +18,7 @@ node --test scripts/deploy/*.test.mjs
 
 | Suite           | Coverage and tooling                                                                                                                                                                            |
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| API unit        | Vitest; auth service/controller, TOTP controller, session middleware, health/readiness, logging, cluster schema/service/controller, SSE pool, and stream access.                                |
+| API unit        | Vitest; auth service/controller, session middleware, health/readiness, logging, cluster schema/service/controller, SSE pool, and stream access.                                                 |
 | API integration | Vitest and Supertest; mounted routes, error behavior, logs, real layout configuration, and optional database auth flow.                                                                         |
 | Web             | Vitest with happy-dom; auth/security settings, administrator management, public legal routes with pending/failed session loading, map model, snapshot ownership/cancellation, and SSE recovery. |
 
@@ -43,8 +43,8 @@ AUTH_DB_TEST=1 pnpm --filter @repo/api test:integration
 This exercises real account/session writes, current admin privileges, and
 single-use approval tokens. CI enables this test after migrating disposable
 PostgreSQL. Other integration tests use mocked dependencies or the checked-in
-layout. TOTP controller/UI tests do not establish a real authenticator or GitHub
-provider round trip; those still require end-to-end acceptance checks.
+layout. Auth tests do not establish a real GitHub provider round trip; that still
+requires an end-to-end acceptance check.
 
 ## Demo data and simulation
 

@@ -12,17 +12,16 @@ and product policies. Record future accepted decisions in linked ADRs.
 
 ### Authentication and access
 
-Viewers register and sign in with email/password or GitHub through Better Auth. New
-accounts require administrator approval before session creation. The API checks
+Viewers sign in with GitHub through Better Auth. New accounts require administrator
+approval before session creation. Email/password sign-in and TOTP two-factor
+authentication have been removed. The API checks
 current approval for cluster requests and rechecks open SSE streams every
 20 seconds. Health checks are public.
 
 Approved administrators use `/admin/users`, `GET /api/auth/pending-users`, and
 `POST /api/auth/confirm/:id` to approve accounts. `:id` is a single-use approval
 token, not the user's ID. Administrators can also list all users and delete other
-accounts. TOTP setup, login verification, and disabling are implemented, with
-settings at `/settings/security`. Backup codes are displayed but cannot currently
-be submitted through an app route. Hive OAuth remains unimplemented.
+accounts. Hive OAuth remains unimplemented.
 
 ### Layout and occupancy
 

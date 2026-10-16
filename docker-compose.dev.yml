@@ -42,8 +42,6 @@ services:
     environment:
       <<: [*db-env, *auth-env]
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
-      ADMIN_NAME: ${ADMIN_NAME:-Administrator}
     volumes:
       - ./apps/worker/src:/app/apps/worker/src:ro
       - ./packages/db/migrations:/app/packages/db/migrations:ro

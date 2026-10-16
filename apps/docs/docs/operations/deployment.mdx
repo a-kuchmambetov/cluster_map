@@ -52,21 +52,23 @@ startup; restart to load changes.
 
 The API needs `PG_*`, auth configuration, and GitHub OAuth credentials. The
 worker needs a database identity permitted to apply migrations. Optional
-`ADMIN_EMAIL` and `ADMIN_PASSWORD` bootstrap an approved administrator and also
-require `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL`. See
+`ADMIN_EMAIL` names an account to promote to an approved administrator; the worker
+needs no auth settings for this. See
 [Environment Variables](../reference/environment-variables).
 
 ## Migration and administrator bootstrap
 
 Run the worker against the intended database before starting application code
 that needs new schema. It retries database connectivity up to 30 times, applies
-the checked-in Drizzle migrations, optionally creates the administrator, closes
+the checked-in Drizzle migrations, optionally promotes the administrator, closes
 the database pool, and exits. A failure exits nonzero.
 
-If the configured email already belongs to an approved administrator, the worker
-keeps the existing account and password. If it belongs to any other account,
-bootstrap fails; the worker does not promote or reset that account. Omit both
-administrator credentials to run migrations only.
+The worker never creates accounts. If `ADMIN_EMAIL` matches an existing account,
+the worker sets its role to `admin`, marks it approved, and clears its approval
+token. An account that is already an approved administrator is left unchanged. If
+no account has that email yet, the worker logs a message and exits successfully;
+have the administrator sign in with GitHub, then rerun the worker. Omit
+`ADMIN_EMAIL` to run migrations only.
 
 API containers do not migrate at startup. The deployment workflows publish the
 worker image but do not run it or enforce migration-before-API ordering. Configure
@@ -113,8 +115,8 @@ After deployment, verify:
 1. The migration worker exits successfully.
 2. `GET /api/health` returns `200` with `{ "status": "ok", "db": "ok" }`.
 3. `GET /api/health/ready` returns `200` with `{ "status": "ready" }`.
-4. Password login, account approval, GitHub sign-in, and TOTP work with the actual
-   browser origin and cookies.
+4. Account approval and GitHub sign-in work with the actual browser origin and
+   cookies.
 5. Cluster snapshots, SSE delivery, and reconnect recovery work through the proxy.
 6. Database data persists across application replacement.
 

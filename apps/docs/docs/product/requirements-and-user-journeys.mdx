@@ -5,7 +5,7 @@ title: Requirements and User Journeys
 
 # Requirements and User Journeys
 
-The current application implements email/password access, administrator approval,
+The current application implements GitHub sign-in, administrator approval,
 cluster selection, map rendering, occupied-place details, and SSE updates. This
 page describes those journeys and identifies remaining product requirements.
 
@@ -33,34 +33,23 @@ The following are out of scope for the first release:
 An administrator interface for listing, approving, and deleting users is implemented
 at `/admin/users`. Administrators cannot delete their own account.
 
-Viewers use email/password or GitHub sign-in and need administrator approval
-before accessing the map. Occupancy remains read-only. See
+Viewers sign in with GitHub and need administrator approval before accessing the
+map. Occupancy remains read-only. See
 [Architecture Decisions](../architecture/decisions#authentication-and-access).
 
-## Register and approve an account
+## Sign in and get approved
 
-A visitor can read `/privacy` and `/terms` before signing in. Links appear on
-login and registration screens and in the global footer. Both pages are marked
-as drafts and remain readable while session loading is pending or the API is
-unavailable. See [Public policy pages](./privacy-and-quality-requirements#public-policy-pages).
+A visitor can read `/privacy` and `/terms` before signing in. Links appear on the
+sign-in screen and in the global footer. Both pages are marked as drafts and remain
+readable while session loading is pending or the API is unavailable. See
+[Public policy pages](./privacy-and-quality-requirements#public-policy-pages).
 
-A viewer registers at `/register` and receives an approval-pending message;
-registration does not create a session. An approved administrator opens
-`/admin/users`, reviews pending users, and approves an account. The viewer can
-then sign in at `/login`. The API enforces current privileges independently of
-the frontend, and logout invalidates the session. New GitHub accounts also await
-approval; GitHub sign-in does not bypass this requirement.
-
-## Manage account security
-
-A signed-in viewer opens `/settings/security`, enters their password, scans the
-QR code (or copies the setup key), and verifies a six-digit authenticator code.
-Setup displays backup codes and asks the viewer to save them. Subsequent password
-logins can present a TOTP challenge with a trust-device option. Disabling TOTP
-requires the current password.
-
-Backup-code login/recovery and email/SMS OTP are not exposed by the current API
-or UI. GitHub-only users have no in-app password-creation flow for these settings.
+A viewer signs in with GitHub from `/login`. The first sign-in creates an account
+that is not yet approved, so the viewer cannot open the map. An approved
+administrator opens `/admin/users`, reviews pending users, and approves the
+account. The viewer can then sign in again and open the map. The API enforces
+current privileges independently of the frontend, and logout invalidates the
+session. GitHub sign-in does not bypass approval.
 
 ## Manage users
 

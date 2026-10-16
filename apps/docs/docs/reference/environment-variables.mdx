@@ -20,14 +20,13 @@ Infisical bootstrap settings below apply to production app Dockerfiles only.
 | `API_PORT`                                       | 5001                                                                                                                     | API listener; Docker health check reads the injected port                      |
 | `TRUST_PROXY_HOPS`                               | `0` for direct runs; API image defaults to `1` for Coolify. Match the trusted proxy chain and keep the API port private. | API client IP resolution and auth rate limiting                                |
 | `WEB_ORIGIN`                                     | `http://localhost:5173`; set to the actual frontend origin                                                               | API CORS and trusted auth origin                                               |
-| `BETTER_AUTH_URL`                                | Required URL; example `http://localhost:5001`                                                                            | Better Auth; worker admin bootstrap                                            |
-| `BETTER_AUTH_SECRET`                             | Required, at least 32 characters                                                                                         | Better Auth; worker admin bootstrap                                            |
-| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`       | Non-empty values required by API auth configuration, including password login and seed                                   | GitHub OAuth                                                                   |
+| `BETTER_AUTH_URL`                                | Required URL; example `http://localhost:5001`                                                                            | Better Auth                                                                    |
+| `BETTER_AUTH_SECRET`                             | Required, at least 32 characters                                                                                         | Better Auth                                                                    |
+| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`       | Non-empty values required by API auth configuration                                                                      | GitHub OAuth                                                                   |
 | `PG_HOST`                                        | `localhost`                                                                                                              | API, DB tooling, worker                                                        |
 | `PG_PORT`                                        | `5432`; also development Compose host port                                                                               | API, DB tooling, worker, Compose                                               |
 | `PG_USER`, `PG_PASSWORD`, `PG_DB`                | Each defaults to `app`                                                                                                   | API, DB tooling, worker, Compose                                               |
-| `ADMIN_EMAIL`, `ADMIN_PASSWORD`                  | Optional pair; password 8–128 characters; email normalized to lowercase                                                  | Worker initial admin creation                                                  |
-| `ADMIN_NAME`                                     | `Administrator`                                                                                                          | Worker initial admin name                                                      |
+| `ADMIN_EMAIL`                                    | Optional; email of an existing account to promote to approved administrator; normalized to lowercase                     | Worker admin promotion                                                         |
 | `INFISICAL_CLIENT_ID`, `INFISICAL_CLIENT_SECRET` | Required Universal Auth bootstrap credentials in containers                                                              | API and worker entrypoints                                                     |
 | `INFISICAL_PROJECT_ID`, `INFISICAL_ENV`          | Required project ID and environment slug in containers                                                                   | API and worker entrypoints                                                     |
 | `INFISICAL_DOMAIN`                               | Optional domain selection passed to the installed CLI                                                                    | Infisical CLI                                                                  |
@@ -41,11 +40,11 @@ Infisical bootstrap settings below apply to production app Dockerfiles only.
 | `SIMULATOR_RELEASE_PROBABILITY`                  | `0.3` (must keep total with claim probability ≤ 1)                                                                       | Chance a seated identity releases its seat each tick                           |
 | `SIMULATOR_LOCK_KEY`                             | `7269736`                                                                                                                | PostgreSQL advisory lock key used to prevent duplicate simulator instances     |
 
-Worker admin bootstrap requires `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` when
-both admin credentials are set. Empty admin credentials are treated as omitted.
-The worker does not require GitHub credentials. API auth does, even when only
-password login is used; dummy values are suitable only for local password-only
-testing and do not enable GitHub sign-in.
+Worker admin promotion needs only `ADMIN_EMAIL`. An empty value is treated as
+omitted. The worker promotes an existing account and does not create one, so the
+account must have signed in with GitHub first. The worker does not require GitHub
+credentials. API auth does; dummy values are suitable only for local testing and
+do not enable GitHub sign-in.
 
 The API readiness endpoint also validates the auth variables, requires
 `WEB_ORIGIN` to equal its parsed origin (no path or trailing slash), and requires

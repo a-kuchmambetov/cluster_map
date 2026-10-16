@@ -10,9 +10,7 @@ import { ApiError, apiRequest } from "@/lib/http";
 import * as api from "./api";
 vi.mock("./api", () => ({
   getSession: vi.fn(),
-  login: vi.fn(),
   logout: vi.fn(),
-  verifyTOTP: vi.fn(),
 }));
 const user = {
   id: "1",
@@ -121,7 +119,7 @@ it.each([
   "//evil.example",
   "/\\evil.example",
   "/login",
-  "/register?returnTo=/",
+  "/login?returnTo=/",
 ])("rejects unsafe or looping return path %s", (value) => {
   expect(safeReturnPath(value)).toBe("/");
 });
@@ -196,68 +194,4 @@ describe("GitHub sign-in", () => {
       assign.mockRestore();
     },
   );
-
-  it("hides GitHub sign-in during an email two-factor challenge", async () => {
-    await renderSignIn();
-    vi.mocked(api.login).mockResolvedValue({
-      twoFactorRedirect: true,
-      twoFactorMethods: ["totp"],
-    });
-    await act(async () => auth.signIn("test@example.com", "password"));
-    expect(container.textContent).toContain("Two-factor authentication");
-    expect(container.textContent).not.toContain("Sign in with GitHub");
-  });
-});
-
-it("keeps private routes blocked until a 2FA challenge is verified", async () => {
-  vi.mocked(api.getSession).mockRejectedValue(
-    new ApiError(401, "Authentication required"),
-  );
-  vi.mocked(api.login).mockResolvedValue({
-    twoFactorRedirect: true,
-    twoFactorMethods: ["totp"],
-  });
-  await render();
-  await act(async () => auth.signIn("test@example.com", "password"));
-  expect(auth.status).toBe("two-factor");
-  expect(auth.user).toBeNull();
-  expect(mounted).not.toHaveBeenCalled();
-  vi.mocked(api.verifyTOTP).mockRejectedValueOnce(
-    new ApiError(401, "Invalid code"),
-  );
-  await act(async () => {
-    await expect(auth.verifyTwoFactor("000000", false)).rejects.toThrow(
-      "Invalid code",
-    );
-  });
-  expect(auth.status).toBe("two-factor");
-  vi.mocked(api.verifyTOTP).mockResolvedValue({ user });
-  await act(async () => auth.verifyTwoFactor("123456", true));
-  expect(api.verifyTOTP).toHaveBeenLastCalledWith("123456", true);
-  expect(auth.status).toBe("authenticated");
-  expect(auth.user).toEqual(user);
-});
-it("ignores verification completing after a challenge is cancelled", async () => {
-  vi.mocked(api.getSession).mockRejectedValue(
-    new ApiError(401, "Authentication required"),
-  );
-  vi.mocked(api.login).mockResolvedValue({
-    twoFactorRedirect: true,
-    twoFactorMethods: ["totp"],
-  });
-  await render();
-  await act(async () => auth.signIn("test@example.com", "password"));
-  let resolve!: (value: { user: typeof user }) => void;
-  vi.mocked(api.verifyTOTP).mockReturnValue(
-    new Promise((done) => {
-      resolve = done;
-    }),
-  );
-  await act(async () => {
-    const verification = auth.verifyTwoFactor("123456", false);
-    auth.cancelTwoFactor();
-    resolve({ user });
-    await verification;
-  });
-  expect(auth.status).toBe("anonymous");
 });

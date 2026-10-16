@@ -48,9 +48,8 @@ The DB client constructs a PostgreSQL URL from `PG_USER`, `PG_PASSWORD`,
 
 Auth initializes lazily when auth functionality or readiness is checked. `BETTER_AUTH_SECRET`
 must have at least 32 characters, `BETTER_AUTH_URL` must be a URL, and both
-GitHub variables must be non-empty. This validation also applies to password
-login and the demo seed. For local password-only testing, non-empty dummy GitHub
-values satisfy validation, but GitHub sign-in requires real OAuth credentials.
+GitHub variables must be non-empty. For local testing without GitHub, non-empty
+dummy values satisfy validation, but GitHub sign-in requires real OAuth credentials.
 Set the OAuth App callback to `http://localhost:5001/api/auth/callback/github`
 for this example; change it when the auth origin changes.
 
@@ -62,8 +61,8 @@ check the `two_factor` table or perform a sign-in round trip.
 
 Use `pnpm db:up`, `pnpm db:migrate`, and optionally `pnpm db:seed` for local setup.
 Alternatively, after building shared packages, `pnpm worker:dev` runs migrations
-and optional admin bootstrap once. Set both `ADMIN_EMAIL` and `ADMIN_PASSWORD`
-to create an initial administrator, or omit both for migrations only. The DB
+and optional admin promotion once. Set `ADMIN_EMAIL` to promote an account that
+has already signed in with GitHub, or omit it for migrations only. The DB
 client is shared by map reads and auth writes.
 
 ## CORS and environment mode

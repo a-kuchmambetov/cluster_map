@@ -5,7 +5,6 @@ export interface AuthUser {
   emailVerified: boolean;
   role: "user" | "admin";
   image?: string | null;
-  twoFactorEnabled?: boolean;
 }
 export interface AuthSessionResponse {
   user: AuthUser;
@@ -23,17 +22,6 @@ export interface PendingUser {
 }
 export interface PendingUsersResponse {
   users: PendingUser[];
-}
-
-export type AuthLoginResponse =
-  | AuthSessionResponse
-  | {
-      twoFactorRedirect: true;
-      twoFactorMethods: string[];
-    };
-export interface TwoFactorSetupResponse {
-  totpURI: string;
-  backupCodes: string[];
 }
 
 export interface AdminUser extends PendingUser {

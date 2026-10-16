@@ -1,16 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { betterAuth } from "better-auth";
 import { APIError } from "better-auth/api";
-import { twoFactor } from "better-auth/plugins";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
-import {
-  db,
-  user,
-  session,
-  account,
-  verification,
-  twoFactor as twoFactorTable,
-} from "@repo/db";
+import { db, user, session, account, verification } from "@repo/db";
 import { getAuthEnv, env } from "./env";
 import { findAuthUser } from "@features/auth/auth.repository";
 
@@ -21,16 +13,8 @@ export const auth = betterAuth({
   trustedOrigins: [env.WEB_ORIGIN],
   database: drizzleAdapter(db, {
     provider: "pg",
-    schema: { user, session, account, verification, twoFactor: twoFactorTable },
+    schema: { user, session, account, verification },
   }),
-  plugins: [twoFactor({ issuer: "Cluster Map" })],
-  emailAndPassword: {
-    enabled: true,
-    requireEmailVerification: false,
-    autoSignIn: false,
-    minPasswordLength: 8,
-    maxPasswordLength: 128,
-  },
   socialProviders: {
     github: {
       clientId: config.GITHUB_CLIENT_ID,
@@ -65,7 +49,7 @@ export const auth = betterAuth({
     },
     session: {
       create: {
-        // Gate session creation itself, including direct calls to auth.api.signInEmail.
+        // Gate session creation itself, including GitHub sign-in.
         before: async (newSession) => {
           const currentUser = await findAuthUser(newSession.userId);
           if (!currentUser?.approved)

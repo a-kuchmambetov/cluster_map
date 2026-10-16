@@ -11,9 +11,7 @@
     "test": "pnpm --filter @repo/worker... build && node --experimental-test-module-mocks --test test/*.test.mjs"
   },
   "dependencies": {
-    "@better-auth/drizzle-adapter": "^1.7.4",
     "@repo/db": "workspace:*",
-    "better-auth": "^1.7.4",
     "dotenv": "^16.4.5",
     "zod": "^3.23.8"
   },

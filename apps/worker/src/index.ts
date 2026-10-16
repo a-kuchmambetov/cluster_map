@@ -5,7 +5,7 @@ dotenv.config({ path: resolve(process.cwd(), "../../.env") });
 
 const { db, migrate } = await import("@repo/db");
 const { env } = await import("./env.js");
-const { createAdminIfRequested } = await import("./admin.js");
+const { promoteAdminIfRequested } = await import("./admin.js");
 
 const MIGRATIONS_FOLDER = new URL(
   "../../../packages/db/migrations",
@@ -90,7 +90,7 @@ async function runMigrations(): Promise<void> {
 async function main(): Promise<void> {
   await waitForDatabase();
   await runMigrations();
-  await createAdminIfRequested();
+  await promoteAdminIfRequested();
   console.log("Worker finished successfully.");
 }
 

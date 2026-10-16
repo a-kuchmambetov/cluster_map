@@ -1,5 +1,6 @@
 /* eslint-disable no-await-in-loop -- Seed inserts follow foreign-key dependencies in a predictable order. */
 import dotenv from "dotenv";
+import { randomBytes, randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import { eq } from "drizzle-orm";
 
@@ -13,7 +14,6 @@ async function main() {
   const { db, user, userHiveInfo, cluster, row, position } =
     await import("@repo/db");
   try {
-    const { auth } = await import("../config/auth.js");
     const { listClusterConfigs } =
       await import("../features/clusters/clusters.service.js");
     const configs = listClusterConfigs();
@@ -33,7 +33,6 @@ async function main() {
         ),
       0,
     );
-    const password = "Demo-password-123!";
     const members: string[] = [];
     const accounts = [
       { login: "demo-admin", role: "admin" as const, approved: true },
@@ -53,21 +52,17 @@ async function main() {
         .where(eq(user.email, email));
       let id = existing?.id;
       if (!id) {
-        const result = await auth.api.signUpEmail({
-          body: { name: demo.login, email, password },
+        // Privileges are assigned only to accounts created by this run.
+        id = randomUUID();
+        await db.insert(user).values({
+          id,
+          name: demo.login,
+          email,
+          emailVerified: false,
+          role: demo.approved ? demo.role : "user",
+          approved: demo.approved,
+          approvalToken: demo.approved ? null : randomBytes(32).toString("hex"),
         });
-        id = result.user.id;
-        // Bootstrap privileges only for accounts created by this run.
-        if (demo.approved) {
-          await db
-            .update(user)
-            .set({
-              role: demo.role,
-              approved: true,
-              approvalToken: null,
-            })
-            .where(eq(user.id, id));
-        }
       }
       await db
         .insert(userHiveInfo)
@@ -131,12 +126,14 @@ async function main() {
     console.log(
       `Demo seed complete: ${configs.length} configured clusters; c1 mixed, c2 empty, c3 full; existing records preserved.`,
     );
-    console.log("New accounts use password: Demo-password-123!");
+    console.log(
+      "Demo accounts have no password and cannot sign in; they only supply map data.",
+    );
     console.log(
       `Admin: demo-admin@example.test; members: demo-member-1@example.test through demo-member-${Math.max(9, memberCount)}@example.test`,
     );
     console.log(
-      "Pending: demo-pending@example.test (login blocked until approved).",
+      "Pending: demo-pending@example.test (awaiting approval; approve it in /admin/users).",
     );
   } finally {
     await db.$client.end();

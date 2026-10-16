@@ -4,39 +4,27 @@ import { spawnSync } from "node:child_process";
 
 mock.module("dotenv", { defaultExport: { config() {} } });
 
-const keys = [
-  "ADMIN_EMAIL",
-  "ADMIN_PASSWORD",
-  "BETTER_AUTH_SECRET",
-  "BETTER_AUTH_URL",
-];
 const originalEnv = { ...process.env };
 
-test("blank optional credentials allow migrations without admin provisioning", async () => {
+test("blank optional admin email allows migrations without admin promotion", async () => {
   try {
-    for (const key of keys) process.env[key] = "";
+    process.env.ADMIN_EMAIL = "";
     const { env } = await import("../dist/env.js?blank");
-    for (const key of keys) assert.equal(env[key], undefined);
-    process.env.ADMIN_EMAIL = "admin@example.com";
-    await assert.rejects(import("../dist/env.js?incomplete"), /ADMIN_PASSWORD/);
+    assert.equal(env.ADMIN_EMAIL, undefined);
+    process.env.ADMIN_EMAIL = "not-an-email";
+    await assert.rejects(import("../dist/env.js?invalid"), /ADMIN_EMAIL/);
   } finally {
     process.env = { ...originalEnv };
   }
 });
 
-test("email normalization and provisioning outcomes", async () => {
+test("email normalization and promotion outcomes", async () => {
   try {
-    Object.assign(process.env, {
-      ADMIN_EMAIL: "Admin@Example.com",
-      ADMIN_PASSWORD: "test-password",
-      BETTER_AUTH_SECRET: "test-secret-with-at-least-32-characters",
-      BETTER_AUTH_URL: "http://localhost:5001",
-    });
+    process.env.ADMIN_EMAIL = "Admin@Example.com";
     const { env } = await import("../dist/env.js");
     assert.equal(env.ADMIN_EMAIL, "admin@example.com");
-    let existing = { role: "admin", approved: true };
-    let updated = [];
-    let signups = 0;
+    let existing = { id: "existing-id", role: "admin", approved: true };
+    const updates = [];
     const selection = {
       from() {
         return this;
@@ -50,14 +38,13 @@ test("email normalization and provisioning outcomes", async () => {
       },
     };
     const update = {
-      set() {
+      set(values) {
+        this.values = values;
         return this;
       },
-      where() {
+      where(condition) {
+        updates.push({ values: this.values, condition });
         return this;
-      },
-      async returning() {
-        return updated;
       },
     };
     mock.module("@repo/db", {
@@ -65,37 +52,22 @@ test("email normalization and provisioning outcomes", async () => {
         db: { select: () => selection, update: () => update },
         eq: (_column, value) => value,
         user: { id: "id", email: "email" },
-        session: {},
-        account: {},
-        verification: {},
       },
     });
-    mock.module("@better-auth/drizzle-adapter", {
-      namedExports: { drizzleAdapter: () => ({}) },
-    });
-    mock.module("better-auth", {
-      namedExports: {
-        betterAuth: () => ({
-          api: {
-            async signUpEmail() {
-              signups++;
-              return { user: { id: "created-id" } };
-            },
-          },
-        }),
+    const { promoteAdminIfRequested } = await import("../dist/admin.js");
+    await promoteAdminIfRequested();
+    assert.equal(updates.length, 0);
+    existing = { id: "existing-id", role: "user", approved: false };
+    await promoteAdminIfRequested();
+    assert.deepEqual(updates, [
+      {
+        values: { role: "admin", approved: true, approvalToken: null },
+        condition: "existing-id",
       },
-    });
-    const { createAdminIfRequested } = await import("../dist/admin.js");
-    await createAdminIfRequested();
-    assert.equal(signups, 0);
-    existing = { role: "user", approved: false };
-    await assert.rejects(createAdminIfRequested(), /not an approved admin/);
-    assert.equal(signups, 0);
+    ]);
     existing = undefined;
-    await assert.rejects(createAdminIfRequested(), /could not be provisioned/);
-    updated = [{ id: "created-id" }];
-    await createAdminIfRequested();
-    assert.equal(signups, 2);
+    await promoteAdminIfRequested();
+    assert.equal(updates.length, 1);
   } finally {
     process.env = { ...originalEnv };
   }
@@ -117,7 +89,7 @@ test("stalled probes are destroyed and stalled shutdown exits with failure", () 
     globalThis.setTimeout = (fn, ms, ...args) => schedule(fn, 1, ...args);
     mock.module('dotenv', { defaultExport: { config() {} } });
     mock.module(${JSON.stringify(env)}, { namedExports: { env: {} } });
-    mock.module(${JSON.stringify(admin)}, { namedExports: { createAdminIfRequested() {} } });
+    mock.module(${JSON.stringify(admin)}, { namedExports: { promoteAdminIfRequested() {} } });
     mock.module('@repo/db', { namedExports: {
       migrate() { throw new Error('Unexpected migration'); },
       db: { $client: {

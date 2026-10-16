@@ -27,60 +27,34 @@ Successful JSON operations below return `200`. Browser `POST`, `DELETE`,
 `PATCH`, and `PUT` requests must use the trusted origin. The browser sends
 credentials for HTTP requests and SSE.
 
-| Method and path                         | Input                                                         | Result / access                                                                                        |
-| --------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `POST /api/auth/register`               | `{ name, email, password }`                                   | Generic `{ message }`; creates an account awaiting approval without signing in.                        |
-| `POST /api/auth/login`                  | `{ email, password }`                                         | Approved account: `{ user }` and session cookies, or a TOTP challenge as described below.              |
-| `GET /api/auth/session`                 | Session cookie                                                | `{ user }` for a currently approved account.                                                           |
-| `POST /api/auth/logout`                 | Session cookie                                                | Invalidates the session, clears cookies, returns `{ message: "Logged out" }`.                          |
-| `GET /api/auth/sign-in/github`          | Optional `callbackURL` query, defaulting to the frontend root | Redirects to GitHub and sets OAuth cookies.                                                            |
-| `GET /api/auth/callback/github`         | Provider callback query and OAuth cookies                     | Delegates to Better Auth and forwards its redirect/cookies. New users still require approval.          |
-| `GET /api/auth/pending-users`           | Approved admin session                                        | `{ users: [{ id, name, email, createdAt, approvalToken }] }`, ordered by creation time then ID.        |
-| `GET /api/auth/users`                   | Approved admin session                                        | `{ users: [{ id, name, email, role, approved, approvalToken, createdAt }] }`, ordered by name then ID. |
-| `POST /api/auth/confirm/:id`            | Single-use approval token in `:id`; approved admin session    | Approves the account, clears its token, and returns `{ message }`. This parameter is not a user ID.    |
-| `DELETE /api/auth/users/:id`            | User ID; approved admin session                               | `{ message: "User deleted" }`; self-deletion is rejected with `403`, missing users with `404`.         |
-| `POST /api/auth/two-factor/enable`      | `{ password, method?: "totp" }`; session cookie               | `{ totpURI, backupCodes }` for authenticator setup. Method defaults to `totp`.                         |
-| `POST /api/auth/two-factor/verify-totp` | `{ code, trustDevice? }`; session or challenge cookie         | Verifies setup or completes challenged login; returns `{ user }` and forwards cookies.                 |
-| `POST /api/auth/two-factor/disable`     | `{ password }`; session cookie                                | `{ status: boolean }` and forwarded cookies.                                                           |
+| Method and path                 | Input                                                         | Result / access                                                                                        |
+| ------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `GET /api/auth/session`         | Session cookie                                                | `{ user }` for a currently approved account.                                                           |
+| `POST /api/auth/logout`         | Session cookie                                                | Invalidates the session, clears cookies, returns `{ message: "Logged out" }`.                          |
+| `GET /api/auth/sign-in/github`  | Optional `callbackURL` query, defaulting to the frontend root | Redirects to GitHub and sets OAuth cookies.                                                            |
+| `GET /api/auth/callback/github` | Provider callback query and OAuth cookies                     | Delegates to Better Auth and forwards its redirect/cookies. New users still require approval.          |
+| `GET /api/auth/pending-users`   | Approved admin session                                        | `{ users: [{ id, name, email, createdAt, approvalToken }] }`, ordered by creation time then ID.        |
+| `GET /api/auth/users`           | Approved admin session                                        | `{ users: [{ id, name, email, role, approved, approvalToken, createdAt }] }`, ordered by name then ID. |
+| `POST /api/auth/confirm/:id`    | Single-use approval token in `:id`; approved admin session    | Approves the account, clears its token, and returns `{ message }`. This parameter is not a user ID.    |
+| `DELETE /api/auth/users/:id`    | User ID; approved admin session                               | `{ message: "User deleted" }`; self-deletion is rejected with `403`, missing users with `404`.         |
 
-The public `user` shape is `{ id, name, email, emailVerified, image, role,
-twoFactorEnabled }`; role is `user` or `admin`. Approval tokens appear only in
+The public `user` shape is `{ id, name, email, emailVerified, image, role }`; role
+is `user` or `admin`. Approval tokens appear only in
 administrator listings and must not be exposed to ordinary viewers.
 
-The Express auth limiter allows 10 requests per IP per 60 seconds across login,
-registration, approval, and all three two-factor POST routes. Session reads,
+The Express auth limiter allows 10 requests per IP per 60 seconds across approval
+requests. Session reads,
 logout, GitHub redirects/callbacks, user listings, and user deletion are registered
 before this limiter. Cluster routes have no separate rate limiter.
 
-### TOTP challenge and setup
-
-For a password login requiring TOTP, `/login` returns:
-
-```json
-{ "twoFactorRedirect": true, "twoFactorMethods": ["totp"] }
-```
-
-This response sets a challenge cookie instead of completing sign-in. Preserve
-cookies and submit the authenticator code to `/two-factor/verify-totp`.
-`code` must be a six-character string; `trustDevice` is an optional boolean.
-The same verification endpoint confirms enrollment after `/two-factor/enable`.
-The web flow lives at `/settings/security` and supports QR/manual-key setup,
-backup-code display, verification, and password-confirmed disablement.
-
-Only TOTP is exposed. There is no email/SMS OTP or backup-code verification
-route, even though setup returns backup codes. Settings require a current
-password; the app has no password-creation flow for GitHub-only accounts.
-
 ### Approval and deletion behavior
 
-Both email/password registration and new GitHub accounts require administrator
-approval before session creation. Explicit non-redirect OAuth callback failures
+New GitHub accounts require administrator approval before session creation. Explicit non-redirect OAuth callback failures
 are sent to `/login?error=github_access_denied` for a 403, or
 `/login?error=github_sign_in_failed` for other statuses; Better Auth redirects
 are forwarded as provided.
 
-Deletion cascades to sessions, linked accounts, two-factor records, and Hive
-identity. A position referencing that Hive identity prevents deletion through
+Deletion cascades to sessions, linked accounts, and Hive identity. A position referencing that Hive identity prevents deletion through
 its restrictive foreign key. The API currently surfaces that database failure
 as `500 INTERNAL_SERVER_ERROR`; it does not release seats automatically.
 
@@ -88,17 +62,9 @@ Existing SSE connections revalidate access every 20 seconds and close if
 validation fails. The client checks its session after stream failures and stops
 retrying on `401`/`403`.
 
-For the protected curl examples below, first save an approved account's session:
-
-```bash
-curl -c cookies.txt -H 'Content-Type: application/json' \
-  -d '{"email":"demo-admin@example.test","password":"Demo-password-123!"}' \
-  http://localhost:5001/api/auth/login
-```
-
-These credentials are created by the local demo seed. If the account has TOTP
-enabled, complete `/api/auth/two-factor/verify-totp` with the challenge cookies
-before using protected endpoints.
+The protected curl examples below need a session cookie. Sign in with GitHub in a
+browser and copy the `better-auth.session_token` cookie into `cookies.txt`. The
+demo seed accounts cannot sign in.
 
 ## Error envelope
 
@@ -225,7 +191,7 @@ outside the normal error envelope.
 
 This is a partial readiness check: it does not query `two_factor`, inspect
 migration history, validate the layout, check occupancy freshness, or exercise
-GitHub/TOTP sign-in. It does not apply migrations. The API Docker health check
+GitHub sign-in. It does not apply migrations. The API Docker health check
 still targets `/api/health`; deployment workflows do not call either endpoint.
 
 ## `GET /api/clusters`

@@ -19,8 +19,7 @@ This starts PostgreSQL, the one-shot migration/admin worker, API, Vite, and
 Docusaurus. The API waits for successful migrations, and Vite waits for API
 readiness. No Infisical installation, token, or account is needed. `.env` is
 optional: Compose supplies local development defaults, including an auth secret
-and dummy GitHub credentials for password login. Supply real GitHub credentials
-to test OAuth.
+and dummy GitHub credentials. Supply real GitHub credentials to test sign-in.
 
 | Service | URL                   |
 | ------- | --------------------- |
@@ -47,9 +46,10 @@ docker compose -f docker-compose.dev.yml exec api pnpm db:seed
 docker compose -f docker-compose.dev.yml --profile simulator up -d simulator
 ```
 
-The seed creates `demo-admin@example.test` with password `Demo-password-123!`,
-approved members, and a pending account. To bootstrap only an administrator, set
-both `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env` before startup. The simulator
+The seed creates `demo-admin@example.test`, approved members, and a pending
+account. Demo accounts have no password and cannot sign in. To promote only an
+administrator, sign in with GitHub once, then set `ADMIN_EMAIL` in `.env` to that
+account's email before startup. The simulator
 profile enables simulation by default; an explicit `SIMULATOR_ENABLED=false`
 override keeps it disabled. Seed the database before starting it.
 
@@ -84,8 +84,8 @@ Put the generated value in `BETTER_AUTH_SECRET`. Keep `API_PORT=5001`,
 Set `VITE_API_URL=http://localhost:5001`; Vite has no API proxy.
 
 Set `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` as well: API auth initialization
-requires both even for password login and seeding. For local password-only
-work, non-empty dummy values are sufficient. To exercise GitHub sign-in, use
+requires both, even for seeding. For local work without GitHub, non-empty dummy
+values are sufficient. To exercise GitHub sign-in, use
 real OAuth App credentials and callback
 `http://localhost:5001/api/auth/callback/github`. See [Configuration](./configuration).
 
@@ -104,22 +104,24 @@ pnpm db:seed
 ```
 
 The filtered build makes the API and its shared `dist/` packages available.
-Migrations create auth and Hive tables, including TOTP storage. Use `pnpm build`
+Migrations create auth and Hive tables. Use `pnpm build`
 when you also need the web and worker builds. The optional seed writes demo
 accounts and occupancy to the configured database; use a local/demo database.
 It refuses to run with `NODE_ENV=production` and is not a live simulation agent.
 
-On a fresh seed, sign in with `demo-admin@example.test` or
-`demo-member-1@example.test` and password `Demo-password-123!`. The administrator
-can approve `demo-pending@example.test` from `/admin/users`. Existing demo accounts
-retain their passwords and approval/role state when seeding again. Existing
+Demo accounts cannot sign in, so the seed is only useful for viewing occupancy
+data through a session created outside this flow. The administrator role can
+approve `demo-pending@example.test` from `/admin/users` once an administrator
+signs in with GitHub. Existing demo accounts retain their approval and role state
+when seeding again. Existing
 positions are also preserved; rerunning the seed does not reset occupancy.
 
-For an initial administrator without demo fixtures, set `ADMIN_EMAIL` and
-`ADMIN_PASSWORD` in `.env`, then run `pnpm worker:dev`. This one-shot worker
-migrates first and creates an approved admin if the email does not exist.
-An existing approved admin is preserved; any other existing account causes
-bootstrap to fail. Omit both credentials for migrations only.
+For an initial administrator without demo fixtures, sign in with GitHub, set
+`ADMIN_EMAIL` in `.env` to that account's email, then run `pnpm worker:dev`. This
+one-shot worker migrates first and promotes the account to an approved admin. An
+account that is already an approved admin is left unchanged. If no account has
+that email yet, the worker logs a message and does nothing. Omit `ADMIN_EMAIL`
+for migrations only.
 
 ## Start web and API
 

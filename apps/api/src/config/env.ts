@@ -32,6 +32,7 @@ const authEnvSchema = z.object({
   GITHUB_CLIENT_ID: z.string().min(1),
   GITHUB_CLIENT_SECRET: z.string().min(1),
 });
+
 export type AuthEnv = z.infer<typeof authEnvSchema>;
 export function getAuthEnv(): AuthEnv {
   return authEnvSchema.parse(process.env);

@@ -40,22 +40,22 @@ per-event signal. Metrics, alerting, and distributed tracing are not configured.
 
 ## Troubleshooting
 
-| Symptom                                | Check                                                                                                                              |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Health returns 503                     | PostgreSQL availability, `PG_*`, and Compose DB health.                                                                            |
-| Health works but readiness returns 503 | Auth secret/URL, required GitHub values, exact `WEB_ORIGIN`, HTTPS URLs in production, migrations, and DB permissions.             |
-| Health works but login fails           | Auth secret/URL, required GitHub credentials, migrations, password, approval, and any TOTP challenge; health only runs `SELECT 1`. |
-| Login returns 403                      | Account approval and trusted origin. New accounts cannot create a session before approval.                                         |
-| Admin page/API denied                  | Current user must be both approved and an administrator.                                                                           |
-| Browser CORS/auth origin error         | `WEB_ORIGIN`, actual Vite/browser port, `VITE_API_URL`, and cookie credentials.                                                    |
-| Map layout fails                       | API working directory, presence of `src/config/clusters.json`, and Zod validity.                                                   |
-| Map occupancy is empty                 | Config ID must match DB `cluster.name`; migrate and seed a local demo DB if needed.                                                |
-| Map stays stale                        | DB/SSE errors, recovery requests, session validity, and proxy buffering/timeouts.                                                  |
-| Timestamp stops advancing              | Unchanged polls produce no delta or freshness timestamp; keepalive comments only check session/connection.                         |
-| Browser receives HTML from API calls   | Set `VITE_API_URL` to the API origin or configure external routing; neither Vite nor web Nginx proxies `/api`.                     |
-| User deletion returns 500              | Check whether a position references the user's Hive identity; that foreign key blocks deletion.                                    |
-| Worker exits with an admin error       | Supply both admin credentials or neither; an existing non-admin/unapproved account cannot be bootstrapped.                         |
-| Documentation build fails              | Run `pnpm build:docs` and fix reported MDX/link errors.                                                                            |
+| Symptom                                | Check                                                                                                                               |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Health returns 503                     | PostgreSQL availability, `PG_*`, and Compose DB health.                                                                             |
+| Health works but readiness returns 503 | Auth secret/URL, required GitHub values, exact `WEB_ORIGIN`, HTTPS URLs in production, migrations, and DB permissions.              |
+| Health works but login fails           | Auth secret/URL, required GitHub credentials, migrations, approval, and GitHub callback configuration; health only runs `SELECT 1`. |
+| Login returns 403                      | Account approval and trusted origin. New accounts cannot create a session before approval.                                          |
+| Admin page/API denied                  | Current user must be both approved and an administrator.                                                                            |
+| Browser CORS/auth origin error         | `WEB_ORIGIN`, actual Vite/browser port, `VITE_API_URL`, and cookie credentials.                                                     |
+| Map layout fails                       | API working directory, presence of `src/config/clusters.json`, and Zod validity.                                                    |
+| Map occupancy is empty                 | Config ID must match DB `cluster.name`; migrate and seed a local demo DB if needed.                                                 |
+| Map stays stale                        | DB/SSE errors, recovery requests, session validity, and proxy buffering/timeouts.                                                   |
+| Timestamp stops advancing              | Unchanged polls produce no delta or freshness timestamp; keepalive comments only check session/connection.                          |
+| Browser receives HTML from API calls   | Set `VITE_API_URL` to the API origin or configure external routing; neither Vite nor web Nginx proxies `/api`.                      |
+| User deletion returns 500              | Check whether a position references the user's Hive identity; that foreign key blocks deletion.                                     |
+| Worker exits with an admin error       | Supply both admin credentials or neither; an existing non-admin/unapproved account cannot be bootstrapped.                          |
+| Documentation build fails              | Run `pnpm build:docs` and fix reported MDX/link errors.                                                                             |
 
 For the local database, use `docker compose -f docker-compose.dev.yml ps` and
 `docker compose -f docker-compose.dev.yml logs db`. For local applications, use

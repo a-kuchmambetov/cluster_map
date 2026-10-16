@@ -125,10 +125,10 @@ and [Finnish Competition and Consumer Authority guidance on unfair terms](https:
 
 ## Authentication
 
-`/login` and `/register` are public. `/` requires a valid Better Auth session and
-administrator approval. Registration displays a pending-approval result; it does
-not sign the user in. Approval uses the existing administrator API; no approval
-or password-reset UI is included.
+`/login` is public. `/` requires a valid Better Auth session and administrator
+approval. Sign-in is GitHub-only; a first sign-in creates an account that waits for
+approval. Approval uses the existing administrator API; no approval UI for
+self-service is included.
 
 The auth provider checks `/api/auth/session` before mounting the map. Network
 failures show retry UI; `401` redirects to login and `403` hides private content.
@@ -141,7 +141,7 @@ origin. Use HTTPS in production. The API must allow credentialed CORS from
 same domain) so the default session cookie can accompany cross-origin requests.
 Verify login and EventSource in a deployed browser.
 
-Smoke checks: register and verify the pending result; approve the account via the
-existing administrator flow; sign in; reload `/`; sign out; attempt direct API
+Smoke checks: sign in with GitHub and verify the pending result; approve the account
+via the existing administrator flow; sign in; reload `/`; sign out; attempt direct API
 access without a cookie; revoke approval during an open map and verify access
 ends after the next request or stream check (20 seconds plus check latency).

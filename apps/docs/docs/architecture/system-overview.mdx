@@ -12,7 +12,7 @@ Docusaurus documentation, a one-shot migration worker, and shared TypeScript pac
 
 ## Implemented request path
 
-1. The browser registers or signs in through the API. Better Auth persists
+1. The browser signs in with GitHub through the API. Better Auth persists
    accounts and sessions in PostgreSQL; new accounts need administrator approval.
 2. An approved viewer loads the cluster list, layout, and occupancy. The API
    checks the session and current approval for cluster requests.
@@ -24,7 +24,6 @@ Docusaurus documentation, a one-shot migration worker, and shared TypeScript pac
    One polling pool per cluster and API process queries PostgreSQL every 30 seconds
    while there are subscribers. Streams recheck access every 20 seconds.
 6. Approved administrators list, approve, and delete users from `/admin/users`.
-7. Viewers can sign in with GitHub or configure TOTP at `/settings/security`.
 
 Public `/privacy` and `/terms` pages sit outside the protected route guard and
 display draft notices even when the API is unavailable. Public API probes are

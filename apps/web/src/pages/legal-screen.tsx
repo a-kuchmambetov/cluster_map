@@ -22,9 +22,9 @@ const privacy: LegalDocument = {
     {
       title: "Information collected and its sources",
       paragraphs: [
-        "Account information comes from you when you register: your name, email address, and password. The service stores a password hash, account identifiers, creation and update dates, email verification status, administrator approval status, and role. Administrators review account requests and manage access.",
-        "If you choose GitHub sign-in, GitHub supplies identity information such as your provider identifier, name, email address, and profile image. Authentication records may include provider access tokens, refresh tokens, scopes, and expiration dates. Email and password sign-in is also available.",
-        "Session and security information includes session identifiers and tokens, expiration dates, IP addresses and browser user-agent information where available, verification records, and security settings. Enabling two-factor authentication creates authenticator and recovery-code records and verification or lockout information.",
+        "Account information comes from your GitHub account when you first sign in: your name, email address, and profile image. The service stores account identifiers, the connection records for your GitHub sign-in, creation and update dates, email verification status, administrator approval status, and role. Administrators review account requests and manage access.",
+        "When you sign in with GitHub, GitHub supplies identity information such as your provider identifier, name, email address, and profile image. Authentication records may include provider access tokens, refresh tokens, scopes, and expiration dates. Email and password sign-in is also available.",
+        "Session and security information includes session identifiers and tokens, expiration dates, IP addresses and browser user-agent information where available, and verification records.",
         "Hive provides the cluster and occupancy information used by the service. It includes cluster, row, seat, occupied status, and, where available, the occupant’s Intra login, display name, and photo. This information comes from Hive rather than from the occupant’s use of this website; someone may appear in occupancy records even when they are not currently using Cluster Map.",
         "Application request logs record the request time, HTTP method and path, response status, duration, and error code where applicable. The application logger omits query strings and redacts approval tokens in paths. Hosting and network providers may also process connection and security logs.",
       ],
@@ -35,7 +35,7 @@ const privacy: LegalDocument = {
         "We use account and authentication information to process access requests, provide the service you request, and maintain sessions. For processing necessary to provide that service or take steps at your request before providing it, we rely on performance of our agreement with you under Article 6(1)(b) GDPR.",
         "We use Hive-provided occupancy, names, logins, and photos to help Hive students and staff find available seats and identify students at the clusters. We rely on legitimate interests under Article 6(1)(f) GDPR in coordinating shared facilities and helping members identify occupants. Access control, abuse prevention, and troubleshooting serve our legitimate interests in protecting the service and its users. Processing must be necessary and balanced against individuals’ rights; visibility is restricted to approved Hive staff and students. You may object to these uses, including the display of your name or photo, by contacting us.",
         "Information may also be processed where necessary to meet an applicable legal obligation. If a separate optional use requires consent, that use requires a specific choice and consent can be withdrawn. Reading this policy or accepting service terms is not consent to unrelated processing.",
-        "Required registration fields are needed to process your account request. Without them an email account cannot be created. GitHub sign-in and two-factor authentication are optional. Access approval is performed by administrators; the service does not make solely automated decisions producing legal or similarly significant effects.",
+        "Your GitHub sign-in supplies the account details needed to process your account request. Access approval is performed by administrators; the service does not make solely automated decisions producing legal or similarly significant effects.",
         "The service is free and intended only for Hive staff and students aged 18 or over. Minors are not eligible for an account. If you believe a minor’s information has been included, contact us so we can investigate and remove it where appropriate.",
       ],
     },
@@ -50,7 +50,7 @@ const privacy: LegalDocument = {
     {
       title: "Cookies and browser storage",
       paragraphs: [
-        "Authentication uses cookies to maintain your session, complete sign-in and two-factor challenges, and remember a trusted device when you select that option. Blocking these cookies can prevent sign-in or protected features from working. Cookie validity depends on the authentication configuration; expiration does not by itself establish when a server record is deleted.",
+        "Authentication uses cookies to maintain your session and complete GitHub sign-in. Blocking these cookies can prevent sign-in or protected features from working. Cookie validity depends on the authentication configuration; expiration does not by itself establish when a server record is deleted.",
         "Your light or dark theme preference is stored locally in your browser under ui-theme. Selecting the system theme removes the saved preference. You can clear cookies and site storage through your browser settings; clearing them may sign you out and reset preferences. The application does not set advertising or analytics cookies.",
       ],
     },
@@ -67,7 +67,7 @@ const privacy: LegalDocument = {
       paragraphs: [
         "Cluster Map’s application server is hosted by Hetzner in Finland. Cloudflare provides DNS, reverse proxy, and SSL certificate services. Website traffic passes through Cloudflare before reaching our server, so Cloudflare processes visitor IP addresses, request and connection information, and traffic content as needed to deliver and protect the service. GitHub is involved when you select GitHub sign-in; an external photo host also receives a request when your browser loads a photo.",
         "Although our application server is in Finland, Cloudflare and other external providers may process information outside the European Economic Area (EEA). Cloudflare’s published Data Processing Addendum provides for standard contractual clauses and additional safeguards for restricted transfers. Any transfer must be covered by an applicable adequacy decision or other lawful safeguards. Contact a.kuchmambetov@outlook.com for information about applicable processing locations and transfer safeguards, or to request a copy of those safeguards.",
-        "The application restricts map access to approved accounts, checks access on the server, stores password hashes, and supports two-factor authentication. Security also depends on deployment configuration and administrator practices. No system can guarantee absolute security; report suspected unauthorised access to the operator promptly.",
+        "The application restricts map access to approved accounts, checks access on the server, and relies on GitHub to verify sign-in. Security also depends on deployment configuration and administrator practices. No system can guarantee absolute security; report suspected unauthorised access to the operator promptly.",
       ],
     },
     {
@@ -102,7 +102,7 @@ const terms: LegalDocument = {
       title: "Accounts and access",
       paragraphs: [
         "You must be a current Hive staff member or student aged 18 or over. Request an account using accurate information and use only an account you are authorised to access. Hive staff decide eligibility and access rules; site administrators implement account approval. Registration does not guarantee access. GitHub sign-in remains subject to the same approval requirements.",
-        "Keep passwords, authenticator secrets, recovery codes, and sessions secure. Do not share your account or leave a signed-in session on a shared device. Notify the operator promptly if you suspect compromise. You are responsible for your own use of the service, subject to applicable law; you are not automatically responsible for every unauthorised act involving your account.",
+        "Keep your GitHub account and sessions secure. Do not share your account or leave a signed-in session on a shared device. Notify the operator promptly if you suspect compromise. You are responsible for your own use of the service, subject to applicable law; you are not automatically responsible for every unauthorised act involving your account.",
       ],
     },
     {

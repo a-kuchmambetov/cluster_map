@@ -1,13 +1,8 @@
-import { useState } from "react";
 import { Link, Navigate, useSearchParams } from "react-router";
-import { Form } from "@/components/base/form/form";
-import { Input } from "@/components/base/input/input";
 import { Button } from "@/components/base/buttons/button";
 import GitHub from "@/components/foundations/social-icons/github";
 import { API_URL } from "@/config/api";
 import { useAuth } from "./auth-provider";
-import { TOTPForm } from "./totp-form";
-import { register } from "./api";
 
 export function safeReturnPath(value: string | null) {
   if (
@@ -18,19 +13,11 @@ export function safeReturnPath(value: string | null) {
   )
     return "/";
   const pathname = value.split(/[?#]/)[0];
-  return pathname === "/login" || pathname === "/register" ? "/" : value;
+  return pathname === "/login" ? "/" : value;
 }
-export function AuthScreen({
-  registration = false,
-}: {
-  registration?: boolean;
-}) {
+export function AuthScreen() {
   const auth = useAuth();
   const [params] = useSearchParams();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
-  const challenge = auth.status === "two-factor";
   const githubError =
     params.get("error") === "github_access_denied"
       ? "Your account does not have access yet. Ask an administrator to approve your account, then sign in again."
@@ -52,149 +39,42 @@ export function AuthScreen({
           />
           <span>Cluster Map</span>
         </div>
-        <h1 className="text-3xl font-semibold">
-          {challenge
-            ? "Two-factor authentication"
-            : registration
-              ? "Request an account"
-              : "Sign in"}
-        </h1>
+        <h1 className="text-3xl font-semibold">Sign in</h1>
         <p className="mt-2 text-tertiary">
-          {challenge
-            ? "Enter the 6-digit code from your authenticator app to finish signing in."
-            : registration
-              ? "Accounts require administrator approval before signing in."
-              : "Sign in to view the cluster map."}
+          Sign in with GitHub to view the cluster map. New accounts need
+          administrator approval before they can see it.
         </p>
-        {!challenge && (
-          <p className="mt-3 text-sm leading-6 text-tertiary">
-            Read our{" "}
-            <Link className="underline" to="/privacy">
-              Privacy Policy
-            </Link>
-            {" and "}
-            <Link className="underline" to="/terms">
-              Terms of Service
-            </Link>
-            {" before requesting an account or signing in."}
-          </p>
-        )}
+        <p className="mt-3 text-sm leading-6 text-tertiary">
+          Read our{" "}
+          <Link className="underline" to="/privacy">
+            Privacy Policy
+          </Link>
+          {" and "}
+          <Link className="underline" to="/terms">
+            Terms of Service
+          </Link>
+          {" before signing in."}
+        </p>
       </div>
-      {!challenge && githubError && (
+      {githubError && (
         <p role="alert" className="text-sm text-error-primary">
           {githubError}
         </p>
       )}
-      {!registration && !challenge && (
-        <>
-          <Button
-            color="secondary"
-            iconLeading={<GitHub aria-hidden="true" data-icon="leading" />}
-            isDisabled={busy}
-            onClick={() => {
-              // OAuth must reach the server, bypassing client-side routing.
-              window.location.assign(
-                `${API_URL}/auth/sign-in/github?${new URLSearchParams({
-                  callbackURL: `${window.location.origin}${safeReturnPath(params.get("returnTo"))}`,
-                })}`,
-              );
-            }}
-          >
-            Sign in with GitHub
-          </Button>
-          <div className="flex items-center gap-3 text-sm text-tertiary">
-            <span className="h-px flex-1 bg-border-secondary" />
-            <span>or sign in with email</span>
-            <span className="h-px flex-1 bg-border-secondary" />
-          </div>
-        </>
-      )}
-      {challenge ? (
-        <TOTPForm
-          allowTrust
-          onVerify={auth.verifyTwoFactor}
-          onCancel={auth.cancelTwoFactor}
-        />
-      ) : message ? (
-        <p role="status">{message}</p>
-      ) : (
-        <Form
-          className="flex flex-col gap-5"
-          onSubmit={async (event) => {
-            event.preventDefault();
-            if (busy) return;
-            const data = new FormData(event.currentTarget);
-            setBusy(true);
-            setError("");
-            try {
-              const email = String(data.get("email")).trim();
-              const password = String(data.get("password"));
-              if (registration)
-                setMessage(
-                  (
-                    await register(
-                      String(data.get("name")).trim(),
-                      email,
-                      password,
-                    )
-                  ).message,
-                );
-              else await auth.signIn(email, password);
-            } catch (cause) {
-              setError(
-                cause instanceof Error
-                  ? cause.message
-                  : "Unable to connect. Try again.",
-              );
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          {registration && (
-            <Input
-              label="Name"
-              name="name"
-              autoComplete="name"
-              isRequired
-              maxLength={200}
-            />
-          )}
-          <Input
-            label="Email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            isRequired
-            maxLength={254}
-          />
-          <Input
-            label="Password"
-            name="password"
-            type="password"
-            autoComplete={registration ? "new-password" : "current-password"}
-            isRequired
-            minLength={8}
-            maxLength={128}
-          />
-          {error && (
-            <p role="alert" className="text-sm text-error-primary">
-              {error}
-            </p>
-          )}
-          <Button type="submit" isDisabled={busy} isLoading={busy}>
-            {registration ? "Request account" : "Sign in"}
-          </Button>
-        </Form>
-      )}
-      {!challenge && (
-        <Link
-          className="underline"
-          to={`${registration ? "/login" : "/register"}${params.get("returnTo") ? `?returnTo=${encodeURIComponent(safeReturnPath(params.get("returnTo")))}` : ""}`}
-        >
-          {registration ? "Back to sign in" : "Request an account"}
-        </Link>
-      )}
+      <Button
+        color="secondary"
+        iconLeading={<GitHub aria-hidden="true" data-icon="leading" />}
+        onClick={() => {
+          // OAuth must reach the server, bypassing client-side routing.
+          window.location.assign(
+            `${API_URL}/auth/sign-in/github?${new URLSearchParams({
+              callbackURL: `${window.location.origin}${safeReturnPath(params.get("returnTo"))}`,
+            })}`,
+          );
+        }}
+      >
+        Sign in with GitHub
+      </Button>
     </main>
   );
 }

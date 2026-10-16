@@ -23,12 +23,8 @@ phone, without walking between rooms.
 - **Peer details.** Click, tap, or use the keyboard on an occupied seat to see the
   peer's login, display name, and avatar. Hover alone is never required, and
   email addresses are never exposed on the map.
-- **Accounts with administrator approval.** Users sign up with email and password
-  or GitHub OAuth. An administrator must approve new accounts before they can see
-  the map.
-- **Two-factor authentication.** TOTP setup with a QR code or setup key, backup
-  codes shown at setup, a login challenge with a "trust this device" option, and
-  password-confirmed disabling.
+- **Accounts with administrator approval.** Users sign in with GitHub OAuth. An
+  administrator must approve new accounts before they can see the map.
 - **Admin console.** Administrators list users, approve pending accounts, and
   delete accounts at `/admin/users`.
 - **Responsive, themed UI.** A mobile layout, dark mode, and a component library
@@ -109,8 +105,8 @@ GITHUB_CLIENT_ID=<your-client-id-or-any-non-empty-dummy>
 GITHUB_CLIENT_SECRET=<your-client-secret-or-any-non-empty-dummy>
 ```
 
-`GITHUB_*` values are required even for password-only login. Any non-empty value
-works locally. For real GitHub sign-in, set the OAuth App callback to
+`GITHUB_*` values are required for the API to start. Any non-empty value works
+locally. For real GitHub sign-in, set the OAuth App callback to
 `http://localhost:5001/api/auth/callback/github`. Never commit `.env`. See
 [Environment Variables](apps/docs/docs/reference/environment-variables.mdx) for
 the full list.
@@ -141,9 +137,9 @@ docker compose -f docker-compose.dev.yml exec api pnpm db:seed
 docker compose -f docker-compose.dev.yml --profile simulator up -d simulator
 ```
 
-The demo administrator is `demo-admin@example.test`, password
-`Demo-password-123!`. Alternatively, set both `ADMIN_EMAIL` and `ADMIN_PASSWORD`
-in `.env` before startup to create an administrator without demo data.
+Demo accounts have no password and cannot sign in, so the map can only be viewed
+with GitHub sign-in. To make yourself an administrator, sign in with GitHub once,
+set `ADMIN_EMAIL` in `.env` to that account's email, and restart the worker.
 
 Stop with `docker compose -f docker-compose.dev.yml --profile simulator down`;
 database data is preserved. The equivalent shortcuts are `pnpm dev:docker` and
@@ -159,16 +155,16 @@ pnpm db:seed                       # optional demo data (refuses NODE_ENV=produc
 ```
 
 The demo seed fills cluster 1 partly, leaves cluster 2 empty, and fills cluster 3
-completely. It creates these accounts, all with the password `Demo-password-123!`:
+completely. It creates these accounts, none of which can sign in:
 
-| Email                          | State                            |
-| ------------------------------ | -------------------------------- |
-| `demo-admin@example.test`      | Approved administrator           |
-| `demo-member-<n>@example.test` | Approved members                 |
-| `demo-pending@example.test`    | Pending approval; cannot sign in |
+| Email                          | State                               |
+| ------------------------------ | ----------------------------------- |
+| `demo-admin@example.test`      | Approved administrator (no sign-in) |
+| `demo-member-<n>@example.test` | Approved members (no sign-in)       |
+| `demo-pending@example.test`    | Pending approval; awaiting approval |
 
-To create only an administrator without demo data, set `ADMIN_EMAIL` and
-`ADMIN_PASSWORD` in `.env` and run `pnpm worker:dev`.
+To promote an existing account without demo data, set `ADMIN_EMAIL` in `.env` to
+an account that has already signed in with GitHub and run `pnpm worker:dev`.
 
 ### 3. Run
 
@@ -215,7 +211,7 @@ secrets from Infisical at startup. See
 | Layer         | Technologies                                                                                                |
 | ------------- | ----------------------------------------------------------------------------------------------------------- |
 | Frontend      | React, Vite, TypeScript, Tailwind CSS, Untitled UI components on React Aria (adapted to the Hive brand)     |
-| Backend       | Node.js, Express (REST + Server-Sent Events), TypeScript, Better Auth (sessions, GitHub OAuth, TOTP), Zod   |
+| Backend       | Node.js, Express (REST + Server-Sent Events), TypeScript, Better Auth (sessions, GitHub OAuth), Zod         |
 | Database      | PostgreSQL 17 with Drizzle ORM and Drizzle migrations                                                       |
 | Testing       | Vitest, Supertest, happy-dom, Node test runner                                                              |
 | Tooling       | pnpm workspaces (monorepo), Oxlint, Oxfmt                                                                   |
@@ -237,8 +233,8 @@ secrets from Infisical at startup. See
   holder, or occupied with both a holder and a taken time.
 - **Drizzle ORM.** Type-safe schemas shared across the monorepo, SQL-like
   queries, and generated migrations.
-- **Better Auth.** Secure password hashing, sessions, OAuth, and 2FA, without
-  writing cryptography ourselves.
+- **Better Auth.** Secure sessions and OAuth, without writing cryptography
+  ourselves.
 - **pnpm monorepo.** API and web share DTOs (`@repo/types`), the database layer
   (`@repo/db`), and error types (`@repo/errors`).
 
@@ -278,7 +274,7 @@ erDiagram
         text id PK
         text account_id
         text provider_id
-        text password "hashed"
+        text password "unused"
         text user_id FK
     }
     verification {
@@ -317,38 +313,37 @@ erDiagram
     }
 ```
 
-- **Auth tables** (`user`, `session`, `account`, `verification`, `two_factor`) are
-  managed by Better Auth. Passwords are stored hashed in `account.password`.
+- **Auth tables** (`user`, `session`, `account`, `verification`) are managed by
+  Better Auth. `account.password` and `two_factor` are no longer written; they
+  remain until a migration removes them.
 - **Hive tables** (`cluster`, `row`, `position`, `user_hive_info`) store occupancy.
   A check constraint keeps `occupied`, `holder_id`, and `taken_at` consistent.
-- **Deleting a user** cascades to their sessions, accounts, 2FA records, and Hive
-  identity. It is blocked while that identity still holds a seat.
+- **Deleting a user** cascades to their sessions, accounts, and Hive identity. It is blocked while that identity still holds a seat.
 - **The physical layout** (seat order, gaps, stagger) lives in
   `apps/api/src/config/clusters.json`, not in the database. The frontend combines
   the layout with occupancy by `(row, place)`.
 
 ## Features List
 
-| Feature                                | Description                                                                                    | Member(s)                  |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------- | -------------------------- |
-| Cluster map UI                         | Cluster picker, staggered rows, seats and gaps, free-seat count, peer popup, and mobile layout | Maxim, Artem               |
-| Theme and design system                | Colour palette, typography, dark mode, and Untitled UI-based components                        | Maxim, Artem               |
-| Layout configuration and validation    | JSON layout with Zod validation; endpoint that detects config/DB mismatches                    | Vitalii, Artem             |
-| Cluster REST API                       | Cluster list, layout, occupancy, and config-validation endpoints                               | Vitalii, Artem             |
-| Real-time updates (SSE)                | Shared poller per cluster, change-only events, keepalive, session recheck, client recovery     | Vitalii, Artem             |
-| Email/password auth and admin approval | Registration, login, logout, approval tokens, auth rate limiting                               | Vitalii, Artem             |
-| GitHub OAuth                           | Sign-in via GitHub (new accounts still need approval)                                          | Vitalii (API), Artem (web) |
-| TOTP two-factor authentication         | Setup, login challenge, trusted device, disabling                                              | Vitalii (API), Artem (web) |
-| Admin user management                  | List, approve, and delete users                                                                | Artem                      |
-| Database schema and migrations         | PostgreSQL + Drizzle schemas and migrations                                                    | Valentine, Artem           |
-| Migration worker                       | One-shot migrations plus optional initial admin creation                                       | Artem                      |
-| Demo seed and occupancy simulator      | Static demo data and a live simulator for seat changes                                         | Artem                      |
-| Privacy Policy and Terms of Service    | Public legal pages linked from the footer                                                      | Artem                      |
-| Health and readiness checks            | `/api/health` and `/api/health/ready`                                                          | Artem, Vitalii             |
-| CI/CD and deployment                   | PR checks, change-based image builds, GHCR, Coolify, Infisical                                 | Artem, Ping                |
-| WAF                                    | Cloudflare Cloud-based WAF with OWASP Core Ruleset                                             | Artem, Ping                |
-| Documentation site                     | Docusaurus: architecture, API reference, operations                                            | Artem, Vitalii, Ping       |
-| Project README                         | Evaluation README: requirements coverage, team, modules, schema, instructions                  | Ping                       |
+| Feature                             | Description                                                                                    | Member(s)                  |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------- | -------------------------- |
+| Cluster map UI                      | Cluster picker, staggered rows, seats and gaps, free-seat count, peer popup, and mobile layout | Maxim, Artem               |
+| Theme and design system             | Colour palette, typography, dark mode, and Untitled UI-based components                        | Maxim, Artem               |
+| Layout configuration and validation | JSON layout with Zod validation; endpoint that detects config/DB mismatches                    | Vitalii, Artem             |
+| Cluster REST API                    | Cluster list, layout, occupancy, and config-validation endpoints                               | Vitalii, Artem             |
+| Real-time updates (SSE)             | Shared poller per cluster, change-only events, keepalive, session recheck, client recovery     | Vitalii, Artem             |
+| Admin approval and logout           | Approval tokens, current-role checks, logout, auth rate limiting                               | Vitalii, Artem             |
+| GitHub OAuth                        | Sign-in via GitHub (new accounts still need approval)                                          | Vitalii (API), Artem (web) |
+| Admin user management               | List, approve, and delete users                                                                | Artem                      |
+| Database schema and migrations      | PostgreSQL + Drizzle schemas and migrations                                                    | Valentine, Artem           |
+| Migration worker                    | One-shot migrations plus optional initial admin creation                                       | Artem                      |
+| Demo seed and occupancy simulator   | Static demo data and a live simulator for seat changes                                         | Artem                      |
+| Privacy Policy and Terms of Service | Public legal pages linked from the footer                                                      | Artem                      |
+| Health and readiness checks         | `/api/health` and `/api/health/ready`                                                          | Artem, Vitalii             |
+| CI/CD and deployment                | PR checks, change-based image builds, GHCR, Coolify, Infisical                                 | Artem, Ping                |
+| WAF                                 | Cloudflare Cloud-based WAF with OWASP Core Ruleset                                             | Artem, Ping                |
+| Documentation site                  | Docusaurus: architecture, API reference, operations                                            | Artem, Vitalii, Ping       |
+| Project README                      | Evaluation README: requirements coverage, team, modules, schema, instructions                  | Ping                       |
 
 ## Modules
 
@@ -363,7 +358,7 @@ Target modules and points (from
 | 4   | Modules of choice: Major custom module                                                                              | Major |      2 | Artem, Ping               | Automated CI/CD: PR checks, change-based image builds, publishing to GHCR, Coolify deploys for staging and production, runtime secrets from Infisical                             |
 | 5   | Web: Use an ORM for the database                                                                                    | Minor |      1 | Valentine, Vitalii, Artem | Drizzle ORM with PostgreSQL 17; shared schemas in `@repo/db`, migrations applied by a one-shot worker                                                                             |
 | 6   | User Management: Implement remote authentication with OAuth 2.0                                                     | Minor |      1 | Vitalii, Artem            | GitHub OAuth through Better Auth; new GitHub accounts still need admin approval                                                                                                   |
-| 7   | User Management: Implement a complete 2FA system for the users                                                      | Minor |      1 | Vitalii, Artem            | TOTP: setup with QR code, backup codes shown, login challenge with trusted device, disable with password.                                                                         |
+| 7   | User Management: Implement a complete 2FA system for the users                                                      | Minor |      1 | Vitalii, Artem            | Not implemented. Removed with email/password sign-in.                                                                                                                             |
 | 8   | Web: Custom-made design system with reusable components, colour palette, typography, and icons (min. 10 components) | Minor |      1 | Maxim, Artem              | Untitled UI components on React Aria, adapted to the Hive brand; theme tokens, typography, dark mode. Untitled Ui + custom components. Count ≥ 10 components.                     |
 | 9   | Accessibility: Support for additional browsers (at least 2)                                                         | Minor |      1 | Maxim                     | Chrome, Firefox, Edge.                                                                                                                                                            |
 | 10  | Modules of choice: Minor custom module                                                                              | Minor |      1 | Artem, Vitalii            | Docusaurus documentation platform (architecture, API reference, operations), with its own Docker image and domain                                                                 |
@@ -414,8 +409,8 @@ Target modules and points (from
 6. **OAuth 2.0.** GitHub provider through Better Auth
    (`/api/auth/sign-in/github`, `/api/auth/callback/github`). New GitHub accounts
    still need administrator approval.
-7. **2FA.** TOTP through the Better Auth two-factor plugin, with the UI at
-   `/settings/security`.
+7. **2FA.** Removed. The TOTP flows depended on email/password sign-in, which
+   has been removed, so this module is not currently implemented.
 8. **Design system.** Untitled UI components adapted to the Hive brand, built on
    React Aria, with theme tokens and typography in `apps/web/src/styles`.
 9. **Additional browsers.** Tested in Chrome, Firefox, Edge.
@@ -434,8 +429,8 @@ Target modules and points (from
 ### Artem Kuchmambetov — Tech Lead / Architect
 
 - Set up the monorepo architecture, tooling, and shared packages.
-- Built the frontend auth flows (login and register screens, GitHub sign-in, 2FA
-  settings) and the admin user-management page.
+- Built the frontend auth flows (GitHub sign-in) and the admin user-management
+  page.
 - Contributed to the API (health and readiness checks, proxy trust) and to the
   database schema and migrations.
 - Built the migration worker, the demo seed, and the live occupancy simulator.
@@ -454,8 +449,8 @@ Target modules and points (from
 
 - Built the Express API: cluster endpoints, Zod validation, the error envelope,
   and the SSE polling pool.
-- Implemented authentication: Better Auth sessions, GitHub OAuth, opt-in TOTP
-  2FA, and the related environment validation.
+- Implemented authentication: Better Auth sessions, GitHub OAuth, and the related
+  environment validation.
 - Wrote the API unit and integration tests (Vitest + Supertest).
 - Wrote the original API and DB contracts, and parts of the docs.
 
@@ -474,7 +469,8 @@ Target modules and points (from
 
 ## Known Limitations
 
-- Backup-code recovery and email/SMS OTP are not available.
+- Email/password sign-in and two-factor authentication have been removed. Local
+  demo accounts cannot sign in.
 - There is no general profile page, and no Hive/42 OAuth yet.
 - Data is marked stale only after a failure, not after a set age.
 
