@@ -46,7 +46,8 @@ account must have signed in with GitHub first. The worker does not require GitHu
 credentials. API auth does; dummy values are suitable only for local testing and
 do not enable GitHub sign-in.
 
-The API readiness endpoint also validates the auth variables, requires
+The API validates auth variables at startup and creates Better Auth before listening.
+The readiness endpoint requires
 `WEB_ORIGIN` to equal its parsed origin (no path or trailing slash), and requires
 HTTPS for `WEB_ORIGIN` and `BETTER_AUTH_URL` in production. A successful database
 health probe does not establish that these checks pass.

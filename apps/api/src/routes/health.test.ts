@@ -1,9 +1,9 @@
 import type { Request, Response } from "express";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { healthHandler, isDatabaseReachable } from "./health";
+import { healthHandler, createDatabaseCheck } from "./health";
 
-const execute = vi.hoisted(() => vi.fn());
-vi.mock("@repo/db", () => ({ db: { execute } }));
+const execute = vi.fn();
+const isDatabaseReachable = createDatabaseCheck(execute, "private/password");
 
 afterEach(() => {
   vi.restoreAllMocks();

@@ -1,13 +1,13 @@
 import { EventEmitter } from "node:events";
 import type { Request, Response, NextFunction } from "express";
 import { afterEach, describe, it, expect, vi } from "vitest";
-import { getClusterEventsHandler } from "./clusters.controller";
-import { getSession } from "../auth/auth.service";
+import { createClusterEventsHandler } from "./clusters.controller";
+const getSession = vi.fn();
+const getClusterEventsHandler = createClusterEventsHandler({ getSession });
 const mocks = vi.hoisted(() => ({
   unsubscribe: vi.fn(),
   emit: undefined as undefined | ((event: string, data: string) => void),
 }));
-vi.mock("../auth/auth.service", () => ({ getSession: vi.fn() }));
 vi.mock("./clusters.service", () => ({
   loadClusterConfig: () => ({ id: "c1" }),
 }));

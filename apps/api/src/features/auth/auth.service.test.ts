@@ -1,5 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
+import { createAuthService } from "./auth.service";
+
+const mocks = {
+  getSession: vi.fn(),
+  signInSocial: vi.fn(),
+  callbackOAuth: vi.fn(),
+  signOut: vi.fn(),
+  findAuthUser: vi.fn(),
+  approveUser: vi.fn(),
+  listPendingUsers: vi.fn(),
+  listUsers: vi.fn(),
+  deleteUser: vi.fn(),
+};
+const {
   getUsers,
   deleteUser,
   confirm,
@@ -7,34 +20,7 @@ import {
   getPendingUsers,
   initiateGitHubSignIn,
   handleGitHubCallback,
-} from "./auth.service";
-
-const mocks = vi.hoisted(() => ({
-  getSession: vi.fn(),
-  signInSocial: vi.fn(),
-  callbackOAuth: vi.fn(),
-  findAuthUser: vi.fn(),
-  approveUser: vi.fn(),
-  listPendingUsers: vi.fn(),
-  listUsers: vi.fn(),
-  deleteUser: vi.fn(),
-}));
-vi.mock("../../config/auth.js", () => ({
-  auth: {
-    api: {
-      getSession: mocks.getSession,
-      signInSocial: mocks.signInSocial,
-      callbackOAuth: mocks.callbackOAuth,
-    },
-  },
-}));
-vi.mock("./auth.repository.js", () => ({
-  findAuthUser: mocks.findAuthUser,
-  approveUser: mocks.approveUser,
-  listPendingUsers: mocks.listPendingUsers,
-  listUsers: mocks.listUsers,
-  deleteUser: mocks.deleteUser,
-}));
+} = createAuthService({ api: mocks }, mocks);
 beforeEach(() => vi.resetAllMocks());
 describe("administrator approval authorization", () => {
   it("requires a session before accessing approval data", async () => {

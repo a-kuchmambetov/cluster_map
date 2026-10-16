@@ -1,27 +1,16 @@
-import express from "express";
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppError } from "@repo/errors";
-import { errorMiddleware } from "@middleware/error";
-import * as service from "./auth.service";
-import { authRouter } from "./auth.routes";
-import { env } from "@config/env";
+import { createTestDependencies } from "../../test/fakes";
+import { createApp } from "../../app";
 
-vi.mock("./auth.service", () => ({
-  getUsers: vi.fn(),
-  deleteUser: vi.fn(),
-  getSession: vi.fn(),
-  getPendingUsers: vi.fn(),
-  logout: vi.fn(),
-  confirm: vi.fn(),
-  initiateGitHubSignIn: vi.fn(),
-  handleGitHubCallback: vi.fn(),
-}));
-const app = express()
-  .use(express.json())
-  .use("/api/auth", authRouter)
-  .use(errorMiddleware);
-beforeEach(() => vi.clearAllMocks());
+const deps = createTestDependencies();
+const { env, authService: service } = deps;
+let app = createApp(deps);
+beforeEach(() => {
+  vi.resetAllMocks();
+  app = createApp(deps);
+});
 describe("custom auth routes", () => {
   it("rejects an untrusted browser origin", async () => {
     expect(

@@ -3,7 +3,8 @@ import type { AddressInfo } from "node:net";
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppError } from "@repo/errors";
-import { app } from "../../app";
+import { createApp } from "../../app";
+import { createTestDependencies } from "../fakes";
 import {
   resetPool,
   writeSharedSnapshot,
@@ -25,35 +26,31 @@ const C1_R1_OCCUPANCY: OccupancyRow[] = [
 ];
 
 const getClusterOccupancyMock = vi.fn();
-// Pass-through by default. Use mockImplementationOnce in the auth-gate test to
-// simulate a real rejection without coupling every other test to auth logic.
-const requireAuthMock = vi.fn((_req: unknown, _res: unknown, next: unknown) =>
-  (next as () => void)(),
-);
+const deps = createTestDependencies();
+const getSession = deps.authService.getSession;
+getSession.mockResolvedValue({
+  user: {
+    id: "cluster-test",
+    name: "Test",
+    email: "test@example.com",
+    emailVerified: false,
+    image: null,
+    role: "user",
+  },
+});
+const app = createApp(deps);
 
 vi.mock("../../features/clusters/clusters.repository", () => ({
   getClusterOccupancy: (...args: unknown[]) => getClusterOccupancyMock(...args),
 }));
 
-// Cluster behaviour tests are not auth tests. Stub out requireAuth so that
-// every test exercises the cluster logic rather than the session gate.
-// requireAuth.test.ts owns the 401/403 contract for that middleware.
-vi.mock("@middleware/requireAuth", () => ({
-  requireAuth: (req: unknown, res: unknown, next: unknown) =>
-    requireAuthMock(req, res, next),
-}));
-
 // Auth gate: one test that the gate is actually present in the route chain.
-// The rest of the suite stubs requireAuth out; this one overrides it for a
-// single call so that a refactor removing clustersRouter.use(requireAuth)
-// would be caught here without touching Artem's requireAuth unit tests.
+// Other requests use a valid fake session. This rejection verifies that the
+// session gate is present in the route chain.
 describe("cluster auth gate", () => {
   it("returns 401 for an unauthenticated request", async () => {
-    requireAuthMock.mockImplementationOnce(
-      (_req: unknown, _res: unknown, next: unknown) =>
-        (next as (err: unknown) => void)(
-          AppError.unauthorized("Authentication required"),
-        ),
+    getSession.mockRejectedValueOnce(
+      AppError.unauthorized("Authentication required"),
     );
     const response = await request(app).get("/api/clusters");
     expect(response.status).toBe(401);

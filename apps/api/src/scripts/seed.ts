@@ -3,6 +3,8 @@ import dotenv from "dotenv";
 import { randomBytes, randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import { eq } from "drizzle-orm";
+import { db, user, userHiveInfo, cluster, row, position } from "@repo/db";
+import { listClusterConfigs } from "../features/clusters/clusters.service";
 
 dotenv.config({ path: resolve(process.cwd(), "../../.env") });
 
@@ -11,11 +13,7 @@ async function main() {
     throw new Error("Demo seeding is disabled in production.");
   }
 
-  const { db, user, userHiveInfo, cluster, row, position } =
-    await import("@repo/db");
   try {
-    const { listClusterConfigs } =
-      await import("../features/clusters/clusters.service.js");
     const configs = listClusterConfigs();
     // Use the same IDs and coordinates as the public map API.
     const isOccupied = (clusterNumber: number, placeIndex: number) =>

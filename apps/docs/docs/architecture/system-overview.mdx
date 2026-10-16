@@ -27,8 +27,10 @@ Docusaurus documentation, a one-shot migration worker, and shared TypeScript pac
 
 Public `/privacy` and `/terms` pages sit outside the protected route guard and
 display draft notices even when the API is unavailable. Public API probes are
-`/api/health` for database connectivity and `/api/health/ready` for auth
-configuration, selected schema checks, and auth initialization.
+`/api/health` for database connectivity and `/api/health/ready` for URL settings
+and selected schema checks. At startup, `index.ts` validates the environment,
+creates Better Auth and the auth service, and injects them with health checks into
+`createApp` before listening.
 
 ## Component responsibilities
 

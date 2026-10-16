@@ -16,9 +16,9 @@ validity, or occupancy freshness.
 
 `GET /api/health/ready` is also public: it returns `200` with
 `{ "status": "ready" }` or `503` with `{ "status": "not-ready" }`. It checks
-auth environment variables, exact `WEB_ORIGIN` formatting, HTTPS web/auth URLs
-in production, selected schema tables, and Better Auth initialization. Its
-database/auth phase has a three-second timeout. It does not query `two_factor`,
+exact `WEB_ORIGIN` formatting, HTTPS web/auth URLs in production, and selected
+schema tables. Auth environment validation and Better Auth construction happen
+at startup, before listening. The database phase has a three-second timeout. It does not query `two_factor`,
 validate layout, or test occupancy freshness or an actual sign-in. See the
 [readiness reference](../reference/api#get-apihealthready) for its scope.
 
@@ -43,7 +43,7 @@ per-event signal. Metrics, alerting, and distributed tracing are not configured.
 | Symptom                                | Check                                                                                                                               |
 | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | Health returns 503                     | PostgreSQL availability, `PG_*`, and Compose DB health.                                                                             |
-| Health works but readiness returns 503 | Auth secret/URL, required GitHub values, exact `WEB_ORIGIN`, HTTPS URLs in production, migrations, and DB permissions.              |
+| Health works but readiness returns 503 | Exact `WEB_ORIGIN`, HTTPS URLs in production, migrations, and DB permissions.                                                       |
 | Health works but login fails           | Auth secret/URL, required GitHub credentials, migrations, approval, and GitHub callback configuration; health only runs `SELECT 1`. |
 | Login returns 403                      | Account approval and trusted origin. New accounts cannot create a session before approval.                                          |
 | Admin page/API denied                  | Current user must be both approved and an administrator.                                                                            |

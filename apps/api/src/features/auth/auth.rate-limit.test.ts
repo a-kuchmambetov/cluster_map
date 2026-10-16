@@ -1,18 +1,10 @@
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type * as AuthService from "./auth.service";
-
-vi.mock("./auth.service", async (importOriginal) => ({
-  ...(await importOriginal<typeof AuthService>()),
-  confirm: vi.fn(async () => {
-    const { AppError } = await import("@repo/errors");
-    throw AppError.unauthorized("Authentication required");
-  }),
-}));
+import { AppError } from "@repo/errors";
+import { createApp } from "../../app";
+import { createTestDependencies } from "../../test/fakes";
 
 beforeEach(() => {
-  vi.resetModules();
-  vi.stubEnv("TRUST_PROXY_HOPS", "1");
   vi.spyOn(console, "error").mockImplementation(() => {});
   vi.spyOn(console, "log").mockImplementation(() => {});
 });
@@ -21,9 +13,18 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+function makeApp(trustProxyHops: number) {
+  const deps = createTestDependencies();
+  deps.env.TRUST_PROXY_HOPS = trustProxyHops;
+  deps.authService.confirm.mockRejectedValue(
+    AppError.unauthorized("Authentication required"),
+  );
+  return createApp(deps);
+}
+
 describe("auth limits behind a reverse proxy", () => {
   it("gives each client its own budget and rejects spoofed forwarding prefixes", async () => {
-    const { app } = await import("../../app.js");
+    const app = makeApp(1);
     const approve = (forwardedFor: string) =>
       request(app)
         .post("/api/auth/confirm/approval-token")
@@ -45,8 +46,7 @@ describe("auth limits behind a reverse proxy", () => {
   });
 
   it("ignores forwarded client identities when no proxy is trusted", async () => {
-    vi.stubEnv("TRUST_PROXY_HOPS", "0");
-    const { app } = await import("../../app.js");
+    const app = makeApp(0);
     for (let attempt = 0; attempt < 11; attempt++) {
       // eslint-disable-next-line no-await-in-loop -- The eleventh request must be the blocked one.
       const response = await request(app)

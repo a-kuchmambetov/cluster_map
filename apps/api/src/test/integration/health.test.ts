@@ -1,14 +1,13 @@
 import request from "supertest";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { app } from "../../app";
+import { createApp } from "../../app";
+import { createDatabaseCheck } from "../../routes/health";
+import { createTestDependencies } from "../fakes";
 
 const executeMock = vi.fn();
 
-vi.mock("@repo/db", () => ({
-  db: {
-    execute: (...args: unknown[]) => executeMock(...args),
-  },
-}));
+const deps = createTestDependencies();
+const app = createApp({ ...deps, checkDb: createDatabaseCheck(executeMock) });
 
 describe("GET /api/health", () => {
   afterEach(() => {
@@ -35,4 +34,16 @@ describe("GET /api/health", () => {
       db: "unreachable",
     });
   });
+});
+
+describe("GET /api/health/ready", () => {
+  it.each([true, false])(
+    "reflects the injected readiness result: %s",
+    async (ready) => {
+      deps.checkReady.mockResolvedValue(ready);
+      const response = await request(app).get("/api/health/ready");
+      expect(response.status).toBe(ready ? 200 : 503);
+      expect(response.body).toEqual({ status: ready ? "ready" : "not-ready" });
+    },
+  );
 });

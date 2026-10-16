@@ -176,17 +176,18 @@ Public application readiness check with no parameters or request body.
 curl http://localhost:5001/api/health/ready
 ```
 
-| Result                                                      | HTTP status | Body                        |
-| ----------------------------------------------------------- | ----------- | --------------------------- |
-| Checks pass                                                 | 200         | `{ "status": "ready" }`     |
-| Invalid configuration, failed schema/auth check, or timeout | 503         | `{ "status": "not-ready" }` |
+| Result                                                | HTTP status | Body                        |
+| ----------------------------------------------------- | ----------- | --------------------------- |
+| Checks pass                                           | 200         | `{ "status": "ready" }`     |
+| Invalid URL settings, failed schema check, or timeout | 503         | `{ "status": "not-ready" }` |
 
-The check validates the required auth environment variables and requires
+Required auth environment variables are validated once at startup, and Better Auth
+is created before the API listens. The readiness check requires
 `WEB_ORIGIN` to be an exact origin (no path or trailing slash). In production,
 both `WEB_ORIGIN` and `BETTER_AUTH_URL` must use HTTPS. It selects declared columns
 with `LIMIT 0` from `user`, `session`, `account`, `verification`, `cluster`,
-`row`, `position`, and `user_hive_info`, then imports the Better Auth configuration.
-The database/auth phase has a three-second timeout. Failures use the body above,
+`row`, `position`, and `user_hive_info`.
+The database phase has a three-second timeout. Failures use the body above,
 outside the normal error envelope.
 
 This is a partial readiness check: it does not query `two_factor`, inspect

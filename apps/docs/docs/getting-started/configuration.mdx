@@ -43,19 +43,19 @@ because Vite has no API proxy. Do not commit the resulting `.env`.
 `API_PORT` defaults to 5001 and `WEB_ORIGIN` to `http://localhost:5173`.
 The DB client constructs a PostgreSQL URL from `PG_USER`, `PG_PASSWORD`,
 `PG_HOST`, `PG_PORT`, and `PG_DB`, defaulting to `app`, `app`, `localhost`,
-`5432`, and `app`. User/password are URL-encoded. Neither module reads
+`5432`, and `app`. User/password are URL-encoded. The DB client does not read
 `PG_PASSWORD_FILE` or a supplied `DATABASE_URL` environment variable.
 
-Auth initializes lazily when auth functionality or readiness is checked. `BETTER_AUTH_SECRET`
+The API validates all environment variables once at startup, then creates Better Auth
+before listening. Invalid configuration exits immediately. `BETTER_AUTH_SECRET`
 must have at least 32 characters, `BETTER_AUTH_URL` must be a URL, and both
 GitHub variables must be non-empty. For local testing without GitHub, non-empty
 dummy values satisfy validation, but GitHub sign-in requires real OAuth credentials.
 Set the OAuth App callback to `http://localhost:5001/api/auth/callback/github`
 for this example; change it when the auth origin changes.
 
-A healthy `/api/health` response does not validate auth configuration or prove
-that migrations have run. `/api/health/ready` additionally checks auth settings,
-selected schema tables, and auth initialization. It requires `WEB_ORIGIN` without
+A healthy `/api/health` response does not prove that migrations have run.
+`/api/health/ready` additionally checks URL settings and selected schema tables. It requires `WEB_ORIGIN` without
 a path or trailing slash, and HTTPS web/auth URLs in production. It does not
 check the `two_factor` table or perform a sign-in round trip.
 

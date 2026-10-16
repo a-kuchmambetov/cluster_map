@@ -120,8 +120,9 @@ After deployment, verify:
 5. Cluster snapshots, SSE delivery, and reconnect recovery work through the proxy.
 6. Database data persists across application replacement.
 
-`/api/health` checks connectivity only. `/api/health/ready` checks auth settings,
-selected database tables, and auth initialization; production requires HTTPS
+The API validates environment variables and creates Better Auth before listening.
+`/api/health` checks connectivity only. `/api/health/ready` checks URL settings
+and selected database tables; production requires HTTPS
 web/auth URLs and an exact `WEB_ORIGIN` with no trailing slash. Readiness does not
 query `two_factor`, validate layout, or prove occupancy freshness or successful
 sign-in. Neither endpoint is a deployment gate in the workflows. API Docker

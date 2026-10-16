@@ -1,38 +1,43 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({
-  auth: {
-    BETTER_AUTH_URL: "https://map.example",
-    BETTER_AUTH_SECRET: "x".repeat(32),
-  },
-  limit: vi.fn(),
-}));
-vi.mock("../config/env", () => ({
-  env: { WEB_ORIGIN: "https://map.example" },
-  getAuthEnv: () => mocks.auth,
-}));
-vi.mock("../config/auth.js", () => ({ auth: {} }));
-vi.mock("@repo/db", () => ({
-  db: { select: () => ({ from: () => ({ limit: mocks.limit }) }) },
-  user: {},
-  session: {},
-  account: {},
-  verification: {},
-  cluster: {},
-  row: {},
-  position: {},
-  userHiveInfo: {},
-}));
-import { isApplicationReady } from "./readiness";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createReadinessCheck } from "./readiness";
+
+const env = {
+  WEB_ORIGIN: "https://map.example",
+  BETTER_AUTH_URL: "https://map.example",
+  NODE_ENV: "production",
+};
+const checkSchema = vi.fn<() => Promise<void>>();
+const isApplicationReady = createReadinessCheck(env, checkSchema);
+
 describe("application readiness", () => {
   beforeEach(() => {
-    mocks.limit.mockReset();
+    checkSchema.mockReset();
   });
+  afterEach(() => vi.useRealTimers());
   it("accepts a usable schema", async () => {
-    mocks.limit.mockResolvedValue([]);
+    checkSchema.mockResolvedValue(undefined);
     expect(await isApplicationReady()).toBe(true);
   });
   it("rejects a missing schema column", async () => {
-    mocks.limit.mockRejectedValue(new Error("column does not exist"));
+    checkSchema.mockRejectedValue(new Error("column does not exist"));
     expect(await isApplicationReady()).toBe(false);
+  });
+  it.each([
+    { WEB_ORIGIN: "https://map.example/" },
+    { WEB_ORIGIN: "http://map.example" },
+    { BETTER_AUTH_URL: "http://map.example" },
+  ])("rejects invalid origin settings: %j", async (settings) => {
+    expect(
+      await createReadinessCheck({ ...env, ...settings }, checkSchema)(),
+    ).toBe(false);
+    expect(checkSchema).not.toHaveBeenCalled();
+  });
+  it("times out a stalled schema check and clears the timer", async () => {
+    vi.useFakeTimers();
+    checkSchema.mockImplementation(() => new Promise(() => {}));
+    const result = isApplicationReady();
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(await result).toBe(false);
+    expect(vi.getTimerCount()).toBe(0);
   });
 });
