@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createReadinessCheck } from "./readiness";
+import { createReadinessCheck } from "./readiness.js";
 
 const env = {
   WEB_ORIGIN: "https://map.example",

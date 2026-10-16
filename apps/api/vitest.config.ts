@@ -1,4 +1,4 @@
-import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
@@ -8,9 +8,11 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@middleware": path.resolve(__dirname, "./src/middleware"),
-      "@features": path.resolve(__dirname, "./src/features"),
-      "@config": path.resolve(__dirname, "./src/config"),
+      "@middleware": fileURLToPath(
+        new URL("./src/middleware", import.meta.url),
+      ),
+      "@features": fileURLToPath(new URL("./src/features", import.meta.url)),
+      "@config": fileURLToPath(new URL("./src/config", import.meta.url)),
     },
   },
 });

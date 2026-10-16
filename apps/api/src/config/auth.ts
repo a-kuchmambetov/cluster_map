@@ -9,7 +9,7 @@ import {
   account,
   verification,
 } from "@repo/db";
-import type { Env } from "./env";
+import type { Env } from "./env.js";
 
 type AuthDependencies = {
   env: Env;

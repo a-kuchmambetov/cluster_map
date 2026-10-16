@@ -3,10 +3,10 @@ import type { AddressInfo } from "node:net";
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppError } from "@repo/errors";
-import { createApp } from "../../app";
-import { createTestDependencies } from "../fakes";
-import { resetPool } from "../../features/clusters/clusters.pool";
-import type { OccupancyRow } from "../../features/clusters/clusters.types";
+import { createApp } from "../../app.js";
+import { createTestDependencies } from "../fakes.js";
+import { resetPool } from "../../features/clusters/clusters.pool.js";
+import type { OccupancyRow } from "../../features/clusters/clusters.types.js";
 
 // Captured before vi.useFakeTimers() runs so it always refers to the real
 // implementation — used in openSSE's timeout guard and the "no event" race.
@@ -37,7 +37,7 @@ getSession.mockResolvedValue({
 });
 const app = createApp(deps);
 
-vi.mock("../../features/clusters/clusters.repository", () => ({
+vi.mock("../../features/clusters/clusters.repository.js", () => ({
   getClusterOccupancy: (...args: unknown[]) => getClusterOccupancyMock(...args),
 }));
 

@@ -1,6 +1,6 @@
-import type { AuthService } from "../auth/auth.service";
-import { createRequireAuth } from "@middleware/requireAuth";
-import { validateRequest } from "@middleware/validateRequest";
+import type { AuthService } from "../auth/auth.service.js";
+import { createRequireAuth } from "@middleware/requireAuth.js";
+import { validateRequest } from "@middleware/validateRequest.js";
 import { Router } from "express";
 import {
   getClusterConfigValidationHandler,
@@ -8,8 +8,8 @@ import {
   getClusterLayoutHandler,
   getClusterOccupancyHandler,
   listClusters,
-} from "./clusters.controller";
-import { clusterNumberParamSchema } from "./clusters.schema";
+} from "./clusters.controller.js";
+import { clusterNumberParamSchema } from "./clusters.schema.js";
 
 export function createClustersRouter(
   authService: Pick<AuthService, "getSession">,

@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { fromNodeHeaders } from "better-auth/node";
-import type { AuthService } from "./auth.service";
+import type { AuthService } from "./auth.service.js";
 
 export function createAuthController(service: AuthService, webOrigin: string) {
   async function confirmHandler(

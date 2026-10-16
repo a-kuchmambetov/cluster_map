@@ -2,9 +2,8 @@
 import dotenv from "dotenv";
 import { randomBytes, randomUUID } from "node:crypto";
 import { resolve } from "node:path";
-import { eq } from "drizzle-orm";
-import { db, user, userHiveInfo, cluster, row, position } from "@repo/db";
-import { listClusterConfigs } from "../features/clusters/clusters.service";
+import { db, user, userHiveInfo, cluster, row, position, eq } from "@repo/db";
+import { listClusterConfigs } from "../features/clusters/clusters.service.js";
 
 dotenv.config({ path: resolve(process.cwd(), "../../.env") });
 

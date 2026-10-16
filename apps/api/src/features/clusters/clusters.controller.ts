@@ -1,16 +1,16 @@
 import { fromNodeHeaders } from "better-auth/node";
-import type { AuthService } from "../auth/auth.service";
+import type { AuthService } from "../auth/auth.service.js";
 import type { NextFunction, Request, Response } from "express";
 import type { ClusterListResponse } from "@repo/types";
-import { subscribe } from "./clusters.pool";
-import { clusterNumberParamSchema } from "./clusters.schema";
+import { subscribe } from "./clusters.pool.js";
+import { clusterNumberParamSchema } from "./clusters.schema.js";
 import {
   getClusterConfigValidation,
   getClusterLayout,
   getClusterOccupancyData,
   listClusterConfigs,
   loadClusterConfig,
-} from "./clusters.service";
+} from "./clusters.service.js";
 
 const KEEPALIVE_INTERVAL_MS = 20_000;
 

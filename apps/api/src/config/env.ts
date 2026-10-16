@@ -1,11 +1,11 @@
-import { resolve } from "node:path";
 import { loadEnvFile } from "node:process";
+import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
 // Resolve from this module so source and compiled entry points use the same file.
 // Existing environment variables (including Infisical secrets) take precedence.
 try {
-  loadEnvFile(resolve(__dirname, "../../../../.env"));
+  loadEnvFile(fileURLToPath(new URL("../../../../.env", import.meta.url)));
 } catch (error) {
   if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
 }

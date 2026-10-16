@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { resolveRowPositions } from "./clusters.service";
-import type { CellConfig } from "./clusters.types";
+import { resolveRowPositions } from "./clusters.service.js";
+import type { CellConfig } from "./clusters.types.js";
 
 describe("resolveRowPositions", () => {
   const place = (id: string, position?: "top" | "bottom"): CellConfig =>

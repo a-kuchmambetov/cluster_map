@@ -1,9 +1,9 @@
-import type { Env } from "@config/env";
+import type { Env } from "@config/env.js";
 import cors from "cors";
 import express from "express";
-import { errorMiddleware } from "./middleware/error";
-import { requestLogger } from "./middleware/requestLogger";
-import { createRoutes, type RouteDependencies } from "./routes";
+import { errorMiddleware } from "./middleware/error.js";
+import { requestLogger } from "./middleware/requestLogger.js";
+import { createRoutes, type RouteDependencies } from "./routes/index.js";
 
 export type AppDependencies = Omit<RouteDependencies, "webOrigin"> & {
   env: Pick<Env, "WEB_ORIGIN" | "TRUST_PROXY_HOPS" | "NODE_ENV">;

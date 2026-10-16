@@ -1,5 +1,5 @@
-import { getClusterOccupancy } from "./clusters.repository";
-import type { OccupiedEntry } from "./clusters.types";
+import { getClusterOccupancy } from "./clusters.repository.js";
+import type { OccupiedEntry } from "./clusters.types.js";
 
 export const POLL_INTERVAL_MS = 30_000;
 

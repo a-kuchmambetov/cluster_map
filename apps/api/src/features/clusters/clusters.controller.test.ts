@@ -5,14 +5,14 @@ import {
   getClusterLayoutHandler,
   getClusterOccupancyHandler,
   listClusters,
-} from "./clusters.controller";
+} from "./clusters.controller.js";
 
 const listClusterConfigsMock = vi.fn();
 const getClusterLayoutMock = vi.fn();
 const getClusterOccupancyDataMock = vi.fn();
 const getClusterConfigValidationMock = vi.fn();
 
-vi.mock("./clusters.service", () => ({
+vi.mock("./clusters.service.js", () => ({
   listClusterConfigs: (...args: unknown[]) => listClusterConfigsMock(...args),
   getClusterLayout: (...args: unknown[]) => getClusterLayoutMock(...args),
   getClusterOccupancyData: (...args: unknown[]) =>

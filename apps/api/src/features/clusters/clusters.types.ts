@@ -7,7 +7,7 @@ import type {
   gapCellConfigSchema,
   placeCellConfigSchema,
   positionSchema,
-} from "./clusters.schema";
+} from "./clusters.schema.js";
 
 export type Position = z.infer<typeof positionSchema>;
 export type PlaceCellConfig = z.infer<typeof placeCellConfigSchema>;

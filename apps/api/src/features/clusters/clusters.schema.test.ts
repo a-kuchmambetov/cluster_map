@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clustersConfigFileSchema } from "./clusters.schema";
+import { clustersConfigFileSchema } from "./clusters.schema.js";
 
 describe("clustersConfigFileSchema — uniqueness validation", () => {
   function minimal(overrides: object) {

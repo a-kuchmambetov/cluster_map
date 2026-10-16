@@ -1,11 +1,11 @@
-import { env } from "@config/env";
+import { env } from "@config/env.js";
 import { db } from "@repo/db";
-import { createAuth } from "@config/auth";
-import * as authRepository from "@features/auth/auth.repository";
-import { createAuthService } from "@features/auth/auth.service";
-import { createApp } from "./app";
-import { createDatabaseCheck } from "./routes/health";
-import { createReadinessCheck, createSchemaCheck } from "./routes/readiness";
+import { createAuth } from "@config/auth.js";
+import * as authRepository from "@features/auth/auth.repository.js";
+import { createAuthService } from "@features/auth/auth.service.js";
+import { createApp } from "./app.js";
+import { createDatabaseCheck } from "./routes/health.js";
+import { createReadinessCheck, createSchemaCheck } from "./routes/readiness.js";
 
 const auth = createAuth({ env, db, findAuthUser: authRepository.findAuthUser });
 const authService = createAuthService(auth, authRepository);

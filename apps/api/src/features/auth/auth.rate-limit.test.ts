@@ -1,8 +1,8 @@
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppError } from "@repo/errors";
-import { createApp } from "../../app";
-import { createTestDependencies } from "../../test/fakes";
+import { createApp } from "../../app.js";
+import { createTestDependencies } from "../../test/fakes.js";
 
 beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});

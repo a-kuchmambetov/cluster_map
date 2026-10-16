@@ -1,5 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
-import { db, user } from "@repo/db";
+import { and, asc, eq, db, user } from "@repo/db";
 
 export async function findAuthUser(id: string) {
   const [record] = await db

@@ -1,10 +1,10 @@
 import { Router } from "express";
 import { rateLimit } from "express-rate-limit";
 import { AppError } from "@repo/errors";
-import type { AuthService } from "./auth.service";
-import { validateRequest } from "@middleware/validateRequest";
-import { createAuthController } from "./auth.controller";
-import { confirmSchema } from "./auth.schema";
+import type { AuthService } from "./auth.service.js";
+import { validateRequest } from "@middleware/validateRequest.js";
+import { createAuthController } from "./auth.controller.js";
+import { confirmSchema } from "./auth.schema.js";
 
 export function createAuthRouter(
   service: AuthService,

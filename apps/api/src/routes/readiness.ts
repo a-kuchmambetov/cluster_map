@@ -9,7 +9,7 @@ import {
   position,
   userHiveInfo,
 } from "@repo/db";
-import type { Env } from "../config/env";
+import type { Env } from "../config/env.js";
 
 export function createSchemaCheck(db: typeof database) {
   return async () => {

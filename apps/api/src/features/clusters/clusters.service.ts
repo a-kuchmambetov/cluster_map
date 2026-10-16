@@ -5,8 +5,8 @@ import type {
   ConfigValidationError,
   ConfigValidationResponse,
 } from "@repo/types";
-import { getClusterOccupancy } from "./clusters.repository";
-import { clustersConfigFileSchema } from "./clusters.schema";
+import { getClusterOccupancy } from "./clusters.repository.js";
+import { clustersConfigFileSchema } from "./clusters.schema.js";
 import type {
   CellConfig,
   ClusterConfig,
@@ -14,7 +14,7 @@ import type {
   ClusterOccupancyResponse,
   Position,
   ResolvedCellConfig,
-} from "./clusters.types";
+} from "./clusters.types.js";
 
 const DEFAULT_POSITION: Position = "top";
 

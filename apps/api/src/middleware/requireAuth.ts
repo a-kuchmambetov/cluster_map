@@ -1,6 +1,6 @@
 import type { RequestHandler } from "express";
 import { fromNodeHeaders } from "better-auth/node";
-import type { AuthService } from "../features/auth/auth.service";
+import type { AuthService } from "../features/auth/auth.service.js";
 
 export function createRequireAuth({
   getSession,

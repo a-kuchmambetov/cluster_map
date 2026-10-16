@@ -1,5 +1,5 @@
-import type { Auth } from "../../config/auth";
-import type * as authRepository from "./auth.repository";
+import type { Auth } from "../../config/auth.js";
+import type * as authRepository from "./auth.repository.js";
 import { isAPIError } from "better-auth/api";
 import { AppError } from "@repo/errors";
 

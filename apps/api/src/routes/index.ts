@@ -1,8 +1,8 @@
-import { createAuthRouter } from "@features/auth/auth.routes";
-import type { AuthService } from "@features/auth/auth.service";
-import { createClustersRouter } from "@features/clusters/clusters.routes";
+import { createAuthRouter } from "@features/auth/auth.routes.js";
+import type { AuthService } from "@features/auth/auth.service.js";
+import { createClustersRouter } from "@features/clusters/clusters.routes.js";
 import { Router } from "express";
-import { createHealthRouter, type HealthChecks } from "./health";
+import { createHealthRouter, type HealthChecks } from "./health.js";
 
 export type RouteDependencies = HealthChecks & {
   authService: AuthService;

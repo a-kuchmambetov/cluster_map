@@ -3,8 +3,8 @@ import request from "supertest";
 import { describe, it, expect, vi } from "vitest";
 import { AppError } from "@repo/errors";
 
-import { createClustersRouter } from "../features/clusters/clusters.routes";
-import { errorMiddleware } from "./error";
+import { createClustersRouter } from "../features/clusters/clusters.routes.js";
+import { errorMiddleware } from "./error.js";
 const getSession = vi.fn();
 const app = express()
   .use("/api/clusters", createClustersRouter({ getSession }))

@@ -1,10 +1,9 @@
 import type { Express } from "express";
-import type { Auth } from "../../config/auth";
-import type { AuthService } from "../../features/auth/auth.service";
+import type { Auth } from "../../config/auth.js";
+import type { AuthService } from "../../features/auth/auth.service.js";
 import { randomUUID } from "node:crypto";
 import { beforeAll, describe, expect, it } from "vitest";
 import request from "supertest";
-import { eq } from "drizzle-orm";
 
 const SECRET = "integration-test-secret-at-least-32-characters";
 
@@ -43,7 +42,7 @@ describe.runIf(process.env.AUTH_DB_TEST === "1")(
       });
     });
     it("requires a current approved admin and consumes the approval token exactly once", async () => {
-      const { db, user, session } = await import("@repo/db");
+      const { db, user, session, eq } = await import("@repo/db");
       const { makeSignature } = await import("better-auth/crypto");
       const { confirm } = authService;
       const context = await auth.$context;

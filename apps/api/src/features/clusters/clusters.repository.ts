@@ -1,6 +1,14 @@
-import type { OccupancyRow } from "./clusters.types";
-import { cluster, db, position, row, user, userHiveInfo } from "@repo/db";
-import { and, eq } from "drizzle-orm";
+import type { OccupancyRow } from "./clusters.types.js";
+import {
+  cluster,
+  db,
+  position,
+  row,
+  user,
+  userHiveInfo,
+  and,
+  eq,
+} from "@repo/db";
 
 // const OCCUPANCY_FIXTURES: Record<string, OccupancyRow[]> = {
 //     c1: [{ row: 1, place: 2, intraName: "jdoe", displayName: "John Doe", photo: null }],
