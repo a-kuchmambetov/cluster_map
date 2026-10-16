@@ -1,8 +1,14 @@
-import dotenv from "dotenv";
-import { resolve } from "path";
+import { resolve } from "node:path";
+import { loadEnvFile } from "node:process";
 import { z } from "zod";
 
-dotenv.config({ path: resolve(process.cwd(), "../../.env") });
+// Resolve from this module so source and compiled entry points use the same file.
+// Existing environment variables (including Infisical secrets) take precedence.
+try {
+  loadEnvFile(resolve(__dirname, "../../../../.env"));
+} catch (error) {
+  if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+}
 
 const envSchema = z.object({
   API_PORT: z.coerce.number().default(5001), // 5000 is occupied by AirPlay Receiver on macOS
