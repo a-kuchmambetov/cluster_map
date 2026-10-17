@@ -1,6 +1,6 @@
 import { vi } from "vitest";
-import type { AppDependencies } from "../app.js";
-import type { AuthService } from "../features/auth/auth.service.js";
+import type { AppDependencies } from "../../src/app.js";
+import type { AuthService } from "../../src/features/auth/auth.service.js";
 
 export function createTestDependencies() {
   return {

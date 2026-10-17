@@ -3,9 +3,9 @@ import request from "supertest";
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
 import { z } from "zod";
 import { AppError } from "@repo/errors";
-import { clusterNumberParamSchema } from "../features/clusters/clusters.schema.js";
-import { errorMiddleware } from "./error.js";
-import { handler } from "./handler.js";
+import { clusterNumberParamSchema } from "../../../src/features/clusters/clusters.schema.js";
+import { errorMiddleware } from "../../../src/middleware/error.js";
+import { handler } from "../../../src/middleware/handler.js";
 
 describe("handler", () => {
   it("keeps optional schemas optional in the controller context", async () => {

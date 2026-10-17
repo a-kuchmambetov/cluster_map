@@ -1,8 +1,8 @@
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppError } from "@repo/errors";
-import { createTestDependencies } from "../../test/fakes.js";
-import { createApp } from "../../app.js";
+import { createTestDependencies } from "../../../helpers/fakes.js";
+import { createApp } from "../../../../src/app.js";
 
 const deps = createTestDependencies();
 const { env, authService: service } = deps;

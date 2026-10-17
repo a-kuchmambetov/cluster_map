@@ -26,9 +26,9 @@ Worker tests use Node's test runner and module mocks, covering environment
 validation, admin provisioning outcomes, and bounded connectivity/shutdown.
 Deployment helper tests cover changed-app selection and workflow baselines.
 
-The normal API `test` script excludes `src/test/integration`; run the separate
-integration command as well. API and web expose `test:watch`. There is no root
-`test` script; `pnpm -r --if-present test` runs the workspace default suites.
+The normal API `test` script runs `__TEST__/unit`; the separate integration
+command runs `__TEST__/integration`. Run both suites. API and web expose
+`test:watch`. There is no root `test` script; `pnpm -r --if-present test` runs the workspace default suites.
 Playwright end-to-end tests and MSW are not currently configured.
 
 ## PostgreSQL auth integration

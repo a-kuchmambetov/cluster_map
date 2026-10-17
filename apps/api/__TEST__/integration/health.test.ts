@@ -1,8 +1,8 @@
 import request from "supertest";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createApp } from "../../app.js";
-import { createDatabaseCheck } from "../../routes/health.js";
-import { createTestDependencies } from "../fakes.js";
+import { createApp } from "../../src/app.js";
+import { createDatabaseCheck } from "../../src/routes/health.js";
+import { createTestDependencies } from "../helpers/fakes.js";
 
 const executeMock = vi.fn();
 

@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
 import type { Request, Response, NextFunction } from "express";
 import { afterEach, describe, it, expect, vi } from "vitest";
-import { createClusterEventsHandler } from "./clusters.controller.js";
+import { createClusterEventsHandler } from "../../../../src/features/clusters/clusters.controller.js";
 const getSession = vi.fn();
 const getClusterEventsHandler = createClusterEventsHandler({ getSession });
 const mocks = vi.hoisted(() => ({
@@ -11,10 +11,10 @@ const mocks = vi.hoisted(() => ({
     | undefined
     | ((emit: (event: string, data: string) => void) => void),
 }));
-vi.mock("./clusters.service.js", () => ({
+vi.mock("../../../../src/features/clusters/clusters.service.js", () => ({
   loadClusterConfig: () => ({ id: "c1" }),
 }));
-vi.mock("./clusters.pool.js", () => ({
+vi.mock("../../../../src/features/clusters/clusters.pool.js", () => ({
   subscribe: (_id: string, emit: typeof mocks.emit) => {
     mocks.emit = emit;
     if (emit) mocks.onSubscribe?.(emit);

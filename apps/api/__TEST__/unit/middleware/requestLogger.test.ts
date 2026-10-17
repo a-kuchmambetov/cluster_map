@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
 import type { NextFunction, Request, Response } from "express";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { requestLogger } from "./requestLogger.js";
+import { requestLogger } from "../../../src/middleware/requestLogger.js";
 
 function makeArgs({
   method = "GET",

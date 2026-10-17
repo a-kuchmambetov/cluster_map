@@ -10,16 +10,20 @@ TypeScript packages live in `packages/`.
 
 ```text
 apps/
-  api/src/
-    config/          # Environment, Better Auth, clusters.json
-    features/auth/   # Routes, controllers, services, repository, validation
-    features/clusters/ # Map endpoints and shared SSE polling pool
-    middleware/      # Auth, request logs, validation, errors
-    routes/          # Public database health and application readiness
-    scripts/         # Local demo seed
-    test/integration/ # API integration suites
-    app.ts           # Express setup
-    index.ts         # Server startup
+  api/
+    src/
+      config/          # Environment, Better Auth, clusters.json
+      features/auth/   # Routes, controllers, services, repository, validation
+      features/clusters/ # Map endpoints and shared SSE polling pool
+      middleware/      # Auth, request logs, validation, errors
+      routes/          # Public database health and application readiness
+      scripts/         # Local demo seed
+      app.ts           # Express setup
+      index.ts         # Server startup
+    __TEST__/
+      unit/            # Unit suites mirroring src/ structure
+      integration/     # API integration suites
+      helpers/         # Shared test dependencies and fakes
   web/src/
     app/             # Route table and providers
     features/admin/  # User listing, approvals, deletion
@@ -67,8 +71,10 @@ behavior is documented in the reference and architecture sections.
 
 ## Source ownership
 
-API features colocate routes, controllers, services, repositories, schemas, and
-unit tests. Integration tests live under `apps/api/src/test/integration`.
+API features colocate routes, controllers, services, repositories, and schemas.
+All API tests live under `apps/api/__TEST__`: `unit/` mirrors the `src/`
+structure, `integration/` holds integration suites, and `helpers/` holds shared
+test dependencies and fakes.
 Database models belong in `@repo/db`; DTOs shared between API and web belong in
 `@repo/types`. Current auth and cluster Zod schemas are feature-local, not in
 `@repo/validators`.

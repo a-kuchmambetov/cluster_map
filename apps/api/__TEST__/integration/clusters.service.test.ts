@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   listClusterConfigs,
   resolveRowPositions,
-} from "../../features/clusters/clusters.service.js";
+} from "../../src/features/clusters/clusters.service.js";
 import type {
   ClusterConfig,
   ResolvedPlaceCellConfig,
-} from "../../features/clusters/clusters.types.js";
+} from "../../src/features/clusters/clusters.types.js";
 
 describe("real config — resolved positions and place counts", () => {
   const clusters = listClusterConfigs();

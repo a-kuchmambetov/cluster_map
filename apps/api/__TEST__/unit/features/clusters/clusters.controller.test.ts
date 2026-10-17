@@ -1,17 +1,17 @@
 import express from "express";
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createClustersRouter } from "./clusters.routes.js";
-import { clusterNumberParamSchema } from "./clusters.schema.js";
-import { errorMiddleware } from "../../middleware/error.js";
-import { createTestDependencies } from "../../test/fakes.js";
+import { createClustersRouter } from "../../../../src/features/clusters/clusters.routes.js";
+import { clusterNumberParamSchema } from "../../../../src/features/clusters/clusters.schema.js";
+import { errorMiddleware } from "../../../../src/middleware/error.js";
+import { createTestDependencies } from "../../../helpers/fakes.js";
 
 const listClusterConfigsMock = vi.fn();
 const getClusterLayoutMock = vi.fn();
 const getClusterOccupancyDataMock = vi.fn();
 const getClusterConfigValidationMock = vi.fn();
 
-vi.mock("./clusters.service.js", () => ({
+vi.mock("../../../../src/features/clusters/clusters.service.js", () => ({
   listClusterConfigs: (...args: unknown[]) => listClusterConfigsMock(...args),
   getClusterLayout: (...args: unknown[]) => getClusterLayoutMock(...args),
   getClusterOccupancyData: (...args: unknown[]) =>

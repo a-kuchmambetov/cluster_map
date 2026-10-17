@@ -1,6 +1,6 @@
 import type { Express } from "express";
-import type { Auth } from "../../config/auth.js";
-import type { AuthService } from "../../features/auth/auth.service.js";
+import type { Auth } from "../../src/config/auth.js";
+import type { AuthService } from "../../src/features/auth/auth.service.js";
 import { randomUUID } from "node:crypto";
 import { beforeAll, describe, expect, it } from "vitest";
 import request from "supertest";
@@ -19,16 +19,18 @@ describe.runIf(process.env.AUTH_DB_TEST === "1")(
       process.env.BETTER_AUTH_URL = "http://localhost:5000";
       process.env.GITHUB_CLIENT_ID ??= "integration-test";
       process.env.GITHUB_CLIENT_SECRET ??= "integration-test";
-      const { env } = await import("../../config/env.js");
-      const { createAuth } = await import("../../config/auth.js");
+      const { env } = await import("../../src/config/env.js");
+      const { createAuth } = await import("../../src/config/auth.js");
       const { createAuthService } =
-        await import("../../features/auth/auth.service.js");
-      const repository = await import("../../features/auth/auth.repository.js");
+        await import("../../src/features/auth/auth.service.js");
+      const repository =
+        await import("../../src/features/auth/auth.repository.js");
       const { db } = await import("@repo/db");
-      const { createApp } = await import("../../app.js");
-      const { createDatabaseCheck } = await import("../../routes/health.js");
+      const { createApp } = await import("../../src/app.js");
+      const { createDatabaseCheck } =
+        await import("../../src/routes/health.js");
       const { createReadinessCheck, createSchemaCheck } =
-        await import("../../routes/readiness.js");
+        await import("../../src/routes/readiness.js");
       auth = createAuth({ env, db, findAuthUser: repository.findAuthUser });
       authService = createAuthService(auth, repository);
       app = createApp({

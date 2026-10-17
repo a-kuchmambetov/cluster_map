@@ -1,8 +1,7 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": "./src",
+    "noEmit": true,
     "paths": {
       "@middleware/*": ["./src/middleware/*"],
       "@features/*": ["./src/features/*"],
@@ -11,6 +10,6 @@
     "declaration": false,
     "declarationMap": false
   },
-  "include": ["src", "src/**/*", "../../packages/errors/app-error.ts"],
+  "include": ["src", "__TEST__", "../../packages/errors/app-error.ts"],
   "exclude": ["node_modules", "dist"]
 }

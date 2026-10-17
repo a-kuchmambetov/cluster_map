@@ -1,7 +1,7 @@
 import request from "supertest";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createApp } from "../../app.js";
-import { createTestDependencies } from "../fakes.js";
+import { createApp } from "../../src/app.js";
+import { createTestDependencies } from "../helpers/fakes.js";
 
 // These tests isolate logging; authorization is covered by requireAuth tests.
 const deps = createTestDependencies();
@@ -19,7 +19,7 @@ const app = createApp(deps);
 
 const getClusterOccupancyMock = vi.fn();
 
-vi.mock("../../features/clusters/clusters.repository.js", () => ({
+vi.mock("../../src/features/clusters/clusters.repository.js", () => ({
   getClusterOccupancy: (...args: unknown[]) => getClusterOccupancyMock(...args),
 }));
 

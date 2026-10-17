@@ -1,6 +1,9 @@
 import type { Request, Response } from "express";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { healthHandler, createDatabaseCheck } from "./health.js";
+import {
+  healthHandler,
+  createDatabaseCheck,
+} from "../../../src/routes/health.js";
 
 const execute = vi.fn();
 const isDatabaseReachable = createDatabaseCheck(execute, "private/password");

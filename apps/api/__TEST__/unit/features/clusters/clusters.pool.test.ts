@@ -1,12 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { diffSnapshots, resetPool, subscribe } from "./clusters.pool.js";
-import { getClusterOccupancyData } from "./clusters.service.js";
-import type { OccupancyRow, OccupiedEntry } from "./clusters.types.js";
+import {
+  diffSnapshots,
+  resetPool,
+  subscribe,
+} from "../../../../src/features/clusters/clusters.pool.js";
+import { getClusterOccupancyData } from "../../../../src/features/clusters/clusters.service.js";
+import type {
+  OccupancyRow,
+  OccupiedEntry,
+} from "../../../../src/features/clusters/clusters.types.js";
 
 // The pool calls getClusterOccupancy from the repository.
 // Mock the entire repository module so no DB connection is required.
 const getClusterOccupancyMock = vi.fn();
-vi.mock("./clusters.repository.js", () => ({
+vi.mock("../../../../src/features/clusters/clusters.repository.js", () => ({
   getClusterOccupancy: (...args: unknown[]) => getClusterOccupancyMock(...args),
 }));
 

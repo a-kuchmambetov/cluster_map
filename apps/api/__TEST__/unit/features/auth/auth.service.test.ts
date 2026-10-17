@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createAuthService } from "./auth.service.js";
+import { createAuthService } from "../../../../src/features/auth/auth.service.js";
 
 const mocks = {
   getSession: vi.fn(),
