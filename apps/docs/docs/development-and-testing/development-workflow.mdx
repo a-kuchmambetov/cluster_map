@@ -14,7 +14,8 @@ Cluster Map is a pnpm workspace containing applications in `apps/` and reusable 
 | ------------------ | ------------------------------------------------------------------- |
 | `@repo/web`        | React and Vite frontend                                             |
 | `@repo/api`        | Express API                                                         |
-| `@repo/worker`     | One-shot migrations and optional administrator bootstrap            |
+| `@repo/worker`     | One-shot migrations and optional administrator promotion            |
+| `@repo/simulator`  | Optional demo-only live occupancy simulator                         |
 | `@repo/docs`       | Docusaurus documentation                                            |
 | `@repo/db`         | Drizzle client, schema, and migration tooling                       |
 | `@repo/errors`     | Shared application error type                                       |
@@ -42,7 +43,9 @@ pnpm --filter @repo/docs start
 ```
 
 The worker is also available through `pnpm worker:dev`, `pnpm worker:build`, and
-`pnpm worker:start`. It exits after migrations and optional admin creation.
+`pnpm worker:start`. It exits after migrations and optional promotion of an
+existing account to administrator. The simulator is started separately with
+`pnpm simulator:start` or `pnpm simulator:dev`.
 `pnpm dev` does not start Docusaurus; use `pnpm start:docs`.
 
 ## Git Flow

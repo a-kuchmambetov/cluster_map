@@ -83,9 +83,10 @@ Put the generated value in `BETTER_AUTH_SECRET`. Keep `API_PORT=5001`,
 `BETTER_AUTH_URL=http://localhost:5001`, and `WEB_ORIGIN=http://localhost:5173`.
 Set `VITE_API_URL=http://localhost:5001`; Vite has no API proxy.
 
-Set `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` as well: API auth initialization
-requires both, even for seeding. For local work without GitHub, non-empty dummy
-values are sufficient. To exercise GitHub sign-in, use
+Set `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` as well: API startup validates
+and initializes auth with both. For local work without GitHub, non-empty dummy
+values are sufficient. Seeding does not initialize auth; it needs only the
+database configuration and the built `@repo/db` and `@repo/errors` packages. To exercise GitHub sign-in, use
 real OAuth App credentials and callback
 `http://localhost:5001/api/auth/callback/github`. See [Configuration](./configuration).
 
@@ -129,14 +130,14 @@ for migrations only.
 pnpm dev
 ```
 
-| Service | URL with the walkthrough configuration | Behavior                                                 |
-| ------- | -------------------------------------- | -------------------------------------------------------- |
-| Web     | `http://localhost:5173`                | Login, registration, protected map, and admin approvals. |
-| API     | `http://localhost:5001`                | Health, auth, cluster HTTP endpoints, and SSE.           |
+| Service | URL with the walkthrough configuration | Behavior                                                  |
+| ------- | -------------------------------------- | --------------------------------------------------------- |
+| Web     | `http://localhost:5173`                | GitHub sign-in, protected map, and admin user management. |
+| API     | `http://localhost:5001`                | Health, auth, admin, cluster HTTP endpoints, and SSE.     |
 
 The frontend calls `VITE_API_URL` directly. If Vite chooses another port, update
 `WEB_ORIGIN` and restart the API. `pnpm dev` also runs the worker once, applying
-migrations and optional admin bootstrap; it is not an occupancy simulator.
+migrations and optional admin promotion; it is not an occupancy simulator.
 
 ```bash
 curl http://localhost:5001/api/health
@@ -151,7 +152,8 @@ constructs auth before listening. Readiness does not check all migrations or
 complete a sign-in. See the [API Reference](../reference/api#get-apihealthready).
 
 The web also serves `/privacy` and `/terms` without requiring sign-in. Both
-currently display draft documents awaiting operator details and deployment confirmation.
+identify the operator and contact address and show an effective date of
+25 September 2026.
 
 ## Start individual workspaces
 

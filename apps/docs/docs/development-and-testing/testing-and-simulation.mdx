@@ -13,17 +13,18 @@ pnpm --filter @repo/api test
 pnpm --filter @repo/api test:integration
 pnpm --filter @repo/web test
 pnpm --filter @repo/worker test
+pnpm simulator:test
 node --test scripts/deploy/*.test.mjs
 ```
 
-| Suite           | Coverage and tooling                                                                                                                                                                            |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| API unit        | Vitest; auth service/controller, session middleware, health/readiness, logging, cluster schema/service/controller, SSE pool, and stream access.                                                 |
-| API integration | Vitest and Supertest; mounted routes, error behavior, logs, real layout configuration, and optional database auth flow.                                                                         |
-| Web             | Vitest with happy-dom; auth/security settings, administrator management, public legal routes with pending/failed session loading, map model, snapshot ownership/cancellation, and SSE recovery. |
+| Suite           | Coverage and tooling                                                                                                                                                                                                            |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| API unit        | Vitest; auth config/service/controller, admin service/repository/routes and approval rate limit, session/actor middleware, health/readiness, logging, shutdown, cluster schema/service/controller, SSE pool, and stream access. |
+| API integration | Vitest and Supertest; mounted routes, error behavior, logs, real layout configuration, and optional database auth flow.                                                                                                         |
+| Web             | Vitest with happy-dom; protected routes and GitHub sign-in, administrator API calls and user management, public legal routes with pending/failed session loading, map model, snapshot ownership/cancellation, and SSE recovery. |
 
 Worker tests use Node's test runner and module mocks, covering environment
-validation, admin provisioning outcomes, and bounded connectivity/shutdown.
+validation, admin promotion outcomes, and bounded connectivity/shutdown.
 Deployment helper tests cover changed-app selection and workflow baselines.
 
 The normal API `test` script runs `__TEST__/unit`; the separate integration
@@ -41,7 +42,7 @@ AUTH_DB_TEST=1 pnpm --filter @repo/api test:integration
 ```
 
 This exercises real account/session writes, current admin privileges, and
-single-use approval tokens. CI enables this test after migrating disposable
+atomic approval by user ID, including concurrent/replayed requests. CI enables this test after migrating disposable
 PostgreSQL. Other integration tests use mocked dependencies or the checked-in
 layout. Auth tests do not establish a real GitHub provider round trip; that still
 requires an end-to-end acceptance check.

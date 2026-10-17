@@ -32,14 +32,18 @@ Peer data is restricted to authenticated, administrator-approved viewers.
 ## Public policy pages
 
 The web application serves a Privacy Policy at `/privacy` and Terms of Service
-at `/terms`. Both routes are public, linked from login/registration and the global
+at `/terms`. Both routes are public, linked from the sign-in screen and the global
 footer, and remain readable without a successful session request. Their content
 lives in `apps/web/src/pages/legal-screen.tsx`.
 
-Both pages explicitly say they are drafts, not yet effective notices or agreements.
-They identify missing operator identity/contact details and unconfirmed deployment
-practices, including retention, hosting, providers, and treatment of peer data.
-The existence of these routes does not resolve those policy decisions.
+Neither page displays a draft notice. Both name the operator (Artem Kuchmambetov,
+02650 Espoo, Finland) and the contact address `a.kuchmambetov@outlook.com`, and
+show an effective date of 25 September 2026. The pages describe hosting (Hetzner
+in Finland, Cloudflare proxy/DNS/certificates), retention, same-day deletion, and
+manual rights-request handling. These are operator statements; the repository
+does not implement or verify those practices, so they require operational
+verification. The Privacy Policy also still says email/password sign-in is
+available, although GitHub is the only implemented sign-in method.
 
 There is no self-service account deletion, export, or privacy-request workflow.
 The implemented deletion operation is restricted to approved administrators and
@@ -68,9 +72,10 @@ work; these constraints do not prohibit migrations on the app-owned auth/Hive DB
 - Keep the last successful data when a refresh fails.
 - Clearly distinguish current, refreshing, and stale data.
 
-The implemented poll and recovery intervals are fixed at 30 seconds. There is
-no age-based stale threshold. Failed snapshots and `DB_UNAVAILABLE` mark data
-stale; transport loss alone does not immediately do so. Initial snapshots use
+The server poll delay and the client's SSE reconnect delay are fixed at 30
+seconds. There is no age-based stale threshold. Failed snapshot requests,
+`DB_UNAVAILABLE` events, and SSE transport loss each mark loaded data stale
+immediately. Initial snapshots use
 the server read time, deltas use client receipt time, and unchanged polls do not
 advance the displayed timestamp.
 

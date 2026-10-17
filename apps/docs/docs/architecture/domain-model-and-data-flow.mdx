@@ -5,8 +5,9 @@ title: Domain Model and Data Flow
 
 # Domain Model and Data Flow
 
-Shared wire types are defined in `packages/types/src/cluster-map.ts` and
-`packages/types/src/auth.ts`. Drizzle schemas live in `packages/db/src/schema/`.
+Shared wire types are defined in `packages/types/src/cluster-map.ts`,
+`packages/types/src/auth.ts`, `packages/types/src/admin.ts`, and
+`packages/types/src/common.ts`. Drizzle schemas live in `packages/db/src/schema/`.
 
 ## Domain concepts
 
@@ -26,7 +27,8 @@ constraints enforce unique cluster names, row numbers within clusters, and seat
 numbers within rows. A position must be either free with no holder/taken time,
 or occupied with both fields populated. `two_factor` and
 `user.twoFactorEnabled` are no longer written; they remain until a migration removes
-them. Deleting an auth user cascades to its sessions, accounts, and Hive identity,
+them. Migration 0004 removed the former `user.approval_token` column; approval
+changes only `user.approved`. Deleting an auth user cascades to its sessions, accounts, and Hive identity,
 but occupied positions restrict deletion
 of a referenced Hive identity until those positions are released.
 
@@ -49,22 +51,27 @@ frontend map; there is no separate duplicate-warning UI.
 ## Updates and recovery
 
 After a successful occupancy load, the frontend opens SSE. The server shares
-one poller and snapshot per subscribed cluster within each API process. It emits
-only changed/new occupied entries and freed coordinates, with no event history.
-Successful HTTP occupancy reads also replace this shared baseline; it is not
-tracked per subscriber. The frontend removes freed entries, then upserts occupied
+one poller and baseline per subscribed cluster within each API process. Each
+connection first receives a full `occupancy-snapshot`; later events contain only
+changed/new occupied entries and freed coordinates, with no event history. The
+poller is the only writer of that baseline: HTTP `/occupancy` reads do not change
+it, and it is not tracked per subscriber. The frontend removes freed entries, then upserts occupied
 entries. Multiple API processes have independent polling and snapshot state.
 
-A `DB_UNAVAILABLE` event retains the existing map, marks occupancy stale, and
-schedules a snapshot recovery attempt after 30 seconds. Failed recovery repeats;
-a successful snapshot or delta clears stale state. A transport failure closes
-the stream, checks the session, and retries via a fresh snapshot after 30 seconds.
-An unauthorized/forbidden session stops reconnecting.
+A `DB_UNAVAILABLE` event retains the existing map and marks occupancy stale. The
+client keeps the SSE connection open and schedules no snapshot request of its
+own; after a failed poll, the server sends every subscriber a full
+`occupancy-snapshot` on its next successful poll, even if occupancy did not
+change. A successful snapshot or delta clears stale state. A native transport
+failure closes the stream and immediately marks loaded occupancy stale, then
+checks the session. If the session is still valid, or the check fails for a
+non-auth reason, the client reopens the stream after 30 seconds and receives a
+fresh snapshot. An unauthorized/forbidden session stops reconnecting.
 
 Snapshot `lastUpdated` is the API's successful-read time. On a delta, the frontend
 uses its local receipt time. Unchanged server polls send no timestamp update;
 keepalive comments do not prove occupancy freshness. There is no age-based stale
-threshold, and transport failures alone do not immediately mark the map stale.
+threshold; stale state responds to failures, not data age.
 
 Switching clusters cancels prior requests/streams and hides the old cluster's
 snapshot. A failed initial map load shows a retry action; a later failed snapshot

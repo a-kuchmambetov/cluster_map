@@ -18,10 +18,22 @@ authentication have been removed. The API checks
 current approval for cluster requests and rechecks open SSE streams every
 20 seconds. Health checks are public.
 
-Approved administrators use `/admin/users`, `GET /api/auth/pending-users`, and
-`POST /api/auth/confirm/:id` to approve accounts. `:id` is a single-use approval
-token, not the user's ID. Administrators can also list all users and delete other
-accounts. Hive OAuth remains unimplemented.
+Each protected request resolves a fresh server-side session, bypasses cookie
+cache, and reads current approval and privileges. Authentication supplies an
+optional typed `res.locals.actor`; checked authenticated handlers expose it as
+required only after authentication. `requireRole("admin")` authorizes admin
+routes without another session lookup. Business services have no HTTP-header
+dependency; auth transport and periodic SSE revalidation still resolve sessions.
+`/api/auth/session` reuses the resolved sanitized public session.
+
+Approved administrators use the `/admin/users` web screen and the separate
+admin feature: `GET /api/admin/users` (optionally `?status=pending`),
+`POST /api/admin/users/:id/approve`, and `DELETE /api/admin/users/:id`.
+Approval atomically changes `approved=false` to true by opaque user ID; replay
+returns 404. Self-deletion is forbidden. No approval tokens are generated,
+stored, or exposed. Legacy auth administration routes are removed without
+aliases. The approval limiter is attached explicitly to its POST route.
+Hive OAuth remains unimplemented.
 
 ### Layout and occupancy
 
@@ -33,14 +45,16 @@ occupancy entry means a configured place is free. Gaps never count as places.
 
 SSE delivers deltas from a shared server poller. The poll interval is a fixed
 30-second constant, with the next poll scheduled after the previous one finishes.
-Frontend recovery/reconnect attempts also use 30 seconds. These are current code
+The frontend waits 30 seconds before reopening a lost SSE connection; after a
+`DB_UNAVAILABLE` event it keeps the stream open and waits for the server's
+recovery snapshot. These are current code
 constants, not environment settings or guaranteed maximum data age.
 
 ### Documentation hosting
 
-Docusaurus is configured for `https://docs.map-hive.pp.ua/`. Its Docker image
-serves static files on port 80; local development uses port 3000. There is no
-docs Compose service. Production DNS/TLS setup is external.
+Docusaurus is configured for `https://docs.map-hive.pp.ua/`. Development Compose
+runs Docusaurus on port 3000; production uses the static docs image, which serves
+files on port 80, with DNS/TLS configured externally.
 
 ## Open decisions
 
@@ -48,14 +62,14 @@ docs Compose service. Production DNS/TLS setup is external.
 
 The implemented map response exposes nullable `intraName`, `displayName`, and
 `photo`. Confirm the production audience and retention policy for these fields.
-Auth session and administrator approval responses also contain account email;
+Auth session and administrator user-list responses also contain account email;
 map privacy constraints must be distinguished from account management.
 
 ### Stale-data threshold
 
-The UI marks stale data after failed snapshot refreshes or database SSE errors.
-There is no age threshold or successful-unchanged-poll freshness event. Define
-acceptable data age and how transport loss should affect the indicator.
+The UI marks stale data after failed snapshot refreshes, database SSE errors, or
+SSE transport loss. There is no age threshold or successful-unchanged-poll
+freshness event. Define acceptable data age.
 
 ### Configuration-warning audience
 

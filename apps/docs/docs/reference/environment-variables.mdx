@@ -4,9 +4,11 @@ sidebar_position: 2
 
 # Environment Variables
 
-API, worker, and DB configuration load the root `.env` via workspace-relative
-paths. Vite uses the root as its environment directory. Existing process
-variables take precedence over dotenv values.
+API configuration resolves the root `.env` relative to its module file. The DB
+package, worker, simulator, and API seed script load `../../.env` relative to
+the working directory. Vite uses the root as its environment directory. Existing
+process variables take precedence over dotenv values. The API must still start
+from `apps/api` because layout loading uses its working directory.
 
 Development Compose reads `.env` for overrides and provides local auth defaults
 when values are missing or empty. It uses `db:5432` inside containers, fixes
@@ -14,33 +16,39 @@ when values are missing or empty. It uses `db:5432` inside containers, fixes
 Unset or empty auth/frontend URLs default to `http://localhost:${API_PORT:-5001}`.
 Infisical bootstrap settings below apply to production app Dockerfiles only.
 
-| Variable                                         | Requirement / default                                                                                                    | Consumer                                                                       |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
-| `NODE_ENV`                                       | `production` in API/worker release images                                                                                | Error masking, request logs, seed guard                                        |
-| `SHUTDOWN_TIMEOUT_MS`                            | `10000`; integer `100`–`120000` milliseconds                                                                             | API overall drain/close/exit deadline                                          |
-| `LOG_LEVEL`                                      | `info`; `trace`, `debug`, `info`, `warn`, `error`, `fatal`, or `silent`                                                  | Pino structured logger                                                         |
-| `API_PORT`                                       | 5001                                                                                                                     | API listener; Docker health check reads the injected port                      |
-| `TRUST_PROXY_HOPS`                               | `0` for direct runs; API image defaults to `1` for Coolify. Match the trusted proxy chain and keep the API port private. | API client IP resolution and auth rate limiting                                |
-| `WEB_ORIGIN`                                     | `http://localhost:5173`; set to the actual frontend origin                                                               | API CORS and trusted auth origin                                               |
-| `BETTER_AUTH_URL`                                | Required URL; example `http://localhost:5001`                                                                            | Better Auth                                                                    |
-| `BETTER_AUTH_SECRET`                             | Required, at least 32 characters                                                                                         | Better Auth                                                                    |
-| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`       | Non-empty values required by API auth configuration                                                                      | GitHub OAuth                                                                   |
-| `PG_HOST`                                        | `localhost`                                                                                                              | API, DB tooling, worker                                                        |
-| `PG_PORT`                                        | `5432`; also development Compose host port                                                                               | API, DB tooling, worker, Compose                                               |
-| `PG_USER`, `PG_PASSWORD`, `PG_DB`                | Each defaults to `app`                                                                                                   | API, DB tooling, worker, Compose                                               |
-| `ADMIN_EMAIL`                                    | Optional; email of an existing account to promote to approved administrator; normalized to lowercase                     | Worker admin promotion                                                         |
-| `INFISICAL_CLIENT_ID`, `INFISICAL_CLIENT_SECRET` | Required Universal Auth bootstrap credentials in containers                                                              | API and worker entrypoints                                                     |
-| `INFISICAL_PROJECT_ID`, `INFISICAL_ENV`          | Required project ID and environment slug in containers                                                                   | API and worker entrypoints                                                     |
-| `INFISICAL_DOMAIN`                               | Optional domain selection passed to the installed CLI                                                                    | Infisical CLI                                                                  |
-| `INFISICAL_SECRET_PATH`                          | `/api` for API, `/worker` for worker                                                                                     | Infisical runtime secret injection                                             |
-| `VITE_API_URL`                                   | Empty by default; use `http://localhost:5001` for direct local access                                                    | Vite frontend; web Docker build argument and GitHub Environment build variable |
-| `AUTH_DB_TEST`                                   | `1` enables tests that write to a migrated disposable DB                                                                 | API auth integration suite                                                     |
-| `SIMULATOR_ENABLED`                              | `true` enables the live occupancy simulator; defaults to `false` and is disabled in `production`                         | `apps/simulator` local/demo smoke tests                                        |
-| `SIMULATOR_USER_COUNT`                           | `20`                                                                                                                     | Number of synthetic identities created by the simulator                        |
-| `SIMULATOR_INTERVAL_MS`                          | `5000`                                                                                                                   | Milliseconds between simulator ticks                                           |
-| `SIMULATOR_CLAIM_PROBABILITY`                    | `0.7` (must keep total with release probability ≤ 1)                                                                     | Chance an idle identity claims a free seat each tick                           |
-| `SIMULATOR_RELEASE_PROBABILITY`                  | `0.3` (must keep total with claim probability ≤ 1)                                                                       | Chance a seated identity releases its seat each tick                           |
-| `SIMULATOR_LOCK_KEY`                             | `7269736`                                                                                                                | PostgreSQL advisory lock key used to prevent duplicate simulator instances     |
+| Variable                                         | Requirement / default                                                                                                    | Consumer                                                                                                                            |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `NODE_ENV`                                       | `production` in API/worker release images                                                                                | Error masking, request logs, seed guard                                                                                             |
+| `SHUTDOWN_TIMEOUT_MS`                            | `10000`; integer `100`–`120000` milliseconds                                                                             | API overall drain/close/exit deadline                                                                                               |
+| `LOG_LEVEL`                                      | `info`; `trace`, `debug`, `info`, `warn`, `error`, `fatal`, or `silent`                                                  | Pino structured logger                                                                                                              |
+| `API_PORT`                                       | 5001                                                                                                                     | API listener; Docker health check reads the injected port                                                                           |
+| `TRUST_PROXY_HOPS`                               | `0` for direct runs; API image defaults to `1` for Coolify. Match the trusted proxy chain and keep the API port private. | API client IP resolution and approval rate limiting                                                                                 |
+| `WEB_ORIGIN`                                     | `http://localhost:5173`; set to the actual frontend origin                                                               | API CORS and trusted auth origin                                                                                                    |
+| `BETTER_AUTH_URL`                                | Required URL; example `http://localhost:5001`                                                                            | Better Auth                                                                                                                         |
+| `BETTER_AUTH_SECRET`                             | Required, at least 32 characters                                                                                         | Better Auth                                                                                                                         |
+| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`       | Non-empty values required by API auth configuration                                                                      | GitHub OAuth                                                                                                                        |
+| `PG_HOST`                                        | `localhost`                                                                                                              | API, DB tooling, worker                                                                                                             |
+| `PG_PORT`                                        | `5432`; also development Compose host port                                                                               | API, DB tooling, worker, Compose                                                                                                    |
+| `PG_USER`, `PG_PASSWORD`, `PG_DB`                | Each defaults to `app`                                                                                                   | API, DB tooling, worker, Compose                                                                                                    |
+| `ADMIN_EMAIL`                                    | Optional; valid email of an existing account to promote to approved administrator; normalized to lowercase               | Worker admin promotion                                                                                                              |
+| `INFISICAL_CLIENT_ID`, `INFISICAL_CLIENT_SECRET` | Required Universal Auth bootstrap credentials in containers                                                              | API, worker, and simulator entrypoints                                                                                              |
+| `INFISICAL_PROJECT_ID`, `INFISICAL_ENV`          | Required project ID and environment slug in containers                                                                   | API, worker, and simulator entrypoints                                                                                              |
+| `INFISICAL_DOMAIN`                               | Optional domain selection passed to the installed CLI                                                                    | Infisical CLI                                                                                                                       |
+| `INFISICAL_SECRET_PATH`                          | `/api` for API, `/worker` for worker, `/simulator` for simulator                                                         | Infisical runtime secret injection                                                                                                  |
+| `VITE_API_URL`                                   | Empty by default; use `http://localhost:5001` for direct local access                                                    | Vite frontend; web Docker build argument and GitHub Environment build variable                                                      |
+| `AUTH_DB_TEST`                                   | `1` enables tests that write to a migrated disposable DB                                                                 | API auth integration suite                                                                                                          |
+| `SIMULATOR_ENABLED`                              | `true` enables the live occupancy simulator; defaults to `false` and is disabled in `production`                         | `apps/simulator` local/demo smoke tests                                                                                             |
+| `SIMULATOR_USER_COUNT`                           | `20`                                                                                                                     | Number of synthetic identities created by the simulator                                                                             |
+| `SIMULATOR_INTERVAL_MS`                          | `5000`                                                                                                                   | Milliseconds between simulator ticks                                                                                                |
+| `SIMULATOR_CLAIM_PROBABILITY`                    | `0.7` (must keep total with release probability ≤ 1)                                                                     | Conditional chance of selecting one claim (a random idle identity takes a random free seat) after no release was selected that tick |
+| `SIMULATOR_RELEASE_PROBABILITY`                  | `0.3` (must keep total with claim probability ≤ 1)                                                                       | Chance per tick, checked first, of releasing one random seated identity's seat                                                      |
+| `SIMULATOR_LOCK_KEY`                             | `7269736`                                                                                                                | PostgreSQL advisory lock key used to prevent duplicate simulator instances                                                          |
+
+Each simulator tick selects at most one action. Release is checked first when
+any identity is seated; claim is drawn only if no release was selected and an
+idle identity and free seat exist. With the defaults and both actions possible,
+the overall per-tick probabilities are 30% release, 49% claim (0.7 × 0.7), and
+21% no action.
 
 Worker admin promotion needs only `ADMIN_EMAIL`. An empty value is treated as
 omitted. The worker promotes an existing account and does not create one, so the
@@ -60,8 +68,8 @@ application/container configuration. The API and web ports are not connected
 automatically: configure `VITE_API_URL` or external `/api` routing.
 
 There are no environment settings for the layout file path, SSE poll interval,
-frontend recovery interval, or stale-data age threshold. Current polling and
-recovery use 30-second constants; stream access checks use 20 seconds.
+frontend SSE reconnect delay, or stale-data age threshold. The post-poll delay
+and reconnect delay use 30-second constants; stream access checks use 20 seconds.
 
 See [Configuration](../getting-started/configuration) for local examples,
 [Deployment](../operations/deployment) for container setup, and

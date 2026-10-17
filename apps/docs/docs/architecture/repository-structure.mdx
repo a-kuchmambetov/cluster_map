@@ -13,9 +13,11 @@ apps/
   api/
     src/
       config/          # Environment, Better Auth, clusters.json
-      features/auth/   # Routes, controllers, services, repository, validation
+      features/auth/   # GitHub/session/logout transport and current auth-user lookup
+      features/admin/  # Authorized user listings, approval by ID, deletion, validation
       features/clusters/ # Map endpoints and shared SSE polling pool
-      middleware/      # Auth, request logs, validation, errors
+      lifecycle/       # Runtime work tracking and graceful shutdown
+      middleware/      # Session/actor/role checks, auth transport, request logs, validation, errors
       routes/          # Public database health and application readiness
       scripts/         # Local demo seed
       app.ts           # Express setup
@@ -32,14 +34,17 @@ apps/
     components/      # Reusable Untitled UI-based components
     config/          # API base URL
     hooks/           # Shared React hooks
-    pages/           # Home, public privacy/terms drafts, and not-found pages
+    pages/           # Home, public privacy/terms, and not-found pages
     styles/          # Global styles, theme tokens, typography
     types/           # Vite declarations
     utils/           # Helpers and static data
     main.tsx         # React entry point
   worker/
-    src/             # One-shot migrations and initial admin bootstrap
+    src/             # One-shot migrations and optional admin promotion
     test/            # Node test-runner suite
+  simulator/
+    src/             # Optional demo occupancy simulator
+    test/            # Vitest suite
   docs/
     docs/            # MDX content and generated sidebar structure
     src/             # Docusaurus components and styles
@@ -47,7 +52,7 @@ apps/
 packages/
   db/                # Drizzle client, auth/Hive schemas, migrations
   errors/            # Shared AppError
-  types/             # Shared auth and cluster-map DTOs
+  types/             # Shared auth, admin, common, and cluster-map DTOs
   validators/        # Starter/example Zod validation
 .github/workflows/   # PR checks and staging/production image deployments
 scripts/deploy/      # Changed-app selection and its tests
@@ -61,8 +66,8 @@ configure TypeScript, Oxlint, and Oxfmt.
 
 `.env.example` provides runtime defaults. `docker-compose.dev.yml` runs the
 full development stack using `Dockerfile.dev` without Infisical. Each of
-`apps/api`, `apps/web`, `apps/docs`, and `apps/worker`
-contains its own `Dockerfile`. API and worker have Infisical entrypoints.
+`apps/api`, `apps/web`, `apps/docs`, `apps/worker`, and `apps/simulator`
+contains its own `Dockerfile`. API, worker, and simulator have Infisical entrypoints.
 `apps/web/nginx.web.conf` serves the frontend without API proxying;
 `apps/docs/nginx.docs.conf` serves documentation.
 
@@ -76,8 +81,8 @@ All API tests live under `apps/api/__TEST__`: `unit/` mirrors the `src/`
 structure, `integration/` holds integration suites, and `helpers/` holds shared
 test dependencies and fakes.
 Database models belong in `@repo/db`; DTOs shared between API and web belong in
-`@repo/types`. Current auth and cluster Zod schemas are feature-local, not in
-`@repo/validators`.
+`@repo/types`. Current admin and cluster Zod schemas are feature-local, not in
+`@repo/validators`; the auth feature has no request schema.
 
 Frontend features own their API calls, state hooks, models, and screens. Shared
 visual components live under `components/`, and application providers live under

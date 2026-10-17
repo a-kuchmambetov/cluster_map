@@ -32,25 +32,45 @@ Successful JSON operations below return `200`. Browser `POST`, `DELETE`,
 `PATCH`, and `PUT` requests must use the trusted origin. The browser sends
 credentials for HTTP requests and SSE.
 
-| Method and path                 | Input                                                         | Result / access                                                                                        |
-| ------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `GET /api/auth/session`         | Session cookie                                                | `{ user }` for a currently approved account.                                                           |
-| `POST /api/auth/logout`         | Session cookie                                                | Invalidates the session, clears cookies, returns `{ message: "Logged out" }`.                          |
-| `GET /api/auth/sign-in/github`  | Optional `callbackURL` query, defaulting to the frontend root | Redirects to GitHub and sets OAuth cookies.                                                            |
-| `GET /api/auth/callback/github` | Provider callback query and OAuth cookies                     | Delegates to Better Auth and forwards its redirect/cookies. New users still require approval.          |
-| `GET /api/auth/pending-users`   | Approved admin session                                        | `{ users: [{ id, name, email, createdAt, approvalToken }] }`, ordered by creation time then ID.        |
-| `GET /api/auth/users`           | Approved admin session                                        | `{ users: [{ id, name, email, role, approved, approvalToken, createdAt }] }`, ordered by name then ID. |
-| `POST /api/auth/confirm/:id`    | Single-use approval token in `:id`; approved admin session    | Approves the account, clears its token, and returns `{ message }`. This parameter is not a user ID.    |
-| `DELETE /api/auth/users/:id`    | User ID; approved admin session                               | `{ message: "User deleted" }`; self-deletion is rejected with `403`, missing users with `404`.         |
+| Method and path                       | Input                                                         | Result / access                                                                                                       |
+| ------------------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/auth/session`               | Session cookie                                                | `{ user }` for a currently approved account.                                                                          |
+| `POST /api/auth/logout`               | Session cookie                                                | Invalidates the session, clears cookies, returns `{ message: "Logged out" }`.                                         |
+| `GET /api/auth/sign-in/github`        | Optional `callbackURL` query, defaulting to the frontend root | Redirects to GitHub and sets OAuth cookies.                                                                           |
+| `GET /api/auth/callback/github`       | Provider callback query and OAuth cookies                     | Delegates to Better Auth and forwards its redirect/cookies. New users still require approval.                         |
+| `GET /api/admin/users?status=pending` | Approved admin session                                        | `{ users: [{ id, name, email, role, approved, createdAt }] }`, filtered to pending accounts; ordered by name then ID. |
+| `GET /api/admin/users`                | Approved admin session                                        | `{ users: [{ id, name, email, role, approved, createdAt }] }`, ordered by name then ID.                               |
+| `POST /api/admin/users/:id/approve`   | User ID; approved admin session                               | Atomically approves a pending account and returns `{ message }`; missing or already-approved accounts return `404`.   |
+| `DELETE /api/admin/users/:id`         | User ID; approved admin session                               | `{ message: "User deleted" }`; self-deletion is rejected with `403`, missing users with `404`.                        |
 
 The public `user` shape is `{ id, name, email, emailVerified, image, role }`; role
-is `user` or `admin`. Approval tokens appear only in
-administrator listings and must not be exposed to ordinary viewers.
+is `user` or `admin`. Administration uses a separate feature and shared admin types;
+listings contain no approval tokens. `status=pending` is the only supported filter;
+omitting it returns all accounts; any other `status` value returns
+`422 VALIDATION_ERROR`. User IDs are opaque text without whitespace or control
+bytes (1–4096 characters), including Better Auth IDs and seeded UUIDs. Non-admin
+approved users receive `403 FORBIDDEN`.
 
-The Express auth limiter allows 10 requests per IP per 60 seconds across approval
-requests. Session reads,
-logout, GitHub redirects/callbacks, user listings, and user deletion are registered
-before this limiter. Cluster routes have no separate rate limiter.
+Every protected request resolves one server-side session with the cookie cache
+bypassed and reads current database approval/role. Authentication sets a trusted
+`res.locals.actor = { id, role }`; admin middleware requires `role=admin` before
+validation or business operations. Services accept trusted identity as needed,
+not HTTP headers. `/auth/session` returns that same resolved public session.
+
+The approval route has an explicit limiter of 10 requests per IP per 60 seconds,
+including failed authentication attempts. Session reads, logout, GitHub
+redirects/callbacks, user listings, and user deletion have no approval limiter.
+Auth and admin routers reject explicit untrusted origins and cross-site writes
+without Origin, and set `Cache-Control: no-store` and `Referrer-Policy: no-referrer`.
+Non-browser clients can continue to omit Origin. Cluster routes have no separate
+rate limiter.
+
+The old `/api/auth/users`, `/api/auth/pending-users`, and
+`/api/auth/confirm/:token` administration endpoints are removed (404), without
+compatibility aliases. Bundled web clients use `/api/admin` and approve by user
+ID. Deploy web and API together; see the
+[migration ordering exception](../operations/deployment#approval-column-removal)
+for the schema cleanup.
 
 ### Approval and deletion behavior
 
@@ -94,7 +114,7 @@ type ApiErrorResponse = {
 };
 ```
 
-Auth and cluster routes can return `401 UNAUTHORIZED` or `403 FORBIDDEN`. Invalid/consumed approval tokens return `404 NOT_FOUND`; auth errors can also include `409 CONFLICT`. The auth rate limiter returns `429 TOO_MANY_REQUESTS`.
+Auth and cluster routes can return `401 UNAUTHORIZED` or `403 FORBIDDEN`. Missing/already-approved user IDs return `404 NOT_FOUND`; auth errors can also include `409 CONFLICT`. The approval rate limiter returns `429 TOO_MANY_REQUESTS`.
 
 Example validation error:
 
@@ -121,10 +141,10 @@ Common error-middleware responses:
 | Malformed JSON request body                           |         400 | `BAD_REQUEST`           |
 | Missing or expired session                            |         401 | `UNAUTHORIZED`          |
 | Unapproved account or insufficient privileges         |         403 | `FORBIDDEN`             |
-| Invalid or consumed approval token                    |         404 | `NOT_FOUND`             |
+| Missing or already-approved user ID                   |         404 | `NOT_FOUND`             |
 | Auth conflict                                         |         409 | `CONFLICT`              |
-| Auth rate limit exceeded                              |         429 | `TOO_MANY_REQUESTS`     |
-| Path parameter fails Zod validation                   |         422 | `VALIDATION_ERROR`      |
+| Approval rate limit exceeded                          |         429 | `TOO_MANY_REQUESTS`     |
+| Path or query parameter fails Zod validation          |         422 | `VALIDATION_ERROR`      |
 | Cluster number has no matching cluster in the config  |         404 | `CLUSTER_NOT_FOUND`     |
 | Unexpected server error (e.g. occupancy source fails) |         500 | `INTERNAL_SERVER_ERROR` |
 
@@ -136,7 +156,8 @@ Unknown routes are an exception to this envelope: there is no catch-all JSON not
 
 ## Request validation
 
-Path parameters are validated once by the shared `handler` wrapper. It passes Zod's parsed output to a typed controller context without mutating the HTTP request. Express 5 forwards validation and controller errors to the error middleware (validation failures surface as `422 VALIDATION_ERROR`). All `:clusterNumber` routes below use:
+Path and query parameters are validated once by the shared `handler` wrapper
+(admin routes use `authenticatedHandler`, which also supplies the checked actor). It passes Zod's parsed output to a typed controller context without mutating the HTTP request. Express 5 forwards validation and controller errors to the error middleware (validation failures surface as `422 VALIDATION_ERROR`). All `:clusterNumber` routes below use:
 
 ```ts
 z.object({ clusterNumber: z.coerce.number().int().positive() });
@@ -494,9 +515,10 @@ data: {"occupied":[{"row":1,"place":2,"peer":{"intraName":"jdoe","displayName":"
 
 ```
 
-`lastUpdated` is the time of the poll that produced the baseline, so a
-snapshot served from memory can be up to one poll interval old; any change
-since then arrives as a delta.
+`lastUpdated` is the time of the poll that produced the baseline. Cached
+snapshots reflect the last successful poll. Their age can exceed 30 seconds
+because polling includes query time; the interval is not a maximum freshness
+guarantee. Any change detected by a later poll arrives as a delta.
 
 #### `occupancy-delta`
 

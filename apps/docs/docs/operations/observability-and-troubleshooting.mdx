@@ -31,7 +31,7 @@ are accepted.
 
 Better Auth warnings/errors also pass through this safe logger, without raw
 library message text. A central field allowlist omits raw objects, error messages/stacks/causes, headers,
-cookies, bodies, SQL parameters, query strings, and approval-token path segments
+cookies, bodies, SQL parameters, query strings, and legacy approval-token and admin user-ID path segments
 (including percent-encoded paths). Error diagnostics contain only an allowlisted
 error type and recognized driver code. This intentionally trades verbose error
 text for secret protection in every mode. Production 5xx responses continue to
@@ -46,7 +46,9 @@ injected async sink cannot extend the hard shutdown deadline. See
 
 The API exposes layout/occupancy mismatch checks through `config-validation`.
 SSE reports database poll failures as `DB_UNAVAILABLE`; the frontend preserves
-loaded data and retries snapshots. A long-lived stream's request log is not a
+loaded data, marks it stale, and waits on the open stream for the server's
+recovery snapshot. Lost SSE connections are marked stale immediately and
+reopened after a session check and 30-second delay. A long-lived stream's request log is not a
 per-event signal. Metrics, alerting, and distributed tracing are not configured.
 
 ## Troubleshooting
@@ -57,7 +59,7 @@ per-event signal. Metrics, alerting, and distributed tracing are not configured.
 | Health works but readiness returns 503 | PostgreSQL availability, `PG_*`, exact `WEB_ORIGIN`, HTTPS URLs, migrations, permissions, and draining.                                                     |
 | Health works but login fails           | Auth secret/URL, required GitHub credentials, migrations, approval, and GitHub callback configuration; liveness only proves that the HTTP process responds. |
 | Login returns 403                      | Account approval and trusted origin. New accounts cannot create a session before approval.                                                                  |
-| Admin page/API denied                  | Current user must be both approved and an administrator.                                                                                                    |
+| Admin page/API denied                  | Current user must be both approved and an administrator; browser writes must come from `WEB_ORIGIN`. Approval is limited to 10 requests per IP per minute.  |
 | Browser CORS/auth origin error         | `WEB_ORIGIN`, actual Vite/browser port, `VITE_API_URL`, and cookie credentials.                                                                             |
 | Map layout fails                       | API working directory, presence of `src/config/clusters.json`, and Zod validity.                                                                            |
 | Map occupancy is empty                 | Config ID must match DB `cluster.name`; migrate and seed a local demo DB if needed.                                                                         |
@@ -65,14 +67,14 @@ per-event signal. Metrics, alerting, and distributed tracing are not configured.
 | Timestamp stops advancing              | Unchanged polls produce no delta or freshness timestamp; keepalive comments only check session/connection.                                                  |
 | Browser receives HTML from API calls   | Set `VITE_API_URL` to the API origin or configure external routing; neither Vite nor web Nginx proxies `/api`.                                              |
 | User deletion returns 500              | Check whether a position references the user's Hive identity; that foreign key blocks deletion.                                                             |
-| Worker exits with an admin error       | Supply both admin credentials or neither; an existing non-admin/unapproved account cannot be bootstrapped.                                                  |
+| Worker exits with an admin error       | `ADMIN_EMAIL` must be empty or a valid email. A missing account is logged and skipped, not an error; sign in with GitHub first, then rerun the worker.      |
 | Documentation build fails              | Run `pnpm build:docs` and fix reported MDX/link errors.                                                                                                     |
 
 For the local database, use `docker compose -f docker-compose.dev.yml ps` and
 `docker compose -f docker-compose.dev.yml logs db`. For local applications, use
 the same logs command with `api`, `web`, `docs`, `worker`, or `simulator`.
 For production, inspect logs and health in the deployment environment.
-The worker exits after migration/bootstrap, so a successful exit is expected.
+The worker exits after migration/admin promotion, so a successful exit is expected.
 Validate SSE buffering and timeouts in the external proxy; the checked-in web
 Nginx configuration only serves static files.
 

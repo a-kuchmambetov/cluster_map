@@ -9,9 +9,14 @@ Runtime settings come from environment variables; physical layout comes from
 
 ## Root environment file
 
-The API, worker, and database configuration load `../../.env` relative to their
-workspace working directories. Vite also uses the repository root as `envDir`.
-Existing process variables take precedence over dotenv values.
+API configuration (`apps/api/src/config/env.ts`) resolves the root `.env`
+relative to its own module, so source and compiled entry points read the same
+file regardless of working directory. The DB package, worker, simulator, and API
+seed script load `../../.env` relative to the working directory, so run them from
+their workspace directory (as the `pnpm --filter` scripts do). Vite uses the
+repository root as `envDir`. Existing process variables take precedence over
+dotenv values. Start the API from `apps/api` regardless: it loads
+`src/config/clusters.json` relative to its working directory.
 
 ```bash
 cp .env.example .env
@@ -68,9 +73,9 @@ client is shared by map reads and auth writes.
 ## CORS and environment mode
 
 Credentialed CORS allows exactly `WEB_ORIGIN` in every mode. Development wraps
-that same origin in an array; it does not add another origin. Auth `POST`,
-`DELETE`, `PATCH`, and `PUT` requests reject explicit untrusted browser origins
-and cross-site requests without an Origin header.
+that same origin in an array; it does not add another origin. Auth and admin
+`POST`, `DELETE`, `PATCH`, and `PUT` requests reject explicit untrusted browser
+origins and cross-site requests without an Origin header.
 
 `NODE_ENV=production` masks internal error responses. Pino emits structured JSON
 logs in every mode with `LOG_LEVEL=info` by default. Other modes expose more
@@ -90,8 +95,9 @@ Browser HTTP requests and EventSource connections include credentials.
 
 ## Container configuration
 
-Production API and worker containers require Infisical bootstrap variables. Their default
-secret paths are `/api` and `/worker`, respectively. Configure runtime secrets
+Production API, worker, and simulator containers require Infisical bootstrap
+variables. Their default secret paths are `/api`, `/worker`, and `/simulator`,
+respectively. Configure runtime secrets
 on the destination; local `pnpm` commands use `.env` directly.
 `docker-compose.dev.yml` runs the complete development stack with `Dockerfile.dev`,
 local environment defaults, source mounts, and no Infisical. See

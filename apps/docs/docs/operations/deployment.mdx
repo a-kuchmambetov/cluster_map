@@ -12,13 +12,13 @@ The checked-in configuration does not provision Coolify, DNS, TLS, or PostgreSQL
 
 Build each image with the repository root as context.
 
-| Application | Dockerfile                  | Internal port / behavior                                       |
-| ----------- | --------------------------- | -------------------------------------------------------------- |
-| API         | `apps/api/Dockerfile`       | `API_PORT`, default 5001; long-running server                  |
-| Web         | `apps/web/Dockerfile`       | 80; static SPA with history fallback                           |
-| Docs        | `apps/docs/Dockerfile`      | 80; static Docusaurus site                                     |
-| Worker      | `apps/worker/Dockerfile`    | No listener; migrates, optionally creates an admin, then exits |
-| Simulator   | `apps/simulator/Dockerfile` | No listener; ongoing demo occupancy updates when enabled       |
+| Application | Dockerfile                  | Internal port / behavior                                        |
+| ----------- | --------------------------- | --------------------------------------------------------------- |
+| API         | `apps/api/Dockerfile`       | `API_PORT`, default 5001; long-running server                   |
+| Web         | `apps/web/Dockerfile`       | 80; static SPA with history fallback                            |
+| Docs        | `apps/docs/Dockerfile`      | 80; static Docusaurus site                                      |
+| Worker      | `apps/worker/Dockerfile`    | No listener; migrates, optionally promotes an admin, then exits |
+| Simulator   | `apps/simulator/Dockerfile` | No listener; ongoing demo occupancy updates when enabled        |
 
 The web Nginx configuration does **not** proxy `/api` and does not consume
 `API_UPSTREAM`. Choose a browser-reachable API origin using the web image's
@@ -28,8 +28,9 @@ image. Configure the external proxy for credentialed requests and unbuffered,
 long-lived SSE connections. Validate cookie delivery for the selected domains.
 
 The API image defaults to `TRUST_PROXY_HOPS=1` for the Coolify reverse proxy;
-direct local runs default to `0`. This makes the auth limit (10 attempts per
-minute) apply per client IP instead of sharing the proxy's budget. Keep the
+direct local runs default to `0`. This makes the approval-route limit
+(`POST /api/admin/users/:id/approve`, 10 requests per minute) apply per client IP
+instead of sharing the proxy's budget. Keep the
 API port private so clients cannot bypass the trusted proxy. If the deployment
 has additional proxies, set `TRUST_PROXY_HOPS` to the actual trusted hop count
 and ensure the edge proxy replaces client-supplied forwarding headers. See the
@@ -64,8 +65,7 @@ the checked-in Drizzle migrations, optionally promotes the administrator, closes
 the database pool, and exits. A failure exits nonzero.
 
 The worker never creates accounts. If `ADMIN_EMAIL` matches an existing account,
-the worker sets its role to `admin`, marks it approved, and clears its approval
-token. An account that is already an approved administrator is left unchanged. If
+the worker sets its role to `admin` and marks it approved. An account that is already an approved administrator is left unchanged. If
 no account has that email yet, the worker logs a message and exits successfully;
 have the administrator sign in with GitHub, then rerun the worker. Omit
 `ADMIN_EMAIL` to run migrations only.
@@ -73,6 +73,35 @@ have the administrator sign in with GitHub, then rerun the worker. Omit
 API containers do not migrate at startup. The deployment workflows publish the
 worker image but do not run it or enforce migration-before-API ordering. Configure
 that sequencing in the deployment environment.
+
+### Approval column removal
+
+Migration `0004_loud_jamie_braddock.sql` drops the obsolete unique constraint and
+`user.approval_token`. It changes no approval or role values. Do not edit or
+reapply historical migrations. Generation only reads the local schema/snapshots;
+applying this migration is a separate deployment operation.
+
+This destructive cleanup is an exception to the usual migration-before-API
+order for an existing installation. The new API/worker/schema work against both
+the old schema (unused nullable column present) and the new schema. Old API and
+worker versions still select/write the column; old readiness also selects it,
+so dropping it while they run breaks both requests and readiness.
+
+Use a coordinated maintenance rollout: stop old web traffic, drain and stop all
+old API/worker/seed processes, deploy the new API and bundled web, then run the
+new worker to apply migration 0004 before reopening traffic. Alternatively,
+replace every API/worker instance with this version while retaining the column,
+then run the worker; do not send old web clients to the new API because the
+administration contract has changed. A fresh installation can run all migrations
+before starting the new applications. Development Compose's migration-first
+startup is safe when the old stack has been stopped.
+
+New readiness selects only the current ORM columns, so it can be ready before
+the obsolete column is dropped; it is not proof that migration 0004 ran. Check
+the worker outcome/migration history separately. Old readiness fails after the
+drop. Do not roll back to an old image after dropping the column without a
+separately reviewed schema restoration/forward fix; old tokens are gone, and
+approval now uses user IDs. No application startup applies migrations.
 
 ## Demo simulator
 
@@ -160,9 +189,10 @@ API can enforce its own deadline first. The 15-second container grace period doe
 not extend the watcher's five-second limit. API shutdown does not stop the worker,
 simulator, or a database server; these processes have separate ownership.
 
-The public `/privacy` and `/terms` pages currently identify themselves as drafts
-awaiting operator details and confirmation of deployment practices. Their presence
-does not establish that release documentation is complete; see
+The public `/privacy` and `/terms` pages identify the operator and contact
+address and show an effective date of 25 September 2026. They state hosting,
+provider, retention, and deletion practices that this repository does not
+implement or verify; confirm those against the deployment before release. See
 [Privacy and Quality Requirements](../product/privacy-and-quality-requirements#public-policy-pages).
 
 ## Local development and recovery

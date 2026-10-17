@@ -8,7 +8,8 @@ import ThemeImage from "@site/src/components/ThemeImage";
 # System Overview
 
 Cluster Map is a pnpm monorepo with a React/Vite frontend, Express API,
-Docusaurus documentation, a one-shot migration worker, and shared TypeScript packages.
+Docusaurus documentation, a one-shot migration worker, an optional demo occupancy
+simulator, and shared TypeScript packages.
 
 ## Implemented request path
 
@@ -21,28 +22,31 @@ Docusaurus documentation, a one-shot migration worker, and shared TypeScript pac
 4. The frontend joins layout and occupancy by row/place number and calculates
    free, occupied, and total counts.
 5. After the initial occupancy snapshot, an SSE connection delivers changes.
-   One polling pool per cluster and API process queries PostgreSQL every 30 seconds
-   while there are subscribers. Streams recheck access every 20 seconds.
-6. Approved administrators list, approve, and delete users from `/admin/users`.
+   One polling pool per cluster and API process queries PostgreSQL while there
+   are subscribers, scheduling each poll 30 seconds after the previous one completes. Streams recheck access every 20 seconds.
+6. Approved administrators list, approve, and delete users from `/admin/users`,
+   which calls the admin-only `/api/admin/users` endpoints. Approval targets the
+   user ID; no approval tokens exist.
 
 Public `/privacy` and `/terms` pages sit outside the protected route guard and
-display draft notices even when the API is unavailable. Public API probes are
+remain readable even when the API is unavailable. Public API probes are
 `/api/health` for process liveness and `/api/health/ready` for database reachability, URL settings
 and selected schema checks. At startup, `index.ts` validates the environment,
-creates Better Auth and the auth service, and injects them with health checks into
-`createApp` before listening.
+creates Better Auth, the auth service, and the admin service, and injects them
+with health checks into `createApp` before listening.
 
 ## Component responsibilities
 
-| Component            | Responsibility                                                                                                                         |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Web                  | Authentication screens, route guards, cluster map, place details, summaries, stale indicators, security settings, and user management. |
-| API                  | Session/role enforcement, auth operations, layout validation, occupancy reads, SSE delivery, health checks, and request logging.       |
-| Worker               | Database connectivity retries, migrations, and optional initial admin creation; exits after completion.                                |
-| Database package     | Shared PostgreSQL client, auth/Hive Drizzle schemas, and migrations.                                                                   |
-| Layout configuration | Cluster/row/place identity, physical order, staggered positions, and gaps.                                                             |
-| Docs                 | Product, architecture, setup, reference, and operational guidance.                                                                     |
-| Nginx                | Static web/docs hosting; API routing must be supplied externally or via a frontend API origin.                                         |
+| Component            | Responsibility                                                                                                                                          |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Web                  | GitHub sign-in screen, route guards, cluster map, place details, summaries, stale indicators, public legal pages, and user management.                  |
+| API                  | Session/role enforcement, auth operations, admin user management, layout validation, occupancy reads, SSE delivery, health checks, and request logging. |
+| Worker               | Database connectivity retries, migrations, and optional promotion of an existing account to admin; exits after completion.                              |
+| Simulator            | Optional demo-only process that claims and releases seats for synthetic users; refuses `NODE_ENV=production`.                                           |
+| Database package     | Shared PostgreSQL client, auth/Hive Drizzle schemas, and migrations.                                                                                    |
+| Layout configuration | Cluster/row/place identity, physical order, staggered positions, and gaps.                                                                              |
+| Docs                 | Product, architecture, setup, reference, and operational guidance.                                                                                      |
+| Nginx                | Static web/docs hosting; API routing must be supplied externally or via a frontend API origin.                                                          |
 
 ## Deployment boundaries
 
@@ -67,8 +71,8 @@ remain external configuration. Neither Vite nor web Nginx proxies `/api`.
 
 - Browsers access PostgreSQL through the API.
 - Layout and live occupancy remain separate API responses; the frontend merges them.
-- Map routes read occupancy. Auth routes write accounts and sessions through the
-  same DB client. A globally read-only database connection is not implemented.
+- Map routes read occupancy. Auth and admin routes write accounts, sessions, and
+  approvals through the same DB client. A globally read-only database connection is not implemented.
 - Snapshot refresh failures preserve previously loaded map data for that cluster.
 - Production source permissions and deployment hardening remain release work.
 
