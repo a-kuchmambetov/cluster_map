@@ -1,3 +1,4 @@
+import type { AuthSessionResponse } from "@repo/types";
 import type { Auth } from "../../config/auth.js";
 import type * as authRepository from "./auth.repository.js";
 import { isAPIError } from "better-auth/api";
@@ -61,19 +62,7 @@ export function createAuthService(
   auth: { api: AuthApi },
   repository: AuthRepository,
 ) {
-  function confirm(token: string, headers: Headers) {
-    return callAuth(async () => {
-      await requireAdmin(headers);
-      const approved = await repository.approveUser(token);
-      if (!approved)
-        throw AppError.notFound(
-          "Approval token is invalid or has already been used",
-        );
-      return { message: "Account approved. The user can now log in." };
-    });
-  }
-
-  function getSession(headers: Headers) {
+  function getSession(headers: Headers): Promise<AuthSessionResponse> {
     return callAuth(async () => {
       const session = await auth.api.getSession({
         headers,
@@ -81,7 +70,7 @@ export function createAuthService(
       });
       if (!session) throw AppError.unauthorized("Authentication required");
       const actor = await repository.findAuthUser(session.user.id);
-      if (!actor?.approved)
+      if (!actor?.approved || !["user", "admin"].includes(actor.role))
         throw AppError.forbidden("Account access has not been approved");
       const { id, name, email, emailVerified, image } = session.user;
       return {
@@ -127,49 +116,11 @@ export function createAuthService(
     });
   }
 
-  async function requireAdmin(headers: Headers) {
-    const session = await auth.api.getSession({ headers });
-    if (!session) throw AppError.unauthorized("Authentication required");
-    // Read current privileges from the database, never from client input or cached claims.
-    const actor = await repository.findAuthUser(session.user.id);
-    if (!actor?.approved || actor.role !== "admin")
-      throw AppError.forbidden("Administrator access required");
-    return session.user.id;
-  }
-
-  function getPendingUsers(headers: Headers) {
-    return callAuth(async () => {
-      await requireAdmin(headers);
-      return { users: await repository.listPendingUsers() };
-    });
-  }
-
-  function getUsers(headers: Headers) {
-    return callAuth(async () => {
-      await requireAdmin(headers);
-      return { users: await repository.listUsers() };
-    });
-  }
-
-  function deleteUser(id: string, headers: Headers) {
-    return callAuth(async () => {
-      const actorId = await requireAdmin(headers);
-      if (actorId === id)
-        throw AppError.forbidden("You cannot delete your own account");
-      if (!(await repository.deleteUser(id)))
-        throw AppError.notFound("User not found");
-      return { message: "User deleted" };
-    });
-  }
   return {
-    confirm,
     getSession,
     initiateGitHubSignIn,
     handleGitHubCallback,
     logout,
-    getPendingUsers,
-    getUsers,
-    deleteUser,
   };
 }
 

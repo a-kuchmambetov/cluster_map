@@ -27,6 +27,15 @@ const app = express()
 
 beforeEach(() => {
   vi.clearAllMocks();
+  authService.getSession.mockResolvedValue({
+    user: {
+      id: "test",
+      role: "user",
+      name: "Test",
+      email: "test@example.test",
+      emailVerified: false,
+    },
+  });
 });
 
 describe("listClusters", () => {

@@ -61,7 +61,7 @@ test("email normalization and promotion outcomes", async () => {
     await promoteAdminIfRequested();
     assert.deepEqual(updates, [
       {
-        values: { role: "admin", approved: true, approvalToken: null },
+        values: { role: "admin", approved: true },
         condition: "existing-id",
       },
     ]);

@@ -16,7 +16,9 @@ import type { Env } from "../config/env.js";
 
 export function createSchemaCheck(db: Pick<typeof database, "select">) {
   return async () => {
-    // Select every declared column without reading user data. Missing migrations fail readiness.
+    // Select every declared column without reading user data. Missing required
+    // columns fail readiness; surplus/deferred-drop columns do not. Deployment
+    // must separately verify destructive migration completion/version compatibility.
     for (const table of [
       user,
       session,

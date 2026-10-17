@@ -16,18 +16,18 @@ afterEach(() => {
 function makeApp(trustProxyHops: number) {
   const deps = createTestDependencies();
   deps.env.TRUST_PROXY_HOPS = trustProxyHops;
-  deps.authService.confirm.mockRejectedValue(
+  deps.authService.getSession.mockRejectedValue(
     AppError.unauthorized("Authentication required"),
   );
   return createApp(deps);
 }
 
-describe("auth limits behind a reverse proxy", () => {
+describe("approval limits behind a reverse proxy", () => {
   it("gives each client its own budget and rejects spoofed forwarding prefixes", async () => {
     const app = makeApp(1);
     const approve = (forwardedFor: string) =>
       request(app)
-        .post("/api/auth/confirm/approval-token")
+        .post("/api/admin/users/target/approve")
         .set("X-Forwarded-For", forwardedFor);
 
     for (let attempt = 0; attempt < 10; attempt++) {
@@ -50,7 +50,7 @@ describe("auth limits behind a reverse proxy", () => {
     for (let attempt = 0; attempt < 11; attempt++) {
       // eslint-disable-next-line no-await-in-loop -- The eleventh request must be the blocked one.
       const response = await request(app)
-        .post("/api/auth/confirm/approval-token")
+        .post("/api/admin/users/target/approve")
         .set("X-Forwarded-For", `198.51.100.${attempt + 1}`);
       expect(response.status).toBe(attempt < 10 ? 401 : 429);
     }

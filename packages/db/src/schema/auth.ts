@@ -18,7 +18,6 @@ export const user = pgTable("user", {
     .default("user")
     .notNull(),
   approved: boolean("approved").default(false).notNull(),
-  approvalToken: text("approval_token").unique(),
   twoFactorEnabled: boolean("two_factor_enabled").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")

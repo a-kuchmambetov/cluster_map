@@ -35,19 +35,19 @@ phone, without walking between rooms.
   take and free seats, so real-time updates can be shown during evaluation.
 - **Documentation site.** A Docusaurus site covering architecture, the API,
   configuration, deployment, and operations.
-- **CI/CD.** GitHub Actions runs checks on every pull request, publishes images to
+- **CI/CD.** GitHub Actions runs checks on pull requests to `main` and `staging`, publishes images to
   GHCR, and deploys to staging and production through Coolify. Runtime secrets
   come from Infisical.
 
 ## Team Information
 
-| Member                 | Role(s)                                         | Responsibilities                                                                                                                                                                                                    |
-| ---------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Artem Kuchmambetov** | Tech Lead / Architect, Full-stack Developer, PO | Defines the architecture and tech stack. Reviews critical changes. Owns the monorepo setup, CI/CD, deployment, and documentation site. Built the admin, 2FA and OAuth UI flows, the legal pages, and the simulator. |
-| **Maxim Kleverov**     | Frontend Developer, PM                          | Builds the cluster map UI: rows, seats, popups, colour system, theming, dark mode, and the mobile layout. Integrates the frontend with the API.                                                                     |
-| **Vitalii Lundaev**    | Backend Developer, PO                           | Builds the Express API: cluster endpoints, the SSE polling pool, authentication (Better Auth, GitHub OAuth, TOTP 2FA), and the API unit and integration tests. Wrote the API and DB contracts.                      |
-| **Valentine Moroka**   | Backend / Database Developer                    | Sets up PostgreSQL and Drizzle. Designed the initial schema and migrations.                                                                                                                                         |
-| **Ping Yu**            | DevSecOps / PO                                  | Designed the CI/CD architecture. Participated in the build of docker and security layer. Owns the project README.                                                                                                   |
+| Member                 | Role(s)                                         | Responsibilities                                                                                                                                                                                                                    |
+| ---------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Artem Kuchmambetov** | Tech Lead / Architect, Full-stack Developer, PO | Defines the architecture and tech stack. Reviews critical changes. Owns the monorepo setup, CI/CD, deployment, and documentation site. Built the admin, 2FA (since removed) and OAuth UI flows, the legal pages, and the simulator. |
+| **Maxim Kleverov**     | Frontend Developer, PM                          | Builds the cluster map UI: rows, seats, popups, colour system, theming, dark mode, and the mobile layout. Integrates the frontend with the API.                                                                                     |
+| **Vitalii Lundaev**    | Backend Developer, PO                           | Builds the Express API: cluster endpoints, the SSE polling pool, authentication (Better Auth, GitHub OAuth, TOTP 2FA since removed), and the API unit and integration tests. Wrote the API and DB contracts.                        |
+| **Valentine Moroka**   | Backend / Database Developer                    | Sets up PostgreSQL and Drizzle. Designed the initial schema and migrations.                                                                                                                                                         |
+| **Ping Yu**            | DevSecOps / PO                                  | Designed the CI/CD architecture. Participated in the build of docker and security layer. Owns the project README.                                                                                                                   |
 
 ## Project Management
 
@@ -235,8 +235,9 @@ secrets from Infisical at startup. See
   queries, and generated migrations.
 - **Better Auth.** Secure sessions and OAuth, without writing cryptography
   ourselves.
-- **pnpm monorepo.** API and web share DTOs (`@repo/types`), the database layer
-  (`@repo/db`), and error types (`@repo/errors`).
+- **pnpm monorepo.** API and web share DTOs through `@repo/types` (auth, admin,
+  and cluster-map types). API, worker, and simulator use `@repo/db`; API
+  application errors use `@repo/errors`.
 
 ## Database Schema
 
@@ -258,7 +259,6 @@ erDiagram
         text image
         text role "user | admin"
         boolean approved
-        text approval_token UK
         boolean two_factor_enabled
         timestamp created_at
     }
@@ -314,8 +314,9 @@ erDiagram
 ```
 
 - **Auth tables** (`user`, `session`, `account`, `verification`) are managed by
-  Better Auth. `account.password` and `two_factor` are no longer written; they
-  remain until a migration removes them.
+  Better Auth. `account.password`, `two_factor`, and `user.two_factor_enabled` are
+  no longer written; they remain until a migration removes them. Migration 0004
+  drops the obsolete `user.approval_token` column; approval is now by user ID.
 - **Hive tables** (`cluster`, `row`, `position`, `user_hive_info`) store occupancy.
   A check constraint keeps `occupied`, `holder_id`, and `taken_at` consistent.
 - **Deleting a user** cascades to their sessions, accounts, and Hive identity. It is blocked while that identity still holds a seat.
@@ -332,11 +333,11 @@ erDiagram
 | Layout configuration and validation | JSON layout with Zod validation; endpoint that detects config/DB mismatches                    | Vitalii, Artem             |
 | Cluster REST API                    | Cluster list, layout, occupancy, and config-validation endpoints                               | Vitalii, Artem             |
 | Real-time updates (SSE)             | Shared poller per cluster, change-only events, keepalive, session recheck, client recovery     | Vitalii, Artem             |
-| Admin approval and logout           | Approval tokens, current-role checks, logout, auth rate limiting                               | Vitalii, Artem             |
+| Admin approval and logout           | Approval by user ID, current-role checks, logout, approval rate limiting                       | Vitalii, Artem             |
 | GitHub OAuth                        | Sign-in via GitHub (new accounts still need approval)                                          | Vitalii (API), Artem (web) |
 | Admin user management               | List, approve, and delete users                                                                | Artem                      |
 | Database schema and migrations      | PostgreSQL + Drizzle schemas and migrations                                                    | Valentine, Artem           |
-| Migration worker                    | One-shot migrations plus optional initial admin creation                                       | Artem                      |
+| Migration worker                    | One-shot migrations plus optional promotion of an existing account to admin                    | Artem                      |
 | Demo seed and occupancy simulator   | Static demo data and a live simulator for seat changes                                         | Artem                      |
 | Privacy Policy and Terms of Service | Public legal pages linked from the footer                                                      | Artem                      |
 | Health and readiness checks         | `/api/health` and `/api/health/ready`                                                          | Artem, Vitalii             |
@@ -400,11 +401,15 @@ Target modules and points (from
      tests). Building images only for those apps on self-hosted runners. Tagging
      images per environment. Triggering Coolify webhooks. Injecting secrets from
      Infisical at runtime instead of baking them into images.
-   - **Value:** Every push to `staging` or `main` is deployed automatically, and
-     every pull request runs the full test suite against a disposable PostgreSQL.
+   - **Value:** Pushes to `staging` or `main` build and deploy the changed apps
+     automatically, and pull requests to those branches run the full test suite
+     against a disposable PostgreSQL.
    - **Why Major:** It covers CI, image publishing, change detection,
      multi-environment deployment, and secret management.
-   - The deploy workflows trigers only after successfull CI and Image build process. Coolify uses provided Health funcs to track apps states.
+   - Deployment workflows build selected images and call Coolify after
+     successful image publication. They do not wait for CI; configure required
+     checks through repository protection. Health-based acceptance of a
+     deployment is configured in Coolify, outside this repository.
 5. **ORM.** Drizzle schemas in `packages/db/src/schema`, with generated
    migrations applied by the one-shot worker.
 6. **OAuth 2.0.** GitHub provider through Better Auth

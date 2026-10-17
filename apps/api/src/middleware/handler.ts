@@ -3,10 +3,17 @@ import type { output, ZodTypeAny } from "zod";
 
 type Parsed<Schema> = Schema extends ZodTypeAny ? output<Schema> : undefined;
 
-type RequestSchemas = {
+export type RequestSchemas = {
   params?: ZodTypeAny;
   body?: ZodTypeAny;
   query?: ZodTypeAny;
+};
+
+export type HandlerContext<Schemas extends RequestSchemas> = {
+  req: Request;
+  params: Parsed<Schemas["params"]>;
+  body: Parsed<Schemas["body"]>;
+  query: Parsed<Schemas["query"]>;
 };
 
 // Keep parsed outputs separate from the HTTP request: Express 5's query is a getter.
@@ -14,15 +21,7 @@ type RequestSchemas = {
 // rejected promises to the existing error middleware.
 export function handler<Schemas extends RequestSchemas>(
   schemas: Schemas,
-  controller: (
-    context: {
-      req: Request;
-      params: Parsed<Schemas["params"]>;
-      body: Parsed<Schemas["body"]>;
-      query: Parsed<Schemas["query"]>;
-    },
-    res: Response,
-  ) => unknown,
+  controller: (context: HandlerContext<Schemas>, res: Response) => unknown,
 ): RequestHandler {
   return (req, res) =>
     controller(

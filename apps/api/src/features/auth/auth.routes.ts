@@ -1,8 +1,11 @@
 import type { Runtime } from "../../lifecycle/runtime.js";
 import { trackWork } from "../../middleware/trackWork.js";
+import { createRequireAuth } from "../../middleware/requireAuth.js";
+import {
+  authSecurityHeaders,
+  requireTrustedOrigin,
+} from "../../middleware/authTransport.js";
 import { Router } from "express";
-import { rateLimit } from "express-rate-limit";
-import { AppError } from "@repo/errors";
 import type { AuthService } from "./auth.service.js";
 import { createAuthController } from "./auth.controller.js";
 
@@ -11,58 +14,22 @@ export function createAuthRouter(
   webOrigin: string,
   runtime?: Runtime,
 ): Router {
-  const {
-    usersHandler,
-    deleteUserHandler,
-    sessionHandler,
-    pendingUsersHandler,
-    logoutHandler,
-    confirmHandler,
-    githubSignInHandler,
-    githubCallbackHandler,
-  } = createAuthController(service, webOrigin);
-  const authRouter = Router();
-  authRouter.use((_req, res, next) => {
-    res.setHeader("Cache-Control", "no-store");
-    res.setHeader("Referrer-Policy", "no-referrer");
-    next();
-  });
-  authRouter.use((req, _res, next) => {
-    // Non-browser clients may omit Origin. Reject explicit untrusted browser origins.
-    if (
-      ["POST", "DELETE", "PATCH", "PUT"].includes(req.method) &&
-      ((req.headers.origin &&
-        req.headers.origin !== new URL(webOrigin).origin) ||
-        (req.headers["sec-fetch-site"] === "cross-site" && !req.headers.origin))
-    ) {
-      return next(AppError.forbidden("Untrusted origin"));
-    }
-    next();
-  });
-  authRouter.get("/sign-in/github", trackWork(runtime, githubSignInHandler));
-  authRouter.get("/callback/github", trackWork(runtime, githubCallbackHandler));
-  authRouter.get("/session", trackWork(runtime, sessionHandler));
-  authRouter.get("/pending-users", trackWork(runtime, pendingUsersHandler));
-  authRouter.get("/users", trackWork(runtime, usersHandler));
-  authRouter.delete("/users/:id", trackWork(runtime, deleteUserHandler));
-  authRouter.post("/logout", trackWork(runtime, logoutHandler));
-  authRouter.use(
-    rateLimit({
-      windowMs: 60_000,
-      limit: 10,
-      standardHeaders: "draft-8",
-      legacyHeaders: false,
-      handler: (_req, _res, next) =>
-        next(
-          new AppError({
-            statusCode: 429,
-            code: "TOO_MANY_REQUESTS",
-            message: "Too many authentication attempts. Try again later.",
-          }),
-        ),
-    }),
+  const controller = createAuthController(service, webOrigin);
+  const router = Router();
+  router.use(authSecurityHeaders(), requireTrustedOrigin(webOrigin));
+  router.get(
+    "/sign-in/github",
+    trackWork(runtime, controller.githubSignInHandler),
   );
-  authRouter.post("/confirm/:id", trackWork(runtime, confirmHandler));
-
-  return authRouter;
+  router.get(
+    "/callback/github",
+    trackWork(runtime, controller.githubCallbackHandler),
+  );
+  router.get(
+    "/session",
+    trackWork(runtime, createRequireAuth(service)),
+    controller.sessionHandler,
+  );
+  router.post("/logout", trackWork(runtime, controller.logoutHandler));
+  return router;
 }

@@ -28,7 +28,7 @@ export async function promoteAdminIfRequested(): Promise<void> {
 
   await db
     .update(user)
-    .set({ role: "admin", approved: true, approvalToken: null })
+    .set({ role: "admin", approved: true })
     .where(eq(user.id, existing.id));
 
   console.log(`Promoted ${env.ADMIN_EMAIL} to approved administrator.`);

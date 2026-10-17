@@ -53,9 +53,19 @@ describe("structured request/error correlation", () => {
   });
   it("records status and error code on ordinary client errors", async () => {
     const { logger, entries } = captureLogs();
-    const response = await request(
-      createApp({ ...createTestDependencies(), logger }),
-    ).get("/api/clusters/999/layout");
+    const deps = createTestDependencies();
+    deps.authService.getSession.mockResolvedValue({
+      user: {
+        id: "test",
+        role: "user",
+        name: "Test",
+        email: "test@example.test",
+        emailVerified: false,
+      },
+    });
+    const response = await request(createApp({ ...deps, logger })).get(
+      "/api/clusters/999/layout",
+    );
     expect(response.status).toBe(404);
     expect(entries).toHaveLength(1);
     expect(entries[0]).toMatchObject({

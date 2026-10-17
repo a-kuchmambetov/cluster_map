@@ -69,6 +69,19 @@ describe("request logging", () => {
     });
     expect(JSON.stringify(entries)).not.toContain("secret");
   });
+  it.each([
+    "/api/admin/users/private-id/approve?code=private-query",
+    "/api/%61dmin/users/private-id/approve",
+    "/api/admin/users/private-id",
+    "/api/admin/users/private%2fid/approve",
+  ])("redacts admin user IDs: %s", (url) => {
+    const { res, entries } = setup(url);
+    res.emit("close");
+    expect(entries[0].path).toMatch(
+      /^\/api\/admin\/users\/\[REDACTED\](?:\/approve)?$/,
+    );
+    expect(JSON.stringify(entries)).not.toContain("private");
+  });
   it("logs an aborted SSE response once, with its error code", () => {
     const { res, entries } = setup("/api/clusters/1/events");
     res.locals.errorCode = "INTERNAL_SERVER_ERROR";

@@ -1,6 +1,5 @@
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AppError } from "@repo/errors";
 import { createTestDependencies } from "../../../helpers/fakes.js";
 import { createApp } from "../../../../src/app.js";
 
@@ -24,70 +23,6 @@ describe("custom auth routes", () => {
     expect(result.headers["access-control-allow-credentials"]).toBe("true");
   });
 
-  it("keeps the malformed JSON error envelope and skips the controller", async () => {
-    const result = await request(app)
-      .post("/api/auth/confirm/signed-token")
-      .set("Content-Type", "application/json")
-      .send("{invalid");
-
-    expect(result.status).toBe(400);
-    expect(result.body).toEqual({
-      ok: false,
-      status: "fail",
-      code: "BAD_REQUEST",
-      error: "Invalid JSON body",
-    });
-    expect(service.confirm).not.toHaveBeenCalled();
-  });
-
-  it("rejects an untrusted browser origin", async () => {
-    expect(
-      (
-        await request(app)
-          .post("/api/auth/confirm/signed-token")
-          .set("Origin", "https://untrusted.example")
-      ).status,
-    ).toBe(403);
-    expect(service.confirm).not.toHaveBeenCalled();
-  });
-  it("passes the confirmation token and prevents caching/referrer leakage", async () => {
-    vi.mocked(service.confirm).mockResolvedValue({ message: "Confirmed" });
-    const result = await request(app).post("/api/auth/confirm/signed-token");
-    expect(result.status).toBe(200);
-    expect(result.headers["cache-control"]).toBe("no-store");
-    expect(result.headers["referrer-policy"]).toBe("no-referrer");
-    expect(service.confirm).toHaveBeenCalledWith(
-      "signed-token",
-      expect.any(Headers),
-    );
-  });
-  it("uses the existing error envelope", async () => {
-    vi.mocked(service.confirm).mockRejectedValue(
-      AppError.unauthorized("Authentication required"),
-    );
-    const result = await request(app).post("/api/auth/confirm/signed-token");
-    expect(result.status).toBe(401);
-    expect(result.body).toMatchObject({ ok: false, code: "UNAUTHORIZED" });
-  });
-  it.each(["confirm", "users"])(
-    "validates the %s token before calling its service",
-    async (route) => {
-      const path = `/api/auth/${route}/${"x".repeat(4097)}`;
-      const result = await (route === "confirm"
-        ? request(app).post(path)
-        : request(app).delete(path));
-
-      expect(result.status).toBe(422);
-      expect(result.body).toMatchObject({
-        ok: false,
-        status: "fail",
-        code: "VALIDATION_ERROR",
-        details: [{ path: "id", code: "too_big" }],
-      });
-      expect(service.confirm).not.toHaveBeenCalled();
-      expect(service.deleteUser).not.toHaveBeenCalled();
-    },
-  );
   it("does not expose password or default Better Auth routes", async () => {
     const responses = await Promise.all(
       [
@@ -101,17 +36,6 @@ describe("custom auth routes", () => {
     expect(responses.map((response) => response.status)).toEqual([
       404, 404, 404, 404, 404,
     ]);
-  });
-  it("limits repeated approval attempts", async () => {
-    vi.mocked(service.confirm).mockResolvedValue({ message: "Confirmed" });
-    const results = await Promise.all(
-      Array.from({ length: 11 }, () =>
-        request(app).post("/api/auth/confirm/signed-token"),
-      ),
-    );
-    const result = results.at(-1);
-    expect(result!.status).toBe(429);
-    expect(result!.body.code).toBe("TOO_MANY_REQUESTS");
   });
 });
 
@@ -303,28 +227,4 @@ describe("session lifecycle routes", () => {
       ).status,
     ).toBe(403);
   });
-});
-
-it("lists users through the admin service", async () => {
-  vi.mocked(service.getUsers).mockResolvedValue({ users: [] });
-  const result = await request(app).get("/api/auth/users");
-  expect(result.status).toBe(200);
-  expect(result.body).toEqual({ users: [] });
-  expect(service.getUsers).toHaveBeenCalledWith(expect.any(Headers));
-});
-it("deletes the specified account and rejects cross-site deletion", async () => {
-  const rejected = await request(app)
-    .delete("/api/auth/users/target")
-    .set("Origin", "https://untrusted.example");
-  expect(rejected.status).toBe(403);
-  expect(service.deleteUser).not.toHaveBeenCalled();
-  vi.mocked(service.deleteUser).mockResolvedValue({ message: "User deleted" });
-  const result = await request(app)
-    .delete("/api/auth/users/target")
-    .set("Origin", new URL(env.WEB_ORIGIN).origin);
-  expect(result.status).toBe(200);
-  expect(service.deleteUser).toHaveBeenCalledWith(
-    "target",
-    expect.any(Headers),
-  );
 });

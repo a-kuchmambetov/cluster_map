@@ -13,7 +13,7 @@ pnpm --filter @repo/web test
 pnpm --filter @repo/web build
 ```
 
-Use `pnpm --filter @repo/web test:watch` for watch mode and `pnpm --filter @repo/web start` to preview a production build. The root `pnpm typecheck` includes this app. Unit and React hook tests use Vitest with Happy DOM; they are colocated with feature code and cover map transforms, request ownership, and SSE recovery.
+Use `pnpm --filter @repo/web test:watch` for watch mode and `pnpm --filter @repo/web start` to preview a production build. The root `pnpm typecheck` includes this app. Unit and React hook tests use Vitest with Happy DOM; they are colocated with feature code and cover protected routes and GitHub sign-in, administrator API calls and user management, public legal routes, map transforms, request ownership, and SSE recovery.
 
 The API must also be running for live data. See the [root README](../../README.md) for database and API setup.
 
@@ -34,6 +34,8 @@ src/
   main.tsx                 DOM mounting and global CSS
   app/                     Route composition and application providers
   pages/                   Thin route entry points
+  features/auth/           Sign-in screen, auth provider, session API, and route guard
+  features/admin/          Administrator user listing, approval, and deletion
   features/cluster-map/
     index.ts               Public feature entry point
     cluster-map-screen.tsx Feature screen composition
@@ -81,7 +83,7 @@ Untitled UI React open-source components are licensed under the MIT license, whi
 
 Public `/privacy` and `/terms` routes are available without account approval,
 including while session checks are loading or fail. A shared footer links to
-both on every route; sign-in and registration also link beside their introduction.
+both on every route; the sign-in screen also links beside its introduction.
 Content lives in `src/pages/legal-screen.tsx` and uses the existing theme tokens.
 
 The documents reflect the operator's supplied policies: Artem Kuchmambetov,
@@ -98,7 +100,9 @@ This is an administrator-handled
 policy, not an automated deletion feature. Hive staff and site administrators
 handle requests; the operator remains responsible for Cluster Map processing.
 The pages do not implement deletion, notification emails, age verification,
-consent collection, or a terms-acceptance record.
+consent collection, or a terms-acceptance record. The Privacy Policy still states
+that email/password sign-in is available; GitHub is the only implemented sign-in
+method, so that sentence is stale.
 
 Deployment details still require operational verification:
 
@@ -127,8 +131,10 @@ and [Finnish Competition and Consumer Authority guidance on unfair terms](https:
 
 `/login` is public. `/` requires a valid Better Auth session and administrator
 approval. Sign-in is GitHub-only; a first sign-in creates an account that waits for
-approval. Approval uses the existing administrator API; no approval UI for
-self-service is included.
+approval. Approved administrators manage accounts at `/admin/users` (other users
+are redirected to `/`). The screen calls `GET /api/admin/users`,
+`POST /api/admin/users/:id/approve`, and `DELETE /api/admin/users/:id`, approving
+by user ID. There is no self-service approval.
 
 The auth provider checks `/api/auth/session` before mounting the map. Network
 failures show retry UI; `401` redirects to login and `403` hides private content.
@@ -142,6 +148,6 @@ same domain) so the default session cookie can accompany cross-origin requests.
 Verify login and EventSource in a deployed browser.
 
 Smoke checks: sign in with GitHub and verify the pending result; approve the account
-via the existing administrator flow; sign in; reload `/`; sign out; attempt direct API
+from `/admin/users` as an administrator; sign in; reload `/`; sign out; attempt direct API
 access without a cookie; revoke approval during an open map and verify access
 ends after the next request or stream check (20 seconds plus check latency).

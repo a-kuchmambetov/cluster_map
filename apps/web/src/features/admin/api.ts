@@ -1,25 +1,21 @@
-import type {
-  AdminUsersResponse,
-  AuthMessageResponse,
-  PendingUsersResponse,
-} from "@repo/types";
+import type { AdminUsersResponse, MessageResponse } from "@repo/types";
 import { apiRequest } from "@/lib/http";
 
 export const getPendingUsers = (signal?: AbortSignal) =>
-  apiRequest<PendingUsersResponse>("/auth/pending-users", { signal });
+  apiRequest<AdminUsersResponse>("/admin/users?status=pending", { signal });
 
-export const approveUser = (token: string) =>
-  apiRequest<AuthMessageResponse>(
-    `/auth/confirm/${encodeURIComponent(token)}`,
+export const approveUser = (id: string) =>
+  apiRequest<MessageResponse>(
+    `/admin/users/${encodeURIComponent(id)}/approve`,
     {
       method: "POST",
     },
   );
 
 export const getUsers = (signal?: AbortSignal) =>
-  apiRequest<AdminUsersResponse>("/auth/users", { signal });
+  apiRequest<AdminUsersResponse>("/admin/users", { signal });
 
 export const deleteUser = (id: string) =>
-  apiRequest<AuthMessageResponse>(`/auth/users/${encodeURIComponent(id)}`, {
+  apiRequest<MessageResponse>(`/admin/users/${encodeURIComponent(id)}`, {
     method: "DELETE",
   });

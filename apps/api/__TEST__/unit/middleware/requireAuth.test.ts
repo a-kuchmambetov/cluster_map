@@ -29,7 +29,9 @@ describe("cluster access enforcement", () => {
     expect((await request(app).get("/api/clusters")).status).toBe(403);
   });
   it("reaches the stream handler after authenticating", async () => {
-    getSession.mockResolvedValue({ user: { id: "approved-user" } });
+    getSession.mockResolvedValue({
+      user: { id: "approved-user", role: "user" },
+    });
     const response = await request(app)
       .get("/api/clusters/999/events")
       .timeout({ deadline: 2000 });

@@ -1,6 +1,6 @@
 /* eslint-disable no-await-in-loop -- Seed inserts follow foreign-key dependencies in a predictable order. */
 import dotenv from "dotenv";
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import { db, user, userHiveInfo, cluster, row, position, eq } from "@repo/db";
 import { listClusterConfigs } from "../features/clusters/clusters.service.js";
@@ -58,7 +58,6 @@ async function main() {
           emailVerified: false,
           role: demo.approved ? demo.role : "user",
           approved: demo.approved,
-          approvalToken: demo.approved ? null : randomBytes(32).toString("hex"),
         });
       }
       await db

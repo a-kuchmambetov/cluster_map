@@ -19,7 +19,6 @@ const pending = {
   name: "New user",
   email: "new@example.com",
   createdAt: "2026-09-19T10:00:00Z",
-  approvalToken: "token",
 };
 let root: Root;
 let container: HTMLDivElement;
@@ -74,7 +73,7 @@ it("approves the selected user and updates their status after success", async ()
       )!
       .click(),
   );
-  expect(api.approveUser).toHaveBeenCalledWith("token");
+  expect(api.approveUser).toHaveBeenCalledWith("new");
   expect(container.textContent).toContain(pending.email);
   expect(
     container.querySelector<HTMLButtonElement>(
@@ -179,4 +178,24 @@ it("disables deletion of the current administrator", async () => {
       'button[aria-label="Delete New user"]',
     )!.disabled,
   ).toBe(true);
+});
+
+it("ignores an old administrator's pending list after the session owner changes", async () => {
+  let finishOld!: (value: { users: (typeof pending)[] }) => void;
+  vi.mocked(api.getUsers).mockReturnValueOnce(
+    new Promise((resolve) => {
+      finishOld = resolve;
+    }),
+  );
+  await render();
+  const oldSignal = vi.mocked(api.getUsers).mock.calls[0][0]!;
+  vi.mocked(useAuth).mockReturnValue({
+    user: { id: "next-admin", role: "admin" },
+  } as ReturnType<typeof useAuth>);
+  vi.mocked(api.getUsers).mockResolvedValueOnce({ users: [] });
+  await render();
+  expect(oldSignal.aborted).toBe(true);
+  await act(async () => finishOld({ users: [pending] }));
+  expect(container.textContent).not.toContain(pending.email);
+  expect(container.textContent).toContain("No users");
 });

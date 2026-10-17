@@ -1,3 +1,5 @@
+import * as adminRepository from "./features/admin/admin.repository.js";
+import { createAdminService } from "./features/admin/admin.service.js";
 import { env } from "@config/env.js";
 import { db, closeDatabase, withDatabaseProbe } from "@repo/db";
 import { createAuth } from "@config/auth.js";
@@ -25,6 +27,7 @@ const authService = createAuthService(auth, authRepository);
 const app = createApp({
   env,
   authService,
+  adminService: createAdminService(adminRepository),
   logger,
   runtime,
   occupancyPool: createOccupancyPool(runtime),

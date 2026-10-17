@@ -9,7 +9,7 @@ import { approveUser, deleteUser, getUsers } from "./api";
 export function UserApprovalsScreen() {
   const { user } = useAuth();
   if (user?.role !== "admin") return <Navigate to="/" replace />;
-  return <UserApprovals />;
+  return <UserApprovals key={user.id} />;
 }
 
 function UserApprovals() {
@@ -45,18 +45,16 @@ function UserApprovals() {
   }, [revision]);
 
   const approve = async (user: AdminUser) => {
-    if (!user.approvalToken || busy.current) return;
+    if (user.approved || busy.current) return;
     busy.current = true;
     setApproving(user.id);
     setError("");
     setMessage("");
     try {
-      await approveUser(user.approvalToken);
+      await approveUser(user.id);
       setUsers((current) =>
         current.map((item) =>
-          item.id === user.id
-            ? { ...item, approved: true, approvalToken: null }
-            : item,
+          item.id === user.id ? { ...item, approved: true } : item,
         ),
       );
       setMessage(`${user.name} has been approved and can now sign in.`);
@@ -203,18 +201,12 @@ function UserApprovals() {
                     {user.approved ? "Approved" : "Pending approval"} ·
                     Registered {new Date(user.createdAt).toLocaleString()}
                   </p>
-                  {!user.approved && !user.approvalToken && (
-                    <p className="mt-1 text-sm text-error-primary">
-                      Approval is unavailable because this account has no
-                      approval token.
-                    </p>
-                  )}
                 </div>
                 <div className="flex items-center gap-3">
                   {!user.approved && (
                     <Button
                       aria-label={`Approve ${user.name}`}
-                      isDisabled={mutating || !user.approvalToken}
+                      isDisabled={mutating}
                       isLoading={approving === user.id}
                       onClick={() => void approve(user)}
                     >

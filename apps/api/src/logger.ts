@@ -41,6 +41,7 @@ export function safePath(url: string): string {
   const sanitized = path
     .replace(/\/{2,}/g, "/")
     .replace(/(\/api\/auth\/confirm\/).*/i, "$1[REDACTED]")
+    .replace(/(\/api\/admin\/users\/).*/i, "$1[REDACTED]")
     .slice(0, 512);
   // Control bytes must never create forged log lines.
   return Array.from(sanitized, (character) => {

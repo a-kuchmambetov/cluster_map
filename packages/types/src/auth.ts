@@ -9,25 +9,4 @@ export interface AuthUser {
 export interface AuthSessionResponse {
   user: AuthUser;
 }
-export interface AuthMessageResponse {
-  message: string;
-}
-
-export interface PendingUser {
-  id: string;
-  name: string;
-  email: string;
-  createdAt: string;
-  approvalToken: string | null;
-}
-export interface PendingUsersResponse {
-  users: PendingUser[];
-}
-
-export interface AdminUser extends PendingUser {
-  role: "user" | "admin";
-  approved: boolean;
-}
-export interface AdminUsersResponse {
-  users: AdminUser[];
-}
+export type { MessageResponse as AuthMessageResponse } from "./common.js";

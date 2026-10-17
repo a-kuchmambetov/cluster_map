@@ -1,4 +1,4 @@
-import { createServer, get } from "node:http";
+import { createServer, get, request } from "node:http";
 import { connect } from "node:net";
 import { once } from "node:events";
 import { describe, expect, it, vi } from "vitest";
@@ -26,6 +26,15 @@ describe("real HTTP draining", () => {
         }),
     );
     const deps = createTestDependencies();
+    deps.authService.getSession.mockResolvedValue({
+      user: {
+        id: "test",
+        role: "user",
+        name: "Test",
+        email: "test@example.test",
+        emailVerified: false,
+      },
+    });
     const app = createApp({
       ...deps,
       runtime,
@@ -173,4 +182,61 @@ it("retains disconnected handler ownership and logs the aborted request once", a
   ).toEqual([
     expect.objectContaining({ path: "/api/auth/session", outcome: "aborted" }),
   ]);
+});
+
+it("retains disconnected admin service ownership through draining", async () => {
+  const deps = createTestDependencies();
+  deps.authService.getSession.mockResolvedValue({
+    user: {
+      id: "admin",
+      role: "admin",
+      name: "Admin",
+      email: "admin@example.test",
+      emailVerified: true,
+    },
+  });
+  const runtime = createRuntime();
+  let finish!: () => void;
+  let notifyStarted!: () => void;
+  const started = new Promise<void>((resolve) => {
+    notifyStarted = resolve;
+  });
+  deps.adminService.approveUser.mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        finish = () => resolve({ message: "Approved" });
+        notifyStarted();
+      }),
+  );
+  const server = createServer(createApp({ ...deps, runtime }));
+  const closeDatabase = vi.fn(async () => {});
+  const lifecycle = createShutdown({
+    server,
+    runtime,
+    logger: captureLogs().logger,
+    closeDatabase,
+    exit: vi.fn(),
+    timeoutMs: 1000,
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const client = request(
+    `http://127.0.0.1:${(server.address() as { port: number }).port}/api/admin/users/target/approve`,
+    { method: "POST" },
+  );
+  client.on("error", () => {});
+  client.end();
+  await started;
+  const closed = once(server, "close");
+  client.destroy();
+  const done = lifecycle.shutdown();
+  await closed;
+  expect(closeDatabase).not.toHaveBeenCalled();
+  finish();
+  await done;
+  expect(closeDatabase).toHaveBeenCalledOnce();
+  expect(deps.authService.getSession).toHaveBeenCalledOnce();
+  expect(deps.adminService.approveUser).toHaveBeenCalledExactlyOnceWith(
+    "target",
+  );
 });

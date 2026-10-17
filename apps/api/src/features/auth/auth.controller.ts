@@ -1,19 +1,11 @@
 import type { Request, Response } from "express";
 import { fromNodeHeaders } from "better-auth/node";
-import { handler } from "@middleware/handler.js";
+import { getAuthenticatedSession } from "@middleware/actor.js";
 import type { AuthService } from "./auth.service.js";
-import { confirmSchema } from "./auth.schema.js";
 
 export function createAuthController(service: AuthService, webOrigin: string) {
-  const confirmHandler = handler(
-    { params: confirmSchema },
-    async ({ params, req }, res) => {
-      res.json(await service.confirm(params.id, fromNodeHeaders(req.headers)));
-    },
-  );
-
-  async function sessionHandler(req: Request, res: Response) {
-    res.json(await service.getSession(fromNodeHeaders(req.headers)));
+  function sessionHandler(_req: Request, res: Response) {
+    res.json(getAuthenticatedSession(res));
   }
   async function logoutHandler(req: Request, res: Response) {
     const result = await service.logout(fromNodeHeaders(req.headers));
@@ -56,31 +48,10 @@ export function createAuthController(service: AuthService, webOrigin: string) {
     res.redirect(failureURL.href);
   }
 
-  async function pendingUsersHandler(req: Request, res: Response) {
-    res.json(await service.getPendingUsers(fromNodeHeaders(req.headers)));
-  }
-
-  async function usersHandler(req: Request, res: Response) {
-    res.json(await service.getUsers(fromNodeHeaders(req.headers)));
-  }
-
-  const deleteUserHandler = handler(
-    { params: confirmSchema },
-    async ({ params, req }, res) => {
-      res.json(
-        await service.deleteUser(params.id, fromNodeHeaders(req.headers)),
-      );
-    },
-  );
-
   return {
-    confirmHandler,
     sessionHandler,
     logoutHandler,
     githubSignInHandler,
     githubCallbackHandler,
-    pendingUsersHandler,
-    usersHandler,
-    deleteUserHandler,
   };
 }

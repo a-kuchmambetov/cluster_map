@@ -1,5 +1,4 @@
 import { type AppLogger, silentLogger } from "../logger.js";
-import { randomBytes } from "node:crypto";
 import { betterAuth } from "better-auth";
 import { APIError } from "better-auth/api";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
@@ -55,24 +54,17 @@ export function createAuth({
       additionalFields: {
         role: { type: ["user", "admin"], defaultValue: "user", input: false },
         approved: { type: "boolean", defaultValue: false, input: false },
-        approvalToken: {
-          type: "string",
-          required: false,
-          input: false,
-          returned: false,
-        },
       },
     },
     databaseHooks: {
       user: {
         create: {
-          // Persist the token with the user in the same insert, never in a public response.
+          // Override provider profile data: new accounts never grant their own access.
           before: async (newUser) => ({
             data: {
               ...newUser,
               role: "user",
               approved: false,
-              approvalToken: randomBytes(32).toString("hex"),
             },
           }),
         },
