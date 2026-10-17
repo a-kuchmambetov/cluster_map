@@ -1,3 +1,5 @@
+import type { Runtime } from "../../lifecycle/runtime.js";
+import type { OccupancyPool } from "./clusters.pool.js";
 import { fromNodeHeaders } from "better-auth/node";
 import type { AuthService } from "../auth/auth.service.js";
 import type { Request, Response } from "express";
@@ -48,12 +50,19 @@ export const getClusterConfigValidationHandler = handler(
   },
 );
 
-export function createClusterEventsHandler({
-  getSession,
-}: Pick<AuthService, "getSession">) {
+export function createClusterEventsHandler(
+  { getSession }: Pick<AuthService, "getSession">,
+  runtime?: Runtime,
+  occupancyPool?: OccupancyPool,
+) {
   return handler(
     { params: clusterNumberParamSchema },
     ({ params, req }, res) => {
+      // Authentication may have awaited the database while shutdown began.
+      if (runtime?.draining) {
+        res.status(503).json({ status: "not-ready" });
+        return;
+      }
       // 404 before the stream opens — throws AppError.clusterNotFound if missing.
       const config = loadClusterConfig(params.clusterNumber);
 
@@ -68,31 +77,45 @@ export function createClusterEventsHandler({
         if (!closed) res.write(`event: ${event}\ndata: ${data}\n\n`);
       };
 
-      const unsubscribe = subscribe(config.id, emit);
+      const unsubscribe = (occupancyPool?.subscribe ?? subscribe)(
+        config.id,
+        emit,
+      );
 
       // Keep idle connections alive through proxies that would otherwise
       // close them. 20 s is safely under the poll interval (30 s).
+      let removeDrain = () => {};
       const cleanup = () => {
         if (closed) return;
         closed = true;
         clearInterval(keepalive);
         unsubscribe();
+        removeDrain();
+        res.off("close", cleanup);
       };
       const keepalive = setInterval(async () => {
         if (closed || checking) return;
         checking = true;
         try {
-          await getSession(fromNodeHeaders(req.headers));
+          const work = getSession(fromNodeHeaders(req.headers));
+          await (runtime?.track(work) ?? work);
           if (!closed) res.write(": keep-alive\n\n");
         } catch {
-          cleanup();
-          res.end();
+          if (!closed) {
+            cleanup();
+            res.end();
+          }
         } finally {
           checking = false;
         }
       }, KEEPALIVE_INTERVAL_MS);
 
-      res.on("close", cleanup);
+      res.once("close", cleanup);
+      removeDrain =
+        runtime?.onDrain(() => {
+          cleanup();
+          res.end();
+        }) ?? (() => {});
     },
   );
 }

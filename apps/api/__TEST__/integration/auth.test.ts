@@ -36,10 +36,7 @@ describe.runIf(process.env.AUTH_DB_TEST === "1")(
       app = createApp({
         env,
         authService,
-        checkDb: createDatabaseCheck(
-          () => db.execute("SELECT 1"),
-          env.PG_PASSWORD,
-        ),
+        checkDb: createDatabaseCheck(() => db.execute("SELECT 1")),
         checkReady: createReadinessCheck(env, createSchemaCheck(db)),
       });
     });

@@ -16,6 +16,11 @@ The Express application exposes these map and health endpoints:
 - `GET /api/clusters/:clusterNumber/config-validation`
 - `GET /api/clusters/:clusterNumber/events` — SSE stream
 
+Every response includes `X-Request-ID` (also exposed through CORS). UUID v4 client
+IDs are accepted; other values are replaced with a generated UUID. Request and
+5xx logs share this ID. During draining, new application requests receive `503`
+with `{ "status": "not-ready" }`, outside the usual error envelope.
+
 The API mounts its router at `/api`. It enables JSON request parsing and credentialed CORS; allowed origins are described in [Configuration](../getting-started/configuration#cors-and-environment-mode).
 
 Cluster endpoints require a Better Auth session cookie and a currently approved account. Health checks remain public. Missing or expired sessions return `401`; revoked or unapproved accounts return `403`. Cluster responses use `Cache-Control: no-store`.
@@ -141,32 +146,15 @@ A non-numeric, non-integer, or non-positive `clusterNumber` (e.g. `abc`, `1.5`, 
 
 ## `GET /api/health`
 
-Checks PostgreSQL with `SELECT 1` and a two-second query timeout. It does not
-verify migrations, authentication configuration, or occupancy freshness.
-Use `/api/health/ready` for the additional checks described below.
-
-### Request
-
-The endpoint has no parameters, request body, or authentication requirement.
+Process-only liveness. Returns `200 OK` with `{ "status": "ok" }` whenever the
+HTTP process can respond, including during draining. It performs no database,
+schema, auth, layout, or remote configuration checks. Both health endpoints use
+`Cache-Control: no-store` and require no authentication, parameters, or body.
+Use readiness to decide whether to send application traffic.
 
 ```bash
 curl http://localhost:5001/api/health
 ```
-
-### Success response
-
-Status: `200 OK`
-
-```json
-{
-  "status": "ok",
-  "db": "ok"
-}
-```
-
-If the database is unavailable or the check times out, the endpoint returns
-`503` with `{ "status": "degraded", "db": "unreachable" }`, outside the normal
-error envelope.
 
 ## `GET /api/health/ready`
 
@@ -176,10 +164,10 @@ Public application readiness check with no parameters or request body.
 curl http://localhost:5001/api/health/ready
 ```
 
-| Result                                                | HTTP status | Body                        |
-| ----------------------------------------------------- | ----------- | --------------------------- |
-| Checks pass                                           | 200         | `{ "status": "ready" }`     |
-| Invalid URL settings, failed schema check, or timeout | 503         | `{ "status": "not-ready" }` |
+| Result                                                                          | HTTP status | Body                        |
+| ------------------------------------------------------------------------------- | ----------- | --------------------------- |
+| Checks pass                                                                     | 200         | `{ "status": "ready" }`     |
+| DB unavailable, invalid URL settings, failed schema check, timeout, or draining | 503         | `{ "status": "not-ready" }` |
 
 Required auth environment variables are validated once at startup, and Better Auth
 is created before the API listens. The readiness check requires
@@ -187,7 +175,11 @@ is created before the API listens. The readiness check requires
 both `WEB_ORIGIN` and `BETTER_AUTH_URL` must use HTTPS. It selects declared columns
 with `LIMIT 0` from `user`, `session`, `account`, `verification`, `cluster`,
 `row`, `position`, and `user_hive_info`.
-The database phase has a three-second timeout. Failures use the body above,
+It first checks database reachability (`SELECT 1`, two-second deadline), then
+checks configuration and schema (three-second deadline). Overlapping probes share
+work; cancelled probes destroy their dedicated PostgreSQL connection and never
+borrow the application pool. Readiness stays false during shutdown, including if
+a previously started check succeeds. Failures use the body above,
 outside the normal error envelope.
 
 This is a partial readiness check: it does not query `two_factor`, inspect

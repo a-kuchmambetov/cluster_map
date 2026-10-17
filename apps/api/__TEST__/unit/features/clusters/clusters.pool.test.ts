@@ -1,6 +1,8 @@
+import { createRuntime } from "../../../../src/lifecycle/runtime.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   diffSnapshots,
+  createOccupancyPool,
   resetPool,
   subscribe,
 } from "../../../../src/features/clusters/clusters.pool.js";
@@ -400,4 +402,28 @@ describe("subscribe", () => {
       "occupancy-delta",
     ]);
   });
+});
+
+it("settles a late poll without emitting or rescheduling after runtime teardown", async () => {
+  vi.useFakeTimers();
+  const runtime = createRuntime();
+  const pool = createOccupancyPool(runtime);
+  let resolve!: (rows: never[]) => void;
+  getClusterOccupancyMock.mockImplementationOnce(
+    () =>
+      new Promise((done) => {
+        resolve = done;
+      }),
+  );
+  const emit = vi.fn();
+  pool.subscribe("c1", emit);
+  runtime.beginDrain();
+  resolve([]);
+  await runtime.whenIdle();
+  await vi.advanceTimersByTimeAsync(60_000);
+  expect(emit).not.toHaveBeenCalled();
+  expect(vi.getTimerCount()).toBe(0);
+  pool.subscribe("c1", emit);
+  expect(vi.getTimerCount()).toBe(0);
+  vi.useRealTimers();
 });

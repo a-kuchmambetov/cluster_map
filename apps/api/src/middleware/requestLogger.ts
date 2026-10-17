@@ -1,51 +1,50 @@
+import type { Runtime } from "../lifecycle/runtime.js";
+import { randomUUID } from "node:crypto";
 import type { NextFunction, Request, Response } from "express";
+import { type AppLogger, safePath, silentLogger } from "../logger.js";
 
-const isProduction = process.env.NODE_ENV === "production";
-
-export function requestLogger(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): void {
-  const start = Date.now();
-  // Capture before calling next(): Express sub-routers modify req.url (and therefore
-  // req.path) as they strip mount prefixes. req.originalUrl is never touched.
-  // Split on "?" to drop any query string — query params may carry sensitive input.
-  const method = req.method;
-  const path = req.originalUrl
-    .split("?")[0]
-    .replace(/(\/api\/auth\/confirm\/)[^/]+/gi, "$1[REDACTED]");
-
-  res.on("finish", () => {
-    const ms = Date.now() - start;
-    const errorCode = res.locals.errorCode as string | undefined;
-
-    if (isProduction) {
-      const entry: Record<string, unknown> = {
-        timestamp: new Date().toISOString(),
+export function createRequestLogger(
+  logger: AppLogger = silentLogger,
+  runtime?: Runtime,
+) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    let complete = () => {};
+    if (runtime)
+      runtime.track(
+        new Promise<void>((resolve) => {
+          complete = resolve;
+        }),
+      );
+    const startedAt = performance.now();
+    const supplied = req.headers["x-request-id"];
+    const requestId =
+      typeof supplied === "string" &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        supplied,
+      )
+        ? supplied
+        : randomUUID();
+    res.locals.requestId = requestId;
+    res.setHeader("X-Request-ID", requestId);
+    const method = req.method;
+    const path = safePath(req.originalUrl);
+    const log = () => {
+      res.off("finish", log);
+      res.off("close", log);
+      logger.info({
+        event: "request_completed",
+        requestId,
         method,
         path,
-        status: res.statusCode,
-        ms,
-      };
-      if (errorCode !== undefined) {
-        entry.errorCode = errorCode;
-      }
-      process.stdout.write(JSON.stringify(entry) + "\n");
-    } else {
-      const parts: Array<string | number> = [
-        new Date().toISOString(),
-        method,
-        path,
-        res.statusCode,
-        `${ms}ms`,
-      ];
-      if (errorCode !== undefined) {
-        parts.push(`[${errorCode}]`);
-      }
-      console.log(parts.join(" "));
-    }
-  });
-
-  next();
+        statusCode: res.statusCode,
+        durationMs: Math.round(performance.now() - startedAt),
+        outcome: res.writableFinished ? "finished" : "aborted",
+        ...(res.locals.errorCode ? { errorCode: res.locals.errorCode } : {}),
+      });
+      complete();
+    };
+    res.once("finish", log);
+    res.once("close", log);
+    next();
+  };
 }

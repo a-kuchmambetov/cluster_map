@@ -143,13 +143,11 @@ curl http://localhost:5001/api/health
 curl http://localhost:5001/api/health/ready
 ```
 
-A reachable database returns `200` with `{ "status": "ok", "db": "ok" }`.
-An unavailable database returns `503` with
-`{ "status": "degraded", "db": "unreachable" }`.
-
-Readiness returns `200` with `{ "status": "ready" }` when auth configuration,
-the selected schema checks, and auth initialization succeed; otherwise it returns
-`503` with `{ "status": "not-ready" }`. It does not check all migrations or
+Liveness returns `200` with `{ "status": "ok" }` even during a database outage.
+Readiness returns `200` with `{ "status": "ready" }` when database reachability,
+URL settings, and selected schema checks succeed; failures and draining return
+`503` with `{ "status": "not-ready" }`. Startup validates auth configuration and
+constructs auth before listening. Readiness does not check all migrations or
 complete a sign-in. See the [API Reference](../reference/api#get-apihealthready).
 
 The web also serves `/privacy` and `/terms` without requiring sign-in. Both

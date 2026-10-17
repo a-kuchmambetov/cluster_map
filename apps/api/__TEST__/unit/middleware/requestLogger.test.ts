@@ -1,109 +1,85 @@
 import { EventEmitter } from "node:events";
 import type { NextFunction, Request, Response } from "express";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { requestLogger } from "../../../src/middleware/requestLogger.js";
+import { describe, expect, it, vi } from "vitest";
+import { createRequestLogger } from "../../../src/middleware/requestLogger.js";
+import { captureLogs } from "../../helpers/logs.js";
 
-function makeArgs({
-  method = "GET",
-  originalUrl = "/api/test",
-  statusCode = 200,
-  errorCode,
-}: {
-  method?: string;
-  originalUrl?: string;
-  statusCode?: number;
-  errorCode?: string;
-} = {}) {
-  const emitter = new EventEmitter();
-  const locals: Record<string, unknown> = {};
-  if (errorCode !== undefined) locals.errorCode = errorCode;
-  const res = Object.assign(emitter, {
-    statusCode,
-    locals,
-  }) as unknown as Response;
-  const req = { method, originalUrl } as unknown as Request;
-  const next = vi.fn() as unknown as NextFunction;
-  return { req, res, next, emitter };
+function setup(url = "/api/test", id?: string) {
+  const logs = captureLogs();
+  const req = {
+    method: "GET",
+    originalUrl: url,
+    headers: {
+      "x-request-id": id,
+      cookie: "secret-cookie",
+      authorization: "Bearer secret",
+    },
+  } as unknown as Request;
+  const res = Object.assign(new EventEmitter(), {
+    statusCode: 200,
+    locals: {} as Record<string, unknown>,
+    setHeader: vi.fn(),
+    writableFinished: false,
+  });
+  const next = vi.fn();
+  createRequestLogger(logs.logger)(
+    req,
+    res as unknown as Response,
+    next as NextFunction,
+  );
+  return { ...logs, req, res, next };
 }
-
-describe("requestLogger", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("calls next immediately", () => {
-    const { req, res, next } = makeArgs();
-    requestLogger(req, res, next);
+describe("request logging", () => {
+  it("exposes a bounded request id and logs a completed request exactly once", () => {
+    const id = "87b99203-f9af-4f8a-96b3-e1e6b41b6f88";
+    const { res, entries, next } = setup("/api/test?secret=value", id);
     expect(next).toHaveBeenCalledOnce();
-  });
-
-  it("writes a log line when the response finishes", () => {
-    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-    const { req, res, next, emitter } = makeArgs();
-    requestLogger(req, res, next);
-    emitter.emit("finish");
-    expect(spy).toHaveBeenCalledOnce();
-  });
-
-  it("log line contains method, path, and status code", () => {
-    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-    const { req, res, next, emitter } = makeArgs({
-      method: "GET",
-      originalUrl: "/api/clusters",
+    expect(res.setHeader).toHaveBeenCalledWith("X-Request-ID", id);
+    res.writableFinished = true;
+    res.emit("finish");
+    res.emit("close");
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({
+      event: "request_completed",
+      requestId: id,
+      path: "/api/test",
+      outcome: "finished",
       statusCode: 200,
     });
-    requestLogger(req, res, next);
-    emitter.emit("finish");
-    const line = spy.mock.calls[0][0] as string;
-    expect(line).toContain("GET");
-    expect(line).toContain("/api/clusters");
-    expect(line).toContain("200");
+    expect(JSON.stringify(entries)).not.toMatch(/secret|cookie|authorization/);
   });
-
-  it("appends the error code in brackets when res.locals.errorCode is set", () => {
-    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-    const { req, res, next, emitter } = makeArgs({
-      errorCode: "CLUSTER_NOT_FOUND",
+  it.each(["bad\nforged", "a".repeat(500), "secret-token", ""])(
+    "replaces unsafe or unbounded external request ids",
+    (id) => {
+      const { res } = setup("/", id);
+      expect(res.locals.requestId).toMatch(/^[a-f0-9-]{36}$/);
+      expect(res.locals.requestId).not.toBe(id);
+    },
+  );
+  it.each([
+    "/api/auth/confirm/secret-token?code=oauth-secret",
+    "/api/%61uth/confirm/secret-token",
+    "/api/auth%2fconfirm%2fsecret-token",
+  ])("redacts confirmation token paths: %s", (url) => {
+    const { res, entries } = setup(url);
+    res.emit("close");
+    expect(entries[0]).toMatchObject({
+      path: "/api/auth/confirm/[REDACTED]",
+      outcome: "aborted",
     });
-    requestLogger(req, res, next);
-    emitter.emit("finish");
-    const line = spy.mock.calls[0][0] as string;
-    expect(line).toContain("[CLUSTER_NOT_FOUND]");
+    expect(JSON.stringify(entries)).not.toContain("secret");
   });
-
-  it("does not append a bracket when res.locals.errorCode is not set", () => {
-    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-    const { req, res, next, emitter } = makeArgs();
-    requestLogger(req, res, next);
-    emitter.emit("finish");
-    const line = spy.mock.calls[0][0] as string;
-    expect(line).not.toContain("[");
-  });
-
-  it("strips the query string from the logged path", () => {
-    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-    const { req, res, next, emitter } = makeArgs({
-      originalUrl: "/api/clusters?foo=bar",
+  it("logs an aborted SSE response once, with its error code", () => {
+    const { res, entries } = setup("/api/clusters/1/events");
+    res.locals.errorCode = "INTERNAL_SERVER_ERROR";
+    res.emit("close");
+    res.emit("finish");
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({
+      outcome: "aborted",
+      errorCode: "INTERNAL_SERVER_ERROR",
     });
-    requestLogger(req, res, next);
-    emitter.emit("finish");
-    const line = spy.mock.calls[0][0] as string;
-    expect(line).toContain("/api/clusters");
-    expect(line).not.toContain("foo=bar");
+    expect(res.listenerCount("finish")).toBe(0);
+    expect(res.listenerCount("close")).toBe(0);
   });
-});
-
-it("redacts verification tokens from request logs", () => {
-  const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-  try {
-    const { req, res, next, emitter } = makeArgs({
-      originalUrl: "/api/auth/confirm/secret-token?token=also-secret",
-    });
-    requestLogger(req, res, next);
-    emitter.emit("finish");
-    expect(spy.mock.calls[0][0]).toContain("/api/auth/confirm/[REDACTED]");
-    expect(spy.mock.calls[0][0]).not.toContain("secret");
-  } finally {
-    spy.mockRestore();
-  }
 });

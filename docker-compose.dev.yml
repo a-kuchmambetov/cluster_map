@@ -52,10 +52,22 @@ services:
 
   api:
     <<: *dev
-    command: ["pnpm", "--filter", "@repo/api", "dev"]
+    stop_grace_period: 15s
+    working_dir: /app/apps/api
+    # Launch the watcher directly so init forwards stop signals to it, not pnpm.
+    command:
+      [
+        "./node_modules/.bin/tsx",
+        "watch",
+        "--include",
+        "./src",
+        "./src/index.ts",
+      ]
     environment:
       <<: [*db-env, *auth-env]
       API_PORT: "5001"
+      # tsx watch force-kills its child after 5s; finish API shutdown before then.
+      SHUTDOWN_TIMEOUT_MS: "4000"
       TRUST_PROXY_HOPS: "0"
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:5173}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-local-development}
@@ -67,6 +79,7 @@ services:
     depends_on:
       worker:
         condition: service_completed_successfully
+    # Deliberate readiness gate: web waits for a usable API after migrations.
     healthcheck:
       test:
         - CMD

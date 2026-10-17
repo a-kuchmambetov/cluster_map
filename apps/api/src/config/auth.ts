@@ -1,3 +1,4 @@
+import { type AppLogger, silentLogger } from "../logger.js";
 import { randomBytes } from "node:crypto";
 import { betterAuth } from "better-auth";
 import { APIError } from "better-auth/api";
@@ -12,13 +13,31 @@ import {
 import type { Env } from "./env.js";
 
 type AuthDependencies = {
+  logger?: AppLogger;
   env: Env;
   db: typeof database;
   findAuthUser: (id: string) => Promise<{ approved: boolean } | undefined>;
 };
 
-export function createAuth({ env, db, findAuthUser }: AuthDependencies) {
+export function createAuth({
+  env,
+  db,
+  findAuthUser,
+  logger = silentLogger,
+}: AuthDependencies) {
   return betterAuth({
+    // Better Auth's default logger can include nested driver errors. Route its
+    // diagnostics through the same safe serializer and omit untrusted text.
+    logger: {
+      level: "warn",
+      log(level, _message, ...args) {
+        logger[level === "error" ? "error" : "warn"]({
+          event:
+            level === "error" ? "auth_library_error" : "auth_library_warning",
+          diagnostic: args.find((argument) => argument instanceof Error),
+        });
+      },
+    },
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
     trustedOrigins: [env.WEB_ORIGIN],

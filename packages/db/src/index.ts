@@ -1,4 +1,4 @@
-export { db } from "./client";
+export { db, closeDatabase, withDatabaseProbe } from "./client";
 export {
   DrizzleError,
   TransactionRollbackError,

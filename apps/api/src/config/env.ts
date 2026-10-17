@@ -12,6 +12,15 @@ try {
 
 const envSchema = z.object({
   API_PORT: z.coerce.number().default(5001), // 5000 is occupied by AirPlay Receiver on macOS
+  SHUTDOWN_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .min(100)
+    .max(120_000)
+    .default(10_000),
+  LOG_LEVEL: z
+    .enum(["trace", "debug", "info", "warn", "error", "fatal", "silent"])
+    .default("info"),
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).default(0),
   WEB_ORIGIN: z.string().default("http://localhost:5173"),
   NODE_ENV: z.string().optional(),

@@ -1,87 +1,71 @@
-import type { Request, Response } from "express";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  healthHandler,
-  createDatabaseCheck,
-} from "../../../src/routes/health.js";
+import { createDatabaseCheck } from "../../../src/routes/health.js";
+import { createRuntime } from "../../../src/lifecycle/runtime.js";
+import { captureLogs } from "../../helpers/logs.js";
 
-const execute = vi.fn();
-const isDatabaseReachable = createDatabaseCheck(execute, "private/password");
-
-afterEach(() => {
-  vi.restoreAllMocks();
-  vi.unstubAllEnvs();
-  vi.useRealTimers();
-  execute.mockReset();
-});
-
-describe("database health diagnostics", () => {
-  it("logs the driver cause without exposing credentials", async () => {
-    vi.stubEnv("PG_PASSWORD", "private/password");
-    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+afterEach(() => vi.useRealTimers());
+describe("bounded database probes", () => {
+  it("logs only safe driver diagnostics, omitting messages, parameters and credentials", async () => {
+    const { logger, entries } = captureLogs();
     const cause = Object.assign(
-      new Error("Authentication failed: private/password"),
-      {
-        code: "28P01",
-      },
+      new Error("private/password private%2Fpassword OAuth-code"),
+      { code: "28P01", parameters: ["token"] },
     );
-    execute.mockRejectedValue(
-      new Error("Failed query at postgres://app:private%2Fpassword@db/app", {
-        cause,
-      }),
-    );
-
-    expect(await isDatabaseReachable()).toBe(false);
-    const output = log.mock.calls[0][0] as string;
-    expect(output).not.toContain("private/password");
-    expect(output).not.toContain("private%2Fpassword");
-    expect(JSON.parse(output)).toMatchObject({
-      event: "database_health_check_failed",
-      phase: "query",
-      errors: [{ name: "Error" }, { code: "28P01" }],
+    const execute = vi
+      .fn()
+      .mockRejectedValue(new Error("postgres://app:secret@db/app", { cause }));
+    expect(await createDatabaseCheck(execute, logger)()).toBe(false);
+    expect(entries[0]).toMatchObject({
+      event: "database_probe_failed",
+      diagnostic: { type: "Error", code: "28P01" },
     });
+    expect(JSON.stringify(entries)).not.toMatch(
+      /private|password|postgres|OAuth|token|parameters/,
+    );
   });
-
-  it("logs when the query exceeds the health check timeout", async () => {
+  it("coalesces probes, aborts at two seconds and prevents accumulation when cancellation is ignored", async () => {
     vi.useFakeTimers();
-    const log = vi.spyOn(console, "error").mockImplementation(() => {});
-    execute.mockImplementation(() => new Promise(() => {}));
-    const result = isDatabaseReachable();
+    let resolve!: () => void;
+    const execute = vi.fn(
+      (_signal: AbortSignal) =>
+        new Promise<void>((done) => {
+          resolve = done;
+        }),
+    );
+    const check = createDatabaseCheck(execute);
+    const first = check();
+    expect(check()).toBe(first);
     await vi.advanceTimersByTimeAsync(2000);
-
+    expect(await first).toBe(false);
+    expect(execute.mock.calls[0][0].aborted).toBe(true);
+    expect(await check()).toBe(false);
+    expect(execute).toHaveBeenCalledOnce();
+    expect(vi.getTimerCount()).toBe(0);
+    resolve();
+    await Promise.resolve();
+  });
+  it("aborts in-flight probes during drain and does not start another", async () => {
+    const runtime = createRuntime();
+    const execute = vi.fn(
+      (signal: AbortSignal) =>
+        new Promise<void>((_, reject) =>
+          signal.addEventListener("abort", () =>
+            reject(new Error("cancelled")),
+          ),
+        ),
+    );
+    const check = createDatabaseCheck(execute, undefined, runtime);
+    const result = check();
+    await Promise.resolve();
+    runtime.beginDrain();
     expect(await result).toBe(false);
-    expect(JSON.parse(log.mock.calls[0][0] as string)).toMatchObject({
-      phase: "query",
-      elapsedMs: 2000,
-      timeoutMs: 2000,
-      errors: [{ message: "Database ping timed out" }],
-    });
+    await runtime.whenIdle();
+    expect(await check()).toBe(false);
+    expect(execute).toHaveBeenCalledOnce();
   });
-});
-
-function makeRes() {
-  const json = vi.fn();
-  const status = vi.fn().mockReturnValue({ json });
-  return { res: { json, status } as unknown as Response, json, status };
-}
-
-describe("healthHandler", () => {
-  it("responds 200 with db ok when the database is reachable", async () => {
-    const { res, json, status } = makeRes();
-    await healthHandler(() => Promise.resolve(true))({} as Request, res);
-
-    expect(status).not.toHaveBeenCalled();
-    expect(json).toHaveBeenCalledWith({ status: "ok", db: "ok" });
-  });
-
-  it("responds 503 with db unreachable when the database is not reachable", async () => {
-    const { res, json, status } = makeRes();
-    await healthHandler(() => Promise.resolve(false))({} as Request, res);
-
-    expect(status).toHaveBeenCalledWith(503);
-    expect(json).toHaveBeenCalledWith({
-      status: "degraded",
-      db: "unreachable",
-    });
+  it("clears its timeout after a successful probe", async () => {
+    vi.useFakeTimers();
+    expect(await createDatabaseCheck(async () => {})()).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
   });
 });

@@ -6,32 +6,43 @@ sidebar_position: 2
 
 ## Current signals
 
-`GET /api/health` is public and executes `SELECT 1` with a two-second timeout:
+`GET /api/health` is public process-only liveness: `200` with
+`{ "status": "ok" }`. It does no database or configuration work. A database
+outage does not make a live API unhealthy.
 
-- `200`: `{ "status": "ok", "db": "ok" }`.
-- `503`: `{ "status": "degraded", "db": "unreachable" }`.
+`GET /api/health/ready` returns `200` with `{ "status": "ready" }` or `503` with
+`{ "status": "not-ready" }`. It checks database reachability (two seconds), exact
+`WEB_ORIGIN` formatting, HTTPS web/auth URLs in production, and declared columns
+in selected schema tables (three seconds). Overlapping checks share work, and a
+timeout destroys the dedicated probe connection. It never borrows the application
+pool. Readiness is false during draining. Startup validates auth environment and
+constructs Better Auth before listening. Readiness does not inspect migration
+history or `two_factor`, validate layouts, test occupancy freshness, or perform
+an actual sign-in. See the [readiness reference](../reference/api#get-apihealthready).
 
-This tests connectivity, not schema migration state, auth configuration, layout
-validity, or occupancy freshness.
+Pino writes structured JSON lines to stdout in every mode. `LOG_LEVEL` defaults
+to `info`; supported values are `trace`, `debug`, `info`, `warn`, `error`, `fatal`,
+and `silent`. For local reading, pipe JSON through `jq .` if desired. Request
+completion records include `event`, `time`, `requestId`, method, sanitized path,
+status, duration, outcome (`finished` or `aborted`), and an available error code.
+SSE logs once when finished or disconnected, not for each event. The response
+`X-Request-ID` correlates request and 5xx logs; only bounded UUID v4 client IDs
+are accepted.
 
-`GET /api/health/ready` is also public: it returns `200` with
-`{ "status": "ready" }` or `503` with `{ "status": "not-ready" }`. It checks
-exact `WEB_ORIGIN` formatting, HTTPS web/auth URLs in production, and selected
-schema tables. Auth environment validation and Better Auth construction happen
-at startup, before listening. The database phase has a three-second timeout. It does not query `two_factor`,
-validate layout, or test occupancy freshness or an actual sign-in. See the
-[readiness reference](../reference/api#get-apihealthready) for its scope.
+Better Auth warnings/errors also pass through this safe logger, without raw
+library message text. A central field allowlist omits raw objects, error messages/stacks/causes, headers,
+cookies, bodies, SQL parameters, query strings, and approval-token path segments
+(including percent-encoded paths). Error diagnostics contain only an allowlisted
+error type and recognized driver code. This intentionally trades verbose error
+text for secret protection in every mode. Production 5xx responses continue to
+mask internal details. Probe/configuration failures and lifecycle events have
+stable event names: `database_probe_failed`, `readiness_probe_failed`,
+`readiness_config_invalid`, `server_started`, `server_failed`, `shutdown_started`,
+`shutdown_completed`, `shutdown_failed`, and `shutdown_forced`.
 
-The request logger records timestamp, method, path, response status, duration in
-milliseconds, and an error code when available. Production writes JSON lines to
-stdout; other modes use readable console lines. It drops query strings and
-redacts approval tokens from `/api/auth/confirm/:id`. It does not log request
-bodies, headers, or peer records. Database health failures additionally emit a
-`database_health_check_failed` JSON record with phase, elapsed time, timeout,
-and sanitized error causes. Production 5xx responses mask internal details;
-the error middleware separately writes the error code and message to stderr as
-JSON. Readiness failures return only `not-ready` and do not emit a dedicated
-diagnostic cause.
+Shutdown uses a synchronous Pino destination and flushes before exit; a stalled
+injected async sink cannot extend the hard shutdown deadline. See
+[Deployment](./deployment#graceful-shutdown) for ordering and exit codes.
 
 The API exposes layout/occupancy mismatch checks through `config-validation`.
 SSE reports database poll failures as `DB_UNAVAILABLE`; the frontend preserves
@@ -40,22 +51,22 @@ per-event signal. Metrics, alerting, and distributed tracing are not configured.
 
 ## Troubleshooting
 
-| Symptom                                | Check                                                                                                                               |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Health returns 503                     | PostgreSQL availability, `PG_*`, and Compose DB health.                                                                             |
-| Health works but readiness returns 503 | Exact `WEB_ORIGIN`, HTTPS URLs in production, migrations, and DB permissions.                                                       |
-| Health works but login fails           | Auth secret/URL, required GitHub credentials, migrations, approval, and GitHub callback configuration; health only runs `SELECT 1`. |
-| Login returns 403                      | Account approval and trusted origin. New accounts cannot create a session before approval.                                          |
-| Admin page/API denied                  | Current user must be both approved and an administrator.                                                                            |
-| Browser CORS/auth origin error         | `WEB_ORIGIN`, actual Vite/browser port, `VITE_API_URL`, and cookie credentials.                                                     |
-| Map layout fails                       | API working directory, presence of `src/config/clusters.json`, and Zod validity.                                                    |
-| Map occupancy is empty                 | Config ID must match DB `cluster.name`; migrate and seed a local demo DB if needed.                                                 |
-| Map stays stale                        | DB/SSE errors, recovery requests, session validity, and proxy buffering/timeouts.                                                   |
-| Timestamp stops advancing              | Unchanged polls produce no delta or freshness timestamp; keepalive comments only check session/connection.                          |
-| Browser receives HTML from API calls   | Set `VITE_API_URL` to the API origin or configure external routing; neither Vite nor web Nginx proxies `/api`.                      |
-| User deletion returns 500              | Check whether a position references the user's Hive identity; that foreign key blocks deletion.                                     |
-| Worker exits with an admin error       | Supply both admin credentials or neither; an existing non-admin/unapproved account cannot be bootstrapped.                          |
-| Documentation build fails              | Run `pnpm build:docs` and fix reported MDX/link errors.                                                                             |
+| Symptom                                | Check                                                                                                                                                       |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Liveness fails                         | API process, listener, port, and network.                                                                                                                   |
+| Health works but readiness returns 503 | PostgreSQL availability, `PG_*`, exact `WEB_ORIGIN`, HTTPS URLs, migrations, permissions, and draining.                                                     |
+| Health works but login fails           | Auth secret/URL, required GitHub credentials, migrations, approval, and GitHub callback configuration; liveness only proves that the HTTP process responds. |
+| Login returns 403                      | Account approval and trusted origin. New accounts cannot create a session before approval.                                                                  |
+| Admin page/API denied                  | Current user must be both approved and an administrator.                                                                                                    |
+| Browser CORS/auth origin error         | `WEB_ORIGIN`, actual Vite/browser port, `VITE_API_URL`, and cookie credentials.                                                                             |
+| Map layout fails                       | API working directory, presence of `src/config/clusters.json`, and Zod validity.                                                                            |
+| Map occupancy is empty                 | Config ID must match DB `cluster.name`; migrate and seed a local demo DB if needed.                                                                         |
+| Map stays stale                        | DB/SSE errors, recovery requests, session validity, and proxy buffering/timeouts.                                                                           |
+| Timestamp stops advancing              | Unchanged polls produce no delta or freshness timestamp; keepalive comments only check session/connection.                                                  |
+| Browser receives HTML from API calls   | Set `VITE_API_URL` to the API origin or configure external routing; neither Vite nor web Nginx proxies `/api`.                                              |
+| User deletion returns 500              | Check whether a position references the user's Hive identity; that foreign key blocks deletion.                                                             |
+| Worker exits with an admin error       | Supply both admin credentials or neither; an existing non-admin/unapproved account cannot be bootstrapped.                                                  |
+| Documentation build fails              | Run `pnpm build:docs` and fix reported MDX/link errors.                                                                                                     |
 
 For the local database, use `docker compose -f docker-compose.dev.yml ps` and
 `docker compose -f docker-compose.dev.yml logs db`. For local applications, use

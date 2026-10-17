@@ -1,3 +1,4 @@
+import { createRuntime, type Runtime } from "../../lifecycle/runtime.js";
 import { getClusterOccupancy } from "./clusters.repository.js";
 import type { OccupiedEntry } from "./clusters.types.js";
 
@@ -73,137 +74,153 @@ type ClusterPoller = {
   timer: ReturnType<typeof setTimeout> | undefined;
 };
 
-const pollers = new Map<string, ClusterPoller>();
+export function createOccupancyPool(runtime: Runtime = createRuntime()) {
+  const pollers = new Map<string, ClusterPoller>();
+  const stop = () => {
+    for (const poller of pollers.values()) {
+      clearTimeout(poller.timer);
+      poller.subscribers.clear();
+    }
+    pollers.clear();
+  };
+  runtime.onDrain(stop);
 
-function snapshotData(poller: ClusterPoller): string {
-  return JSON.stringify({
-    occupied: poller.baseline ?? [],
-    lastUpdated: poller.baselineAt,
-  });
-}
-
-async function poll(clusterId: string, poller: ClusterPoller): Promise<void> {
-  let nextEntries: OccupiedEntry[];
-  try {
-    const rows = await getClusterOccupancy(clusterId);
-    nextEntries = rows.map((r) => ({
-      row: r.row,
-      place: r.place,
-      peer: {
-        intraName: r.intraName,
-        displayName: r.displayName,
-        photo: r.photo,
-      },
-    }));
-  } catch {
-    poller.failed = true;
-    const data = JSON.stringify({
-      code: "DB_UNAVAILABLE",
-      message: "Occupancy data temporarily unavailable",
+  function snapshotData(poller: ClusterPoller): string {
+    return JSON.stringify({
+      occupied: poller.baseline ?? [],
+      lastUpdated: poller.baselineAt,
     });
-    for (const emit of poller.subscribers.keys()) emit("error", data);
-    return;
   }
 
-  const prev = poller.baseline;
-  const resync = poller.failed || prev === undefined;
-  const delta = diffSnapshots(prev ?? [], nextEntries);
-  poller.baseline = nextEntries;
-  poller.baselineAt = new Date().toISOString();
-  poller.failed = false;
+  async function poll(clusterId: string, poller: ClusterPoller): Promise<void> {
+    let nextEntries: OccupiedEntry[];
+    try {
+      const rows = await getClusterOccupancy(clusterId);
+      nextEntries = rows.map((r) => ({
+        row: r.row,
+        place: r.place,
+        peer: {
+          intraName: r.intraName,
+          displayName: r.displayName,
+          photo: r.photo,
+        },
+      }));
+    } catch {
+      poller.failed = true;
+      const data = JSON.stringify({
+        code: "DB_UNAVAILABLE",
+        message: "Occupancy data temporarily unavailable",
+      });
+      for (const emit of poller.subscribers.keys()) emit("error", data);
+      return;
+    }
 
-  const snapshot = snapshotData(poller);
-  const deltaData =
-    delta.occupied.length > 0 || delta.freed.length > 0
-      ? JSON.stringify(delta)
-      : null;
-  for (const [emit, state] of poller.subscribers) {
-    if (resync || !state.ready) {
-      state.ready = true;
-      emit("occupancy-snapshot", snapshot);
-    } else if (deltaData !== null) {
-      emit("occupancy-delta", deltaData);
+    if (runtime.draining || pollers.get(clusterId) !== poller) return;
+    const prev = poller.baseline;
+    const resync = poller.failed || prev === undefined;
+    const delta = diffSnapshots(prev ?? [], nextEntries);
+    poller.baseline = nextEntries;
+    poller.baselineAt = new Date().toISOString();
+    poller.failed = false;
+
+    const snapshot = snapshotData(poller);
+    const deltaData =
+      delta.occupied.length > 0 || delta.freed.length > 0
+        ? JSON.stringify(delta)
+        : null;
+    for (const [emit, state] of poller.subscribers) {
+      if (resync || !state.ready) {
+        state.ready = true;
+        emit("occupancy-snapshot", snapshot);
+      } else if (deltaData !== null) {
+        emit("occupancy-delta", deltaData);
+      }
     }
   }
-}
 
-// Runs one poll now, then chains the next one POLL_INTERVAL_MS after it
-// finishes, so two polls for the same poller can never run concurrently.
-// A poller that was removed (last subscriber left) is never rescheduled; an
-// in-flight poll for it only reaches its own, now empty, subscriber map.
-function runPoll(clusterId: string, poller: ClusterPoller): void {
-  poller.polling = true;
-  poll(clusterId, poller)
-    .catch(() => {
-      // poll() handles its own errors internally (DB_UNAVAILABLE event);
-      // this catch prevents unhandled-rejection noise.
-    })
-    .finally(() => {
-      poller.polling = false;
-      if (pollers.get(clusterId) === poller) {
-        poller.timer = setTimeout(() => {
-          poller.timer = undefined;
-          runPoll(clusterId, poller);
-        }, POLL_INTERVAL_MS);
-      }
-    });
-}
-
-// Returns an unsubscribe function. The caller (SSE handler) must call it when
-// the client disconnects.
-//
-// Every new subscription (including a client reconnect) receives a full
-// `occupancy-snapshot` before any delta: immediately when a baseline exists,
-// otherwise from the result of the next poll, which is started right away
-// unless one is already in flight.
-export function subscribe(clusterId: string, emit: EmitFn): () => void {
-  let poller = pollers.get(clusterId);
-  if (!poller) {
-    poller = {
-      subscribers: new Map(),
-      baseline: undefined,
-      baselineAt: null,
-      failed: false,
-      polling: false,
-      timer: undefined,
-    };
-    pollers.set(clusterId, poller);
+  // Runs one poll now, then chains the next one POLL_INTERVAL_MS after it
+  // finishes, so two polls for the same poller can never run concurrently.
+  // A poller that was removed (last subscriber left) is never rescheduled; an
+  // in-flight poll for it only reaches its own, now empty, subscriber map.
+  function runPoll(clusterId: string, poller: ClusterPoller): void {
+    poller.polling = true;
+    runtime.track(
+      poll(clusterId, poller)
+        .catch(() => {
+          // poll() handles its own errors internally (DB_UNAVAILABLE event);
+          // this catch prevents unhandled-rejection noise.
+        })
+        .finally(() => {
+          poller.polling = false;
+          if (!runtime.draining && pollers.get(clusterId) === poller) {
+            poller.timer = setTimeout(() => {
+              poller.timer = undefined;
+              runPoll(clusterId, poller);
+            }, POLL_INTERVAL_MS);
+          }
+        }),
+    );
   }
 
-  if (poller.baseline !== undefined && !poller.failed) {
-    poller.subscribers.set(emit, { ready: true });
-    emit("occupancy-snapshot", snapshotData(poller));
-  } else {
-    poller.subscribers.set(emit, { ready: false });
-    if (!poller.polling) {
+  // Returns an unsubscribe function. The caller (SSE handler) must call it when
+  // the client disconnects.
+  //
+  // Every new subscription (including a client reconnect) receives a full
+  // `occupancy-snapshot` before any delta: immediately when a baseline exists,
+  // otherwise from the result of the next poll, which is started right away
+  // unless one is already in flight.
+  function subscribe(clusterId: string, emit: EmitFn): () => void {
+    if (runtime.draining) return () => {};
+    let poller = pollers.get(clusterId);
+    if (!poller) {
+      poller = {
+        subscribers: new Map(),
+        baseline: undefined,
+        baselineAt: null,
+        failed: false,
+        polling: false,
+        timer: undefined,
+      };
+      pollers.set(clusterId, poller);
+    }
+
+    if (poller.baseline !== undefined && !poller.failed) {
+      poller.subscribers.set(emit, { ready: true });
+      emit("occupancy-snapshot", snapshotData(poller));
+    } else {
+      poller.subscribers.set(emit, { ready: false });
+      if (!poller.polling) {
+        clearTimeout(poller.timer);
+        poller.timer = undefined;
+        runPoll(clusterId, poller);
+      }
+    }
+
+    const owner = poller;
+    return () => unsubscribe(clusterId, owner, emit);
+  }
+
+  function unsubscribe(
+    clusterId: string,
+    poller: ClusterPoller,
+    emit: EmitFn,
+  ): void {
+    poller.subscribers.delete(emit);
+
+    if (poller.subscribers.size === 0 && pollers.get(clusterId) === poller) {
       clearTimeout(poller.timer);
       poller.timer = undefined;
-      runPoll(clusterId, poller);
+      // The baseline is dropped with the poller: nobody keeps it current while
+      // the cluster has no subscribers, so the next subscriber starts cold.
+      pollers.delete(clusterId);
     }
   }
 
-  const owner = poller;
-  return () => unsubscribe(clusterId, owner, emit);
+  return { subscribe, stop };
 }
 
-function unsubscribe(
-  clusterId: string,
-  poller: ClusterPoller,
-  emit: EmitFn,
-): void {
-  poller.subscribers.delete(emit);
-
-  if (poller.subscribers.size === 0 && pollers.get(clusterId) === poller) {
-    clearTimeout(poller.timer);
-    poller.timer = undefined;
-    // The baseline is dropped with the poller: nobody keeps it current while
-    // the cluster has no subscribers, so the next subscriber starts cold.
-    pollers.delete(clusterId);
-  }
-}
-
-// For tests only — resets all module-level state so pool tests are isolated.
-export function resetPool(): void {
-  for (const poller of pollers.values()) clearTimeout(poller.timer);
-  pollers.clear();
-}
+export type OccupancyPool = ReturnType<typeof createOccupancyPool>;
+const defaultPool = createOccupancyPool();
+export const subscribe = defaultPool.subscribe;
+// For tests only. Runtime teardown uses the instance's draining lifecycle.
+export const resetPool = defaultPool.stop;

@@ -54,8 +54,8 @@ dummy values satisfy validation, but GitHub sign-in requires real OAuth credenti
 Set the OAuth App callback to `http://localhost:5001/api/auth/callback/github`
 for this example; change it when the auth origin changes.
 
-A healthy `/api/health` response does not prove that migrations have run.
-`/api/health/ready` additionally checks URL settings and selected schema tables. It requires `WEB_ORIGIN` without
+A healthy `/api/health` response proves only that the HTTP process responds.
+`/api/health/ready` checks database reachability, URL settings, and selected schema tables. It requires `WEB_ORIGIN` without
 a path or trailing slash, and HTTPS web/auth URLs in production. It does not
 check the `two_factor` table or perform a sign-in round trip.
 
@@ -72,8 +72,9 @@ that same origin in an array; it does not add another origin. Auth `POST`,
 `DELETE`, `PATCH`, and `PUT` requests reject explicit untrusted browser origins
 and cross-site requests without an Origin header.
 
-`NODE_ENV=production` masks internal errors and enables JSON request logs.
-Other modes expose more diagnostic error information. See the
+`NODE_ENV=production` masks internal error responses. Pino emits structured JSON
+logs in every mode with `LOG_LEVEL=info` by default. Other modes expose more
+diagnostic information in error responses; logs omit raw error text in every mode. See the
 [API error envelope](../reference/api#error-envelope).
 
 ## Frontend configuration

@@ -1,83 +1,67 @@
 import request from "supertest";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { createApp } from "../../src/app.js";
 import { createTestDependencies } from "../helpers/fakes.js";
+import { captureLogs } from "../helpers/logs.js";
 
-// These tests isolate logging; authorization is covered by requireAuth tests.
-const deps = createTestDependencies();
-deps.authService.getSession.mockResolvedValue({
-  user: {
-    id: "logger-test",
-    name: "Test",
-    email: "test@example.com",
-    emailVerified: false,
-    image: null,
-    role: "user",
-  },
-});
-const app = createApp(deps);
-
-const getClusterOccupancyMock = vi.fn();
-
-vi.mock("../../src/features/clusters/clusters.repository.js", () => ({
-  getClusterOccupancy: (...args: unknown[]) => getClusterOccupancyMock(...args),
-}));
-
-describe("requestLogger", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-    getClusterOccupancyMock.mockReset();
+describe("structured request/error correlation", () => {
+  it("correlates 5xx with the client-visible request ID and masks production errors", async () => {
+    const { logger, entries } = captureLogs();
+    const deps = createTestDependencies();
+    const secret =
+      "postgres://user:private%2Fpassword@db/app OAuth-code private/password";
+    deps.authService.getSession.mockRejectedValue(
+      new Error(secret, {
+        cause: { params: ["secret-token"], cookie: "secret-cookie" },
+      }),
+    );
+    const response = await request(
+      createApp({
+        ...deps,
+        env: { ...deps.env, NODE_ENV: "production" },
+        logger,
+      }),
+    )
+      .get("/api/auth/session?code=secret-code")
+      .set("Cookie", "secret-cookie")
+      .set("Authorization", "Bearer secret-authorization");
+    expect(response.status).toBe(500);
+    expect(response.body).toMatchObject({
+      error: "Internal server error",
+      code: "INTERNAL_SERVER_ERROR",
+    });
+    const requestId = response.headers["x-request-id"];
+    expect(entries).toHaveLength(2);
+    expect(entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          event: "request_failed",
+          requestId,
+          errorCode: "INTERNAL_SERVER_ERROR",
+        }),
+        expect.objectContaining({
+          event: "request_completed",
+          requestId,
+          statusCode: 500,
+          path: "/api/auth/session",
+        }),
+      ]),
+    );
+    expect(JSON.stringify(entries)).not.toMatch(
+      /private|password|secret|postgres|OAuth|cookie|authorization|params/,
+    );
   });
-
-  it("logs timestamp, method, path, status and response time on a successful request", async () => {
-    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-
-    await request(app).get("/api/clusters");
-
-    expect(spy).toHaveBeenCalledOnce();
-    const line = spy.mock.calls[0][0] as string;
-    expect(line).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/); // ISO timestamp
-    expect(line).toContain("GET");
-    expect(line).toContain("/api/clusters");
-    expect(line).toContain("200");
-    expect(line).toMatch(/\d+ms/);
-    expect(line).not.toContain("["); // no errorCode bracket on success
-  });
-
-  it("includes the error code in the log on a 404 response", async () => {
-    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-    vi.spyOn(console, "error").mockImplementation(() => {}); // suppress error middleware output
-
-    await request(app).get("/api/clusters/999/layout");
-
-    expect(spy).toHaveBeenCalledOnce();
-    const line = spy.mock.calls[0][0] as string;
-    expect(line).toContain("404");
-    expect(line).toContain("[CLUSTER_NOT_FOUND]");
-  });
-
-  it("does not log any peer data from an occupancy response", async () => {
-    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-    getClusterOccupancyMock.mockResolvedValueOnce([
-      {
-        row: 1,
-        place: 2,
-        intraName: "jdoe",
-        displayName: "John Doe",
-        photo: null,
-      },
-    ]);
-
-    // This endpoint returns a response containing intraName, displayName and photo.
-    // None of it should appear in the log.
-    await request(app).get("/api/clusters/1/occupancy");
-
-    const allOutput = spy.mock.calls.map((call) => String(call[0])).join("\n");
-    expect(allOutput).not.toContain("jdoe");
-    expect(allOutput).not.toContain("John Doe");
-    expect(allOutput).not.toContain("intraName");
-    expect(allOutput).not.toContain("displayName");
-    expect(allOutput).not.toContain("photo");
-    expect(allOutput).not.toContain("peer");
+  it("records status and error code on ordinary client errors", async () => {
+    const { logger, entries } = captureLogs();
+    const response = await request(
+      createApp({ ...createTestDependencies(), logger }),
+    ).get("/api/clusters/999/layout");
+    expect(response.status).toBe(404);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({
+      statusCode: 404,
+      errorCode: "CLUSTER_NOT_FOUND",
+      outcome: "finished",
+    });
   });
 });

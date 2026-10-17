@@ -113,7 +113,7 @@ automated check; workflows do not wait for application readiness. See
 After deployment, verify:
 
 1. The migration worker exits successfully.
-2. `GET /api/health` returns `200` with `{ "status": "ok", "db": "ok" }`.
+2. `GET /api/health` returns `200` with `{ "status": "ok" }`.
 3. `GET /api/health/ready` returns `200` with `{ "status": "ready" }`.
 4. Account approval and GitHub sign-in work with the actual browser origin and
    cookies.
@@ -121,13 +121,44 @@ After deployment, verify:
 6. Database data persists across application replacement.
 
 The API validates environment variables and creates Better Auth before listening.
-`/api/health` checks connectivity only. `/api/health/ready` checks URL settings
-and selected database tables; production requires HTTPS
+`/api/health` checks process liveness only. `/api/health/ready` checks database
+reachability, URL settings, and selected database tables; production requires HTTPS
 web/auth URLs and an exact `WEB_ORIGIN` with no trailing slash. Readiness does not
 query `two_factor`, validate layout, or prove occupancy freshness or successful
 sign-in. Neither endpoint is a deployment gate in the workflows. API Docker
 health checks use `/api/health` and the effective port recorded by the entrypoint.
-Web/docs health checks only test static hosting.
+Web/docs health checks only test static hosting. Use `/api/health/ready` as the
+load-balancer traffic/readiness probe. The development Compose API probe deliberately
+uses readiness so `web` waits for migrations and usable API configuration.
+
+## Graceful shutdown
+
+`SIGTERM` and `SIGINT` share one idempotent shutdown operation. Readiness becomes
+false immediately and new application requests are rejected with `503`. The HTTP
+listener stops accepting connections. Poll scheduling stops, all SSE responses
+end, and their keepalive/revalidation scheduling and subscriptions are removed.
+Already running ordinary HTTP requests, polls, probes, and session revalidations
+are allowed to settle. Late poll/session results cannot write to closed streams
+or restart timers. Once HTTP and owned background work drain, the API closes
+its own process's PostgreSQL pool, flushes the logger, and exits `0`.
+
+The overall deadline is `SHUTDOWN_TIMEOUT_MS` (default `10000`, integer range
+`100`–`120000` milliseconds), including database close and log flushing. On expiry,
+all tracked sockets (including idle/upgraded connections) are destroyed and the
+process exits `1`, even if a database query or `pool.end()` never resolves. Cleanup
+failures also exit `1`. The production logger writes synchronously, so forced exit
+does not depend on an async stdout queue. Blocking event-loop or stdout operations
+still require the container runtime's external kill deadline.
+
+Configure the orchestrator termination grace period above the API deadline (for
+example, 15 seconds for the default 10 seconds). Development Compose sets
+`stop_grace_period: 15s` and launches `tsx watch` directly from the API directory,
+so the container init forwards stop signals to the watcher, which relays them to
+the API Node process. The watcher retains source reloads but force-kills its child
+after five seconds; dev Compose therefore sets `SHUTDOWN_TIMEOUT_MS=4000` so the
+API can enforce its own deadline first. The 15-second container grace period does
+not extend the watcher's five-second limit. API shutdown does not stop the worker,
+simulator, or a database server; these processes have separate ownership.
 
 The public `/privacy` and `/terms` pages currently identify themselves as drafts
 awaiting operator details and confirmation of deployment practices. Their presence

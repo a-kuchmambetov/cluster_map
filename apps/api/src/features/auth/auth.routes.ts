@@ -1,3 +1,5 @@
+import type { Runtime } from "../../lifecycle/runtime.js";
+import { trackWork } from "../../middleware/trackWork.js";
 import { Router } from "express";
 import { rateLimit } from "express-rate-limit";
 import { AppError } from "@repo/errors";
@@ -7,6 +9,7 @@ import { createAuthController } from "./auth.controller.js";
 export function createAuthRouter(
   service: AuthService,
   webOrigin: string,
+  runtime?: Runtime,
 ): Router {
   const {
     usersHandler,
@@ -36,13 +39,13 @@ export function createAuthRouter(
     }
     next();
   });
-  authRouter.get("/sign-in/github", githubSignInHandler);
-  authRouter.get("/callback/github", githubCallbackHandler);
-  authRouter.get("/session", sessionHandler);
-  authRouter.get("/pending-users", pendingUsersHandler);
-  authRouter.get("/users", usersHandler);
-  authRouter.delete("/users/:id", deleteUserHandler);
-  authRouter.post("/logout", logoutHandler);
+  authRouter.get("/sign-in/github", trackWork(runtime, githubSignInHandler));
+  authRouter.get("/callback/github", trackWork(runtime, githubCallbackHandler));
+  authRouter.get("/session", trackWork(runtime, sessionHandler));
+  authRouter.get("/pending-users", trackWork(runtime, pendingUsersHandler));
+  authRouter.get("/users", trackWork(runtime, usersHandler));
+  authRouter.delete("/users/:id", trackWork(runtime, deleteUserHandler));
+  authRouter.post("/logout", trackWork(runtime, logoutHandler));
   authRouter.use(
     rateLimit({
       windowMs: 60_000,
@@ -59,7 +62,7 @@ export function createAuthRouter(
         ),
     }),
   );
-  authRouter.post("/confirm/:id", confirmHandler);
+  authRouter.post("/confirm/:id", trackWork(runtime, confirmHandler));
 
   return authRouter;
 }

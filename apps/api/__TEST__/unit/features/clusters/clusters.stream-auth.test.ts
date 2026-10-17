@@ -1,3 +1,4 @@
+import { createRuntime } from "../../../../src/lifecycle/runtime.js";
 import { EventEmitter } from "node:events";
 import type { Request, Response, NextFunction } from "express";
 import { afterEach, describe, it, expect, vi } from "vitest";
@@ -101,4 +102,44 @@ describe("stream subscription", () => {
     res.emit("close");
     expect(mocks.unsubscribe).toHaveBeenCalledOnce();
   });
+});
+
+it("drains streams and pending session work without late keepalive writes", async () => {
+  vi.useFakeTimers();
+  const runtime = createRuntime();
+  let resolve!: () => void;
+  getSession.mockImplementation(
+    () =>
+      new Promise<void>((done) => {
+        resolve = done;
+      }),
+  );
+  const res = Object.assign(new EventEmitter(), {
+    setHeader: vi.fn(),
+    flushHeaders: vi.fn(),
+    write: vi.fn(),
+    end: vi.fn(),
+  });
+  createClusterEventsHandler({ getSession }, runtime)(
+    { params: { clusterNumber: "1" }, headers: {} } as unknown as Request,
+    res as unknown as Response,
+    vi.fn() as NextFunction,
+  );
+  await vi.advanceTimersByTimeAsync(20_000);
+  runtime.beginDrain();
+  expect(res.end).toHaveBeenCalledOnce();
+  expect(mocks.unsubscribe).toHaveBeenCalledOnce();
+  expect(res.listenerCount("close")).toBe(0);
+  expect(vi.getTimerCount()).toBe(0);
+  const idle = vi.fn();
+  void runtime.whenIdle().then(idle);
+  await Promise.resolve();
+  expect(idle).not.toHaveBeenCalled();
+  resolve();
+  await runtime.whenIdle();
+  await vi.advanceTimersByTimeAsync(60_000);
+  mocks.emit?.("occupancy-delta", "{}");
+  expect(res.write).not.toHaveBeenCalled();
+  expect(res.end).toHaveBeenCalledOnce();
+  expect(vi.getTimerCount()).toBe(0);
 });
