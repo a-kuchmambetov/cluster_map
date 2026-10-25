@@ -1,10 +1,5 @@
-# Local development only. No Infisical CLI or production entrypoints are used.
-x-dev: &dev
-  image: cluster-map-dev
-  build:
-    context: .
-    dockerfile: Dockerfile.dev
-  init: true
+# Local development Docker Compose configuration
+name: cluster-map-dev
 
 x-db-env: &db-env
   NODE_ENV: development
@@ -20,7 +15,10 @@ x-auth-env: &auth-env
 
 services:
   db:
-    image: postgres:17-alpine
+    build:
+      context: ..
+      dockerfile: .dev/db/Dockerfile
+    image: cluster-map-dev-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${PG_USER:-app}
@@ -37,24 +35,31 @@ services:
       retries: 10
 
   worker:
-    <<: *dev
+    build:
+      context: ..
+      dockerfile: .dev/api/Dockerfile
+    image: cluster-map-dev-api
+    init: true
     command: ["pnpm", "--filter", "@repo/worker", "dev"]
     environment:
       <<: [*db-env, *auth-env]
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
     volumes:
-      - ./apps/worker/src:/app/apps/worker/src:ro
-      - ./packages/db/migrations:/app/packages/db/migrations:ro
+      - ../apps/worker/src:/app/apps/worker/src:ro
+      - ../packages/db/migrations:/app/packages/db/migrations:ro
     depends_on:
       db:
         condition: service_healthy
     restart: "no"
 
   api:
-    <<: *dev
+    build:
+      context: ..
+      dockerfile: .dev/api/Dockerfile
+    image: cluster-map-dev-api
+    init: true
     stop_grace_period: 15s
     working_dir: /app/apps/api
-    # Launch the watcher directly so init forwards stop signals to it, not pnpm.
     command:
       [
         "./node_modules/.bin/tsx",
@@ -66,7 +71,6 @@ services:
     environment:
       <<: [*db-env, *auth-env]
       API_PORT: "5001"
-      # tsx watch force-kills its child after 5s; finish API shutdown before then.
       SHUTDOWN_TIMEOUT_MS: "4000"
       TRUST_PROXY_HOPS: "0"
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:5173}
@@ -75,11 +79,10 @@ services:
     ports:
       - "127.0.0.1:${API_PORT:-5001}:5001"
     volumes:
-      - ./apps/api/src:/app/apps/api/src:ro
+      - ../apps/api/src:/app/apps/api/src:ro
     depends_on:
       worker:
         condition: service_completed_successfully
-    # Deliberate readiness gate: web waits for a usable API after migrations.
     healthcheck:
       test:
         - CMD
@@ -92,7 +95,11 @@ services:
       retries: 20
 
   web:
-    <<: *dev
+    build:
+      context: ..
+      dockerfile: .dev/web/Dockerfile
+    image: cluster-map-dev-web
+    init: true
     command:
       [
         "pnpm",
@@ -107,21 +114,24 @@ services:
       ]
     environment:
       NODE_ENV: development
-      # This URL is used by the browser, so it must use the published host port.
       VITE_API_URL: ${VITE_API_URL:-http://localhost:${API_PORT:-5001}}
     ports:
       - "127.0.0.1:5173:5173"
     volumes:
-      - ./apps/web/src:/app/apps/web/src:ro
-      - ./apps/web/public:/app/apps/web/public:ro
-      - ./apps/web/index.html:/app/apps/web/index.html:ro
-      - ./apps/web/vite.config.ts:/app/apps/web/vite.config.ts:ro
+      - ../apps/web/src:/app/apps/web/src:ro
+      - ../apps/web/public:/app/apps/web/public:ro
+      - ../apps/web/index.html:/app/apps/web/index.html:ro
+      - ../apps/web/vite.config.ts:/app/apps/web/vite.config.ts:ro
     depends_on:
       api:
         condition: service_healthy
 
   docs:
-    <<: *dev
+    build:
+      context: ..
+      dockerfile: .dev/docs/Dockerfile
+    image: cluster-map-dev-docs
+    init: true
     command:
       [
         "pnpm",
@@ -136,14 +146,18 @@ services:
     ports:
       - "127.0.0.1:3000:3000"
     volumes:
-      - ./apps/docs/docs:/app/apps/docs/docs:ro
-      - ./apps/docs/src:/app/apps/docs/src:ro
-      - ./apps/docs/static:/app/apps/docs/static:ro
-      - ./apps/docs/docusaurus.config.ts:/app/apps/docs/docusaurus.config.ts:ro
-      - ./apps/docs/sidebars.ts:/app/apps/docs/sidebars.ts:ro
+      - ../apps/docs/docs:/app/apps/docs/docs:ro
+      - ../apps/docs/src:/app/apps/docs/src:ro
+      - ../apps/docs/static:/app/apps/docs/static:ro
+      - ../apps/docs/docusaurus.config.ts:/app/apps/docs/docusaurus.config.ts:ro
+      - ../apps/docs/sidebars.ts:/app/apps/docs/sidebars.ts:ro
 
   simulator:
-    <<: *dev
+    build:
+      context: ..
+      dockerfile: .dev/api/Dockerfile
+    image: cluster-map-dev-api
+    init: true
     profiles: ["simulator"]
     command: ["pnpm", "--filter", "@repo/simulator", "simulator:dev"]
     environment:
@@ -155,7 +169,7 @@ services:
       SIMULATOR_RELEASE_PROBABILITY: ${SIMULATOR_RELEASE_PROBABILITY:-0.3}
       SIMULATOR_LOCK_KEY: ${SIMULATOR_LOCK_KEY:-7269736}
     volumes:
-      - ./apps/simulator/src:/app/apps/simulator/src:ro
+      - ../apps/simulator/src:/app/apps/simulator/src:ro
     depends_on:
       worker:
         condition: service_completed_successfully
